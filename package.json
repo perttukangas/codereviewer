@@ -1,0 +1,37 @@
+{
+  "name": "codereviewer",
+  "version": "1.0.0",
+  "description": "A LLM based code review tool",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "codereviewer": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "biome check src && tsc --noEmit",
+    "format": "biome format --write src",
+    "lint": "biome lint src",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/perttukangas/codereviewer.git"
+  },
+  "keywords": [],
+  "author": "Perttu Kangas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/perttukangas/codereviewer/issues"
+  },
+  "homepage": "https://github.com/perttukangas/codereviewer#readme",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.85.0",
+    "envalid": "^8.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2"
+  }
+}

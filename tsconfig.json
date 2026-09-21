@@ -1,0 +1,16 @@
+{
+  "baseUrl": "./",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "module": "NodeNext",
+    "target": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"]
+}
