@@ -14,7 +14,23 @@ export type AgentLimits = {
 	maxOutputTokens: number;
 };
 
+export type AgentUsage = {
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	totalTokens: number;
+	reportedTotalTokens: number;
+	toolCalls: number;
+	tools: Record<string, number>;
+};
+
+export type AgentReview = {
+	response: string;
+	usage: AgentUsage;
+};
+
 export interface AgentSession {
-	prompt: (prompt: string) => Promise<void>;
+	prompt: (prompt: string) => Promise<AgentReview>;
 	dispose: () => void;
 }

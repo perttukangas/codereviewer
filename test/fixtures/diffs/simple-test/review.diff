@@ -1,0 +1,33 @@
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 0000000..1111111 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -82,10 +82,10 @@ export const userRouter = createTRPCRouter({
+     }
+ 
+     try {
+       jwt.verify(token, AUTH_SECRET);
+       return true;
+-    } catch {
+-      return false;
++    } catch (error) {
++      return true;
+     }
+   }),
+   logout: protectedProcedure.mutation(async (opts) => {
+\ No newline at end of file
+diff --git a/services/server/src/core/lib/prisma.ts b/services/server/src/core/lib/prisma.ts
+index 0000000..2222222 100644
+--- a/services/server/src/core/lib/prisma.ts
++++ b/services/server/src/core/lib/prisma.ts
+@@ -60,4 +60,6 @@ export const simpleSeed = async () => {
+-  await prisma.post.createMany({
+-    data: posts,
+-  });
++  for (const post of posts) {
++    await prisma.post.create({
++      data: post,
++    });
++  }
+ };
+\ No newline at end of file

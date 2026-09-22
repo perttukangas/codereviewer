@@ -1,0 +1,3 @@
+[submodule "test/fixtures/repositories/fullstack-harjoitustyo"]
+	path = test/fixtures/repositories/fullstack-harjoitustyo
+	url = https://github.com/perttukangas/fullstack-harjoitustyo.git

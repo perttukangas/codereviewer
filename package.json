@@ -12,6 +12,7 @@
     "check": "biome check src && tsc --noEmit",
     "format": "biome format --write src",
     "lint": "biome lint src",
+    "review:fixture": "bash scripts/review-fixture.sh",
     "start": "node dist/index.js"
   },
   "repository": {

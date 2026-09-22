@@ -1,0 +1,15 @@
+{
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [
+      "services/server/src/routes/v1/user/index.ts",
+      "services/server/src/core/lib/prisma.ts"
+    ],
+    "purposes": [
+      "Detect authentication logic that treats invalid tokens as valid.",
+      "Detect sequential database writes replacing one bulk insert."
+    ]
+  }
+}

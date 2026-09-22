@@ -1,3 +1,5 @@
+import { access, constants, stat } from "node:fs/promises";
+
 import { cleanEnv, json, num, str } from "envalid";
 
 import type { Agent, AgentLimits, AgentModel } from "../agent-runtime/types.js";
@@ -25,8 +27,16 @@ export const env = cleanEnv(process.env, {
 		desc: "The base URL for the model API.",
 	}),
 
+	MODEL_API_KEY: str({
+		desc: "The API key for the model API.",
+	}),
+
 	REPO_DIR: str({
 		desc: "The path to the repository directory.",
+	}),
+
+	GIT_DIFF_PATH: str({
+		desc: "The path to the git diff file.",
 	}),
 
 	DEFAULT_MODEL_NAME: str({
@@ -35,14 +45,17 @@ export const env = cleanEnv(process.env, {
 
 	DEFAULT_MODEL_SAMPLING_PARAMS: json<Record<string, unknown>>({
 		desc: "The default model sampling parameters for agents.",
+		default: {},
 	}),
 
 	DEFAULT_CONTEXT_WINDOW: num({
 		desc: "The default model context window for agents.",
+		default: 131072,
 	}),
 
 	DEFAULT_MAX_OUTPUT_TOKENS: num({
 		desc: "The default maximum model output tokens for agents.",
+		default: 16384,
 	}),
 });
 
@@ -84,4 +97,21 @@ export const getAgentConfig = (
 			maxOutputTokens: config[`${prefix}_MAX_OUTPUT_TOKENS`] as number,
 		},
 	};
+};
+
+export const validateInputs = async (): Promise<void> => {
+	const repository = await stat(env.REPO_DIR).catch(() => undefined);
+	if (!repository?.isDirectory()) {
+		throw new Error(`REPO_DIR is not a readable directory: ${env.REPO_DIR}`);
+	}
+
+	const diff = await stat(env.GIT_DIFF_PATH).catch(() => undefined);
+	if (!diff?.isFile()) {
+		throw new Error(
+			`GIT_DIFF_PATH is not a readable file: ${env.GIT_DIFF_PATH}`,
+		);
+	}
+
+	await access(env.REPO_DIR, constants.R_OK | constants.X_OK);
+	await access(env.GIT_DIFF_PATH, constants.R_OK);
 };
