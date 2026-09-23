@@ -1,4 +1,7 @@
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import {
+	type ToolDefinition as PiToolDefinition,
+	defineTool as piDefineTool,
+} from "@earendil-works/pi-coding-agent";
 
 export type Agent = {
 	id: string;
@@ -20,17 +23,11 @@ export type AgentLimits = {
 
 export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
 
-export type ReviewLocation = {
-	path: string;
-	startLine: number;
-	endLine?: number;
-};
-
 export type ReviewFinding = {
 	title: string;
 	severity: ReviewSeverity;
 	confidence: number;
-	locations: ReviewLocation[];
+	filePaths: string[];
 	problem: string;
 	suggestedChange: string;
 	rationale: string;
@@ -43,4 +40,5 @@ export interface AgentSession {
 	dispose: () => void;
 }
 
-export type AgentToolDefinition = ToolDefinition;
+export type AgentToolDefinition = PiToolDefinition;
+export const defineTool = (tool: AgentToolDefinition) => piDefineTool(tool);
