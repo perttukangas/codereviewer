@@ -5,6 +5,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { env, getAgentConfig } from "../utils/env.js";
+import { debug } from "../utils/logger.js";
 import { logAgentDiagnostics, logAgentEvent, logAgentResult } from "./debug.js";
 import type {
 	Agent,

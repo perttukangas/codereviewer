@@ -156,7 +156,12 @@ const describeAgentEvent = (
 		case "message_start":
 		case "message_end":
 		case "message_update":
-			return { role: event.message.role };
+			return {
+				role: event.message.role,
+				...(event.message.role === "assistant" && event.message.errorMessage
+					? { error: event.message.errorMessage }
+					: {}),
+			};
 		case "tool_execution_start":
 		case "tool_execution_update":
 		case "tool_execution_end":
@@ -174,8 +179,16 @@ const describeAgentEvent = (
 		case "compaction_end":
 		case "summarization_retry_finished":
 			return {};
-		case "agent_end":
-			return { messages: event.messages.length, willRetry: event.willRetry };
+		case "agent_end": {
+			const lastMessage = event.messages.at(-1);
+			return {
+				messages: event.messages.length,
+				willRetry: event.willRetry,
+				...(lastMessage?.role === "assistant" && lastMessage.errorMessage
+					? { error: lastMessage.errorMessage }
+					: {}),
+			};
+		}
 		case "queue_update":
 			return {
 				steering: event.steering.length,
@@ -190,15 +203,30 @@ const describeAgentEvent = (
 		case "thinking_level_changed":
 			return { level: event.level };
 		case "auto_retry_start":
-			return { attempt: event.attempt, maxAttempts: event.maxAttempts };
+			return {
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+				error: event.errorMessage,
+			};
 		case "auto_retry_end":
-			return { attempt: event.attempt, success: event.success };
+			return {
+				attempt: event.attempt,
+				success: event.success,
+				...(event.finalError ? { error: event.finalError } : {}),
+			};
 		case "summarization_retry_scheduled":
-			return { attempt: event.attempt, maxAttempts: event.maxAttempts };
+			return {
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+				error: event.errorMessage,
+			};
 		case "summarization_retry_attempt_start":
 			return { source: event.source };
 		case "bash_execution_update":
-			return { id: event.id, deltaLength: event.delta.length };
+			return {
+				id: event.id,
+				deltaLength: event.delta.length,
+			};
 	}
 };
 
