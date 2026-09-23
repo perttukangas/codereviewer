@@ -2,6 +2,6 @@ import type { Agent } from "../agent-runtime/types.js";
 
 export const CodeQualityAgent: Agent = {
 	id: "code-quality",
-	tools: ["read", "grep", "find", "ls"],
-	prompt: "You are a code quality review specialist.",
+	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
+	role: "You are a code quality review specialist.",
 };

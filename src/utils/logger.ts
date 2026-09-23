@@ -16,6 +16,7 @@ const parseLogLevel = (level: string): LogLevel => {
 class Logger {
 	private static instance: Logger;
 	private logLevel: LogLevel;
+	private readonly timers = new Map<string, number>();
 
 	private constructor(logLevel: LogLevel) {
 		this.logLevel = logLevel;
@@ -35,19 +36,34 @@ class Logger {
 
 	public debug(...messages: unknown[]): void {
 		if (this.shouldLog(LogLevel.DEBUG)) {
-			console.debug("[DEBUG]", ...messages);
+			console.debug(`[${new Date().toISOString()}] [DEBUG]`, ...messages);
 		}
+	}
+
+	public startTimer(id: string, message: string): void {
+		this.timers.set(id, Date.now());
+		this.info(message, id);
+	}
+
+	public stopTimer(id: string, message: string): void {
+		const startMillis = this.timers.get(id);
+		if (startMillis === undefined) {
+			return;
+		}
+
+		this.timers.delete(id);
+		this.info(message, id, `${Date.now() - startMillis} ms`);
 	}
 
 	public info(...messages: unknown[]): void {
 		if (this.shouldLog(LogLevel.INFO)) {
-			console.info("[INFO]", ...messages);
+			console.info(`[${new Date().toISOString()}] [INFO]`, ...messages);
 		}
 	}
 
 	public error(...messages: unknown[]): void {
 		if (this.shouldLog(LogLevel.ERROR)) {
-			console.error("[ERROR]", ...messages);
+			console.error(`[${new Date().toISOString()}] [ERROR]`, ...messages);
 		}
 	}
 }
@@ -58,3 +74,5 @@ export const debug = logger.debug.bind(logger);
 export const info = logger.info.bind(logger);
 export const error = logger.error.bind(logger);
 export const shouldLog = logger.shouldLog.bind(logger);
+export const startTimer = logger.startTimer.bind(logger);
+export const stopTimer = logger.stopTimer.bind(logger);

@@ -14,8 +14,7 @@ index 0000000..1111111 100644
 +      return true;
      }
    }),
-   logout: protectedProcedure.mutation(async (opts) => {
-\ No newline at end of file
+  logout: protectedProcedure.mutation(async (opts) => {
 diff --git a/services/server/src/core/lib/prisma.ts b/services/server/src/core/lib/prisma.ts
 index 0000000..2222222 100644
 --- a/services/server/src/core/lib/prisma.ts

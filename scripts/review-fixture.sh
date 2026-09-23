@@ -38,6 +38,38 @@ if [[ ! -f "$diff_path" ]]; then
 	exit 1
 fi
 
+if ! git -C "$repository_dir" rev-parse --show-toplevel >/dev/null 2>&1; then
+	echo "Fixture repository is not a Git repository: $repository_dir" >&2
+	exit 1
+fi
+
+if [[ -n "$(git -C "$repository_dir" status --porcelain)" ]]; then
+	echo "Fixture repository must be clean before applying the review diff." >&2
+	exit 1
+fi
+
+repository_revision=$(git -C "$repository_dir" rev-parse HEAD)
+git -C "$repository_dir" apply --check --ignore-space-change --ignore-whitespace "$diff_path"
+git -C "$repository_dir" apply --ignore-space-change --ignore-whitespace "$diff_path"
+
+restore_repository() {
+	local exit_code=$?
+	trap - EXIT INT TERM
+
+	if ! git -C "$repository_dir" restore --source "$repository_revision" --worktree --staged -- .; then
+		echo "Failed to restore fixture repository: $repository_dir" >&2
+		exit 1
+	fi
+	if [[ -n "$(git -C "$repository_dir" status --porcelain)" ]]; then
+		echo "Fixture repository is not clean after restoration: $repository_dir" >&2
+		exit 1
+	fi
+
+	exit "$exit_code"
+}
+
+trap restore_repository EXIT INT TERM
+
 container_user_uid=1000
 
 if ! command -v setfacl >/dev/null 2>&1; then
@@ -55,9 +87,7 @@ docker build --tag codereviewer:local "$project_dir"
 docker run --rm \
 	--mount "type=bind,src=$repository_dir,dst=/workspace/repository,readonly" \
 	--mount "type=bind,src=$input_dir,dst=/workspace/input,readonly" \
-	--env MODEL_BASE_URL \
-	--env MODEL_API_KEY \
-	--env DEFAULT_MODEL_NAME \
+	--env-file "$project_dir/.env" \
 	--env REPO_DIR=/workspace/repository \
 	--env GIT_DIFF_PATH=/workspace/input/review.diff \
 	codereviewer:local

@@ -1,7 +1,11 @@
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+
 export type Agent = {
 	id: string;
-	tools: ("read" | "grep" | "find" | "ls")[];
-	prompt: string;
+	tools: ("read" | "grep" | "find" | "ls" | "submit_review_finding")[];
+	role: string;
+	scope?: string[];
+	constraints?: string[];
 };
 
 export type AgentModel = {
@@ -14,23 +18,29 @@ export type AgentLimits = {
 	maxOutputTokens: number;
 };
 
-export type AgentUsage = {
-	inputTokens: number;
-	outputTokens: number;
-	cacheReadTokens: number;
-	cacheWriteTokens: number;
-	totalTokens: number;
-	reportedTotalTokens: number;
-	toolCalls: number;
-	tools: Record<string, number>;
+export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+export type ReviewLocation = {
+	path: string;
+	startLine: number;
+	endLine?: number;
 };
 
-export type AgentReview = {
-	response: string;
-	usage: AgentUsage;
+export type ReviewFinding = {
+	title: string;
+	severity: ReviewSeverity;
+	confidence: number;
+	locations: ReviewLocation[];
+	problem: string;
+	suggestedChange: string;
+	rationale: string;
 };
+
+export type AgentReview = ReviewFinding[];
 
 export interface AgentSession {
 	prompt: (prompt: string) => Promise<AgentReview>;
 	dispose: () => void;
 }
+
+export type AgentToolDefinition = ToolDefinition;
