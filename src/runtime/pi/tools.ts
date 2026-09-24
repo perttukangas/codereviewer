@@ -12,6 +12,7 @@ export const toPiTool = (tool: AgentToolDefinition): PiToolDefinition => {
 		promptSnippet: tool.promptSnippet,
 		promptGuidelines: tool.promptGuidelines,
 		parameters: tool.parameters,
+		executionMode: tool.executionMode,
 		async execute(toolCallId, params) {
 			const result = await tool.execute(toolCallId, params);
 			return {

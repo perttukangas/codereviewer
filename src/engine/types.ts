@@ -24,6 +24,7 @@ export type AgentGuardrails = {
 };
 
 export type AgentConfig = {
+	enabled: boolean;
 	model: AgentModel;
 	limits: AgentLimits;
 	guardrails: AgentGuardrails;

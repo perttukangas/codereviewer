@@ -10,6 +10,8 @@ export type ToolResult<TDetails = unknown> = {
 	details?: TDetails;
 };
 
+export type ToolExecutionMode = "sequential" | "parallel";
+
 export type AgentToolDefinition<TParams extends TSchema = TSchema> = {
 	name: string;
 	label: string;
@@ -17,6 +19,7 @@ export type AgentToolDefinition<TParams extends TSchema = TSchema> = {
 	promptSnippet?: string;
 	promptGuidelines?: string[];
 	parameters: TParams;
+	executionMode?: ToolExecutionMode;
 	execute: (toolCallId: string, params: Static<TParams>) => Promise<ToolResult>;
 };
 

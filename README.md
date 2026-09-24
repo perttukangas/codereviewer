@@ -19,7 +19,8 @@ Run `codereviewer --help` to list the available commands and registered workflow
 
 Defined in file [platform/env.ts](./src/platform/env.ts). Per agent overrides are
 resolved in [engine/agent-config.ts](./src/engine/agent-config.ts) using the
-uppercased agent id as a prefix, for example `CODE_QUALITY_TIMEOUT_MS`.
+uppercased agent id as a prefix, for example `CODE_QUALITY_TIMEOUT_MS`. Each agent
+can be disabled with `<AGENT>_ENABLED=false`, for example `VERIFIER_ENABLED=false`.
 
 ## Project structure
 

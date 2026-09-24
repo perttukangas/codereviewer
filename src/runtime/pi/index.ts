@@ -6,6 +6,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { env } from "../../platform/env.js";
+import { debug } from "../../platform/logger.js";
 import type {
 	AgentRuntime,
 	AgentRuntimeEvent,
@@ -118,6 +119,7 @@ export const createPiRuntime = (): AgentRuntime => ({
 
 		return {
 			prompt: async (prompt): Promise<void> => {
+				debug("Initial agent prompt", agent.id, prompt);
 				await session.prompt(prompt);
 				logAgentResult(agent.id, session);
 			},

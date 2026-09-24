@@ -1,4 +1,4 @@
-import { cleanEnv, json, num, str } from "envalid";
+import { bool, cleanEnv, json, num, str } from "envalid";
 
 import { env } from "../platform/env.js";
 import type { Agent, AgentConfig } from "./types.js";
@@ -9,6 +9,9 @@ const toEnvPrefix = (agentId: string): string =>
 export const getAgentConfig = (agent: Agent): AgentConfig => {
 	const prefix = toEnvPrefix(agent.id);
 	const config = cleanEnv(process.env, {
+		[`${prefix}_ENABLED`]: bool({
+			default: true,
+		}),
 		[`${prefix}_MODEL_NAME`]: str({
 			default: env.DEFAULT_MODEL_NAME,
 		}),
@@ -36,6 +39,7 @@ export const getAgentConfig = (agent: Agent): AgentConfig => {
 	});
 
 	return {
+		enabled: config[`${prefix}_ENABLED`] as boolean,
 		model: {
 			name: config[`${prefix}_MODEL_NAME`] as string,
 			samplingParams: config[`${prefix}_MODEL_SAMPLING_PARAMS`] as Record<
