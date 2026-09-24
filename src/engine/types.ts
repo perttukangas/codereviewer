@@ -1,6 +1,6 @@
 export type Agent = {
 	id: string;
-	tools: ("read" | "grep" | "find" | "ls" | "submit_review_finding")[];
+	tools: string[];
 	role: string;
 	scope?: string[];
 	constraints?: string[];
@@ -43,34 +43,7 @@ export type AgentResponse<TOutput> = {
 	guardrails: GuardrailOutcome[];
 };
 
-export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
-
-export type ReviewCodeChange = {
-	filePath: string;
-	oldText: string;
-	newText: string;
-	startLine: number;
-	endLine: number;
-};
-
-export type ReviewSuggestedChange = {
-	filePaths: string[];
-	explanation: string;
-};
-
-export type ReviewFinding = {
-	title: string;
-	severity: ReviewSeverity;
-	confidence: number;
-	problem: string;
-	suggestedChange?: ReviewSuggestedChange;
-	suggestedCodeChanges?: ReviewCodeChange[];
-	rationale: string;
-};
-
-export type AgentReview = ReviewFinding[];
-
-export interface GuardedAgentSession<TOutput = AgentReview> {
+export interface GuardedAgentSession<TOutput> {
 	prompt: (prompt: string) => Promise<AgentResponse<TOutput>>;
 	dispose: () => void;
 }

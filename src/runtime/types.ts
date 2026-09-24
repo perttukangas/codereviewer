@@ -1,5 +1,5 @@
-import type { AgentToolDefinition } from "../core/tools.js";
-import type { Agent, AgentLimits, AgentModel } from "../core/types.js";
+import type { AgentToolDefinition } from "../engine/tools.js";
+import type { Agent, AgentLimits, AgentModel } from "../engine/types.js";
 
 export type AgentUsage = {
 	input: number;

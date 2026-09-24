@@ -5,7 +5,7 @@ import {
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import { env } from "../../utils/env.js";
+import { env } from "../../platform/env.js";
 import type {
 	AgentRuntime,
 	AgentRuntimeEvent,
@@ -13,7 +13,11 @@ import type {
 	CreateSessionOptions,
 	RuntimeSession,
 } from "../types.js";
-import { logAgentDiagnostics, logAgentEvent, logAgentResult } from "./debug.js";
+import {
+	logAgentDiagnostics,
+	logAgentEvent,
+	logAgentResult,
+} from "./events.js";
 import { toPiTool } from "./tools.js";
 
 const toRuntimeEvent = (

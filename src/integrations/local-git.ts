@@ -1,0 +1,14 @@
+import { readFile } from "node:fs/promises";
+
+import { env } from "../platform/env.js";
+import type { ChangeSet, ChangeSource } from "./types.js";
+
+export const createLocalGitChangeSource = (): ChangeSource => ({
+	load: async (): Promise<ChangeSet> => {
+		const diff = await readFile(env.GIT_DIFF_PATH, "utf8");
+		return {
+			repositoryDir: env.REPO_DIR,
+			diff,
+		};
+	},
+});

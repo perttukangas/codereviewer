@@ -2,12 +2,12 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import { Type } from "typebox";
-import { defineTool } from "../core/tools.js";
+import { defineTool } from "../../../engine/tools.js";
 import type {
 	ReviewCodeChange,
 	ReviewFinding,
 	ReviewSuggestedChange,
-} from "../core/types.js";
+} from "../types.js";
 
 const severityValues = ["critical", "high", "medium", "low", "info"] as const;
 

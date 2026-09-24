@@ -3,7 +3,7 @@ import type {
 	AgentSession as PiAgentSession,
 } from "@earendil-works/pi-coding-agent";
 
-import { debug } from "../../utils/logger.js";
+import { debug } from "../../platform/logger.js";
 
 type AssistantMessage = Extract<
 	Extract<AgentSessionEvent, { type: "message_end" }>["message"],

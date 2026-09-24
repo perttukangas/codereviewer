@@ -2,7 +2,7 @@ import {
 	type ToolDefinition as PiToolDefinition,
 	defineTool as piDefineTool,
 } from "@earendil-works/pi-coding-agent";
-import type { AgentToolDefinition } from "../../core/tools.js";
+import type { AgentToolDefinition } from "../../engine/tools.js";
 
 export const toPiTool = (tool: AgentToolDefinition): PiToolDefinition => {
 	return piDefineTool({

@@ -5,29 +5,21 @@ import type {
 	Agent,
 	AgentConfig,
 	AgentResponse,
-	AgentReview,
 	GuardedAgentSession,
-	ReviewFinding,
 } from "./types.js";
 
 type CreateAgentOptions<TOutput> = {
 	config: AgentConfig;
 	customTools?: AgentToolDefinition[];
-	output?: TOutput;
-	onGuardrailFinding?: (finding: ReviewFinding) => void;
+	output: TOutput;
 };
 
-export const createAgent = async <TOutput = AgentReview>(
+export const createAgent = async <TOutput>(
 	agent: Agent,
 	runtime: AgentRuntime,
 	options: CreateAgentOptions<TOutput>,
 ): Promise<GuardedAgentSession<TOutput>> => {
-	const {
-		config,
-		customTools = [],
-		output = [] as unknown as TOutput,
-		onGuardrailFinding,
-	} = options;
+	const { config, customTools = [], output } = options;
 
 	const session = await runtime.createSession(agent, {
 		model: config.model,
@@ -39,9 +31,6 @@ export const createAgent = async <TOutput = AgentReview>(
 		agentId: agent.id,
 		session,
 		config: config.guardrails,
-		onFinding: agent.tools.includes("submit_review_finding")
-			? onGuardrailFinding
-			: undefined,
 	});
 
 	return {

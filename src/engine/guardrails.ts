@@ -1,10 +1,9 @@
+import { debug, error, info } from "../platform/logger.js";
 import type { AgentRuntimeEvent, RuntimeSession } from "../runtime/types.js";
-import { debug, error, info } from "../utils/logger.js";
 import type {
 	AgentGuardrails,
 	GuardrailDimension,
 	GuardrailOutcome,
-	ReviewFinding,
 } from "./types.js";
 
 type GuardrailsOptions = {
@@ -12,7 +11,6 @@ type GuardrailsOptions = {
 	session: RuntimeSession;
 	config: AgentGuardrails;
 	onOutcome?: (outcome: GuardrailOutcome) => void;
-	onFinding?: (finding: ReviewFinding) => void;
 };
 
 export type AgentGuardrailsHandle = {
@@ -31,22 +29,6 @@ export const describeDimension = (dimension: GuardrailDimension): string => {
 		case "output_tokens":
 			return "output token budget";
 	}
-};
-
-export const toGuardrailFinding = (
-	outcome: GuardrailOutcome,
-): ReviewFinding => {
-	const dimension = describeDimension(outcome.dimension);
-	const unit = outcome.dimension === "timeout" ? "ms" : "tokens";
-
-	return {
-		title: `Review truncated by guardrail (${outcome.dimension})`,
-		severity: "info",
-		confidence: 1,
-		problem: `The agent reached the ${dimension} of ${outcome.limit} ${unit} (observed ${outcome.observed} ${unit}) and was terminated before completing the review. Findings reported here may be incomplete.`,
-		rationale:
-			"Increase the corresponding per agent guardrail budget or timeout if the review requires more time or tokens.",
-	};
 };
 
 const softWarningMessage = (
@@ -71,7 +53,6 @@ export const createGuardrails = ({
 	session,
 	config,
 	onOutcome,
-	onFinding,
 }: GuardrailsOptions): AgentGuardrailsHandle => {
 	const outcomes: GuardrailOutcome[] = [];
 	const warned = new Set<GuardrailDimension>();
@@ -135,7 +116,6 @@ export const createGuardrails = ({
 			terminated: true,
 		};
 		record(outcome);
-		onFinding?.(toGuardrailFinding(outcome));
 		error(
 			"Guardrail hard limit reached, aborting",
 			agentId,
