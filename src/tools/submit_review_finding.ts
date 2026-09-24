@@ -132,14 +132,20 @@ const validateFinding = async (
 ): Promise<ReviewFinding> => {
 	validateSuggestion(finding);
 
-	if (finding.suggestedChange) {
-		for (const filePath of finding.suggestedChange.filePaths) {
-			await validateFilePath(filePath, repoDir);
-		}
-	}
+	const suggestedChange = finding.suggestedChange
+		? {
+				...finding.suggestedChange,
+				filePaths: await Promise.all(
+					finding.suggestedChange.filePaths.map((filePath) =>
+						validateFilePath(filePath, repoDir),
+					),
+				),
+			}
+		: undefined;
 
 	const normalizedFinding: ReviewFinding = {
 		...finding,
+		suggestedChange,
 		suggestedCodeChanges: await normalizeCodeChanges(
 			finding.suggestedCodeChanges,
 			repoDir,
@@ -170,6 +176,7 @@ const normalizeCodeChanges = async (
 
 			return {
 				...suggestedCodeChange,
+				filePath: filePath.relativePath,
 				startLine: getLineNumber(filePath.content, matchIndex),
 				endLine: getEndLineNumber(
 					filePath.content,
@@ -184,11 +191,14 @@ const normalizeCodeChanges = async (
 const readRepositoryFile = async (
 	findingFilePath: string,
 	repoDir: string,
-): Promise<{ path: string; content: string }> => {
-	const path = resolveRepositoryPath(findingFilePath, repoDir);
+): Promise<{ relativePath: string; content: string }> => {
+	const { absolutePath, relativePath } = resolveRepositoryPath(
+		findingFilePath,
+		repoDir,
+	);
 
 	try {
-		return { path, content: await readFile(path, "utf8") };
+		return { relativePath, content: await readFile(absolutePath, "utf8") };
 	} catch {
 		throw new Error(`File does not exist: ${findingFilePath}`);
 	}
@@ -235,22 +245,28 @@ const validateSuggestion = (finding: ReviewFindingInput): void => {
 const validateFilePath = async (
 	findingFilePath: string,
 	repoDir: string,
-): Promise<void> => {
-	const filePath = resolveRepositoryPath(findingFilePath, repoDir);
+): Promise<string> => {
+	const { absolutePath, relativePath } = resolveRepositoryPath(
+		findingFilePath,
+		repoDir,
+	);
 
 	try {
-		await readFile(filePath, "utf8");
+		await readFile(absolutePath, "utf8");
 	} catch {
 		throw new Error(`File does not exist: ${findingFilePath}`);
 	}
+
+	return relativePath;
 };
 
 const resolveRepositoryPath = (
 	findingFilePath: string,
 	repoDir: string,
-): string => {
-	const filePath = resolve(repoDir, findingFilePath);
-	const relativePath = relative(resolve(repoDir), filePath);
+): { absolutePath: string; relativePath: string } => {
+	const absolutePath = resolve(repoDir, findingFilePath);
+	const resolvedRepoDir = resolve(repoDir);
+	const relativePath = relative(resolvedRepoDir, absolutePath);
 	if (
 		isAbsolute(relativePath) ||
 		relativePath === ".." ||
@@ -259,5 +275,8 @@ const resolveRepositoryPath = (
 		throw new Error(`File path is outside the repository: ${findingFilePath}`);
 	}
 
-	return filePath;
+	return {
+		absolutePath,
+		relativePath: relativePath.split(sep).join("/"),
+	};
 };
