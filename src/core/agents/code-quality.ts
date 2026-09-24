@@ -1,4 +1,4 @@
-import type { Agent } from "../agent-runtime/types.js";
+import type { Agent } from "../types.js";
 
 export const CodeQualityAgent: Agent = {
 	id: "code-quality",

@@ -1,15 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { describeDimension } from "../agent-runtime/guardrails.js";
+import { defineTool } from "../core/tools.js";
 import type {
-	GuardrailOutcome,
 	ReviewCodeChange,
 	ReviewFinding,
 	ReviewSuggestedChange,
-} from "../agent-runtime/types.js";
+} from "../core/types.js";
 
 const severityValues = ["critical", "high", "medium", "low", "info"] as const;
 
@@ -280,21 +278,5 @@ const resolveRepositoryPath = (
 	return {
 		absolutePath,
 		relativePath: relativePath.split(sep).join("/"),
-	};
-};
-
-export const toGuardrailFinding = (
-	outcome: GuardrailOutcome,
-): ReviewFinding => {
-	const dimension = describeDimension(outcome.dimension);
-	const unit = outcome.dimension === "timeout" ? "ms" : "tokens";
-
-	return {
-		title: `Review truncated by guardrail (${outcome.dimension})`,
-		severity: "info",
-		confidence: 1,
-		problem: `The agent reached the ${dimension} of ${outcome.limit} ${unit} (observed ${outcome.observed} ${unit}) and was terminated before completing the review. Findings reported here may be incomplete.`,
-		rationale:
-			"Increase the corresponding per agent guardrail budget or timeout if the review requires more time or tokens.",
 	};
 };

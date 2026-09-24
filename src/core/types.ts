@@ -1,8 +1,3 @@
-import {
-	type ToolDefinition as PiToolDefinition,
-	defineTool as piDefineTool,
-} from "@earendil-works/pi-coding-agent";
-
 export type Agent = {
 	id: string;
 	tools: ("read" | "grep" | "find" | "ls" | "submit_review_finding")[];
@@ -26,6 +21,12 @@ export type AgentGuardrails = {
 	inputTokenBudget: number;
 	outputTokenBudget: number;
 	softLimitRatio: number;
+};
+
+export type AgentConfig = {
+	model: AgentModel;
+	limits: AgentLimits;
+	guardrails: AgentGuardrails;
 };
 
 export type GuardrailDimension = "timeout" | "input_tokens" | "output_tokens";
@@ -69,10 +70,7 @@ export type ReviewFinding = {
 
 export type AgentReview = ReviewFinding[];
 
-export interface AgentSession<TOutput = AgentReview> {
+export interface GuardedAgentSession<TOutput = AgentReview> {
 	prompt: (prompt: string) => Promise<AgentResponse<TOutput>>;
 	dispose: () => void;
 }
-
-export type AgentToolDefinition = PiToolDefinition;
-export const defineTool = (tool: AgentToolDefinition) => piDefineTool(tool);

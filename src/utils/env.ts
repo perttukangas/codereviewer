@@ -2,12 +2,7 @@ import { access, constants, stat } from "node:fs/promises";
 
 import { cleanEnv, json, num, str } from "envalid";
 
-import type {
-	Agent,
-	AgentGuardrails,
-	AgentLimits,
-	AgentModel,
-} from "../agent-runtime/types.js";
+import type { Agent, AgentConfig } from "../core/types.js";
 
 export const env = cleanEnv(process.env, {
 	LOG_LEVEL: str({
@@ -87,13 +82,7 @@ export const env = cleanEnv(process.env, {
 const toEnvPrefix = (agentId: string): string =>
 	agentId.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 
-export const getAgentConfig = (
-	agent: Agent,
-): {
-	model: AgentModel;
-	limits: AgentLimits;
-	guardrails: AgentGuardrails;
-} => {
+export const getAgentConfig = (agent: Agent): AgentConfig => {
 	const prefix = toEnvPrefix(agent.id);
 	const config = cleanEnv(process.env, {
 		[`${prefix}_MODEL_NAME`]: str({
