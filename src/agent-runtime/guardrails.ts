@@ -122,7 +122,6 @@ export const createGuardrails = ({
 		);
 
 		session.clearQueue();
-		session.dispose;
 		void session
 			.abort()
 			.catch(() => undefined)
