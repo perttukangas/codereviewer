@@ -2,7 +2,12 @@ import { access, constants, stat } from "node:fs/promises";
 
 import { cleanEnv, json, num, str } from "envalid";
 
-import type { Agent, AgentLimits, AgentModel } from "../agent-runtime/types.js";
+import type {
+	Agent,
+	AgentGuardrails,
+	AgentLimits,
+	AgentModel,
+} from "../agent-runtime/types.js";
 
 export const env = cleanEnv(process.env, {
 	LOG_LEVEL: str({
@@ -57,6 +62,26 @@ export const env = cleanEnv(process.env, {
 		desc: "The default maximum model output tokens for agents.",
 		default: 16384,
 	}),
+
+	DEFAULT_TIMEOUT_MS: num({
+		desc: "The default wall clock timeout in milliseconds for an agent prompt. Zero disables the timeout.",
+		default: 300000,
+	}),
+
+	DEFAULT_INPUT_TOKEN_BUDGET: num({
+		desc: "The default input token budget for an agent prompt. Zero disables the budget.",
+		default: 100000,
+	}),
+
+	DEFAULT_OUTPUT_TOKEN_BUDGET: num({
+		desc: "The default output token budget for an agent prompt. Zero disables the budget.",
+		default: 20000,
+	}),
+
+	DEFAULT_SOFT_LIMIT_RATIO: num({
+		desc: "The default ratio of a hard guardrail limit at which a soft warning is issued.",
+		default: 0.8,
+	}),
 });
 
 const toEnvPrefix = (agentId: string): string =>
@@ -67,6 +92,7 @@ export const getAgentConfig = (
 ): {
 	model: AgentModel;
 	limits: AgentLimits;
+	guardrails: AgentGuardrails;
 } => {
 	const prefix = toEnvPrefix(agent.id);
 	const config = cleanEnv(process.env, {
@@ -82,6 +108,18 @@ export const getAgentConfig = (
 		[`${prefix}_MAX_OUTPUT_TOKENS`]: num({
 			default: env.DEFAULT_MAX_OUTPUT_TOKENS,
 		}),
+		[`${prefix}_TIMEOUT_MS`]: num({
+			default: env.DEFAULT_TIMEOUT_MS,
+		}),
+		[`${prefix}_INPUT_TOKEN_BUDGET`]: num({
+			default: env.DEFAULT_INPUT_TOKEN_BUDGET,
+		}),
+		[`${prefix}_OUTPUT_TOKEN_BUDGET`]: num({
+			default: env.DEFAULT_OUTPUT_TOKEN_BUDGET,
+		}),
+		[`${prefix}_SOFT_LIMIT_RATIO`]: num({
+			default: env.DEFAULT_SOFT_LIMIT_RATIO,
+		}),
 	});
 
 	return {
@@ -95,6 +133,12 @@ export const getAgentConfig = (
 		limits: {
 			contextWindow: config[`${prefix}_CONTEXT_WINDOW`] as number,
 			maxOutputTokens: config[`${prefix}_MAX_OUTPUT_TOKENS`] as number,
+		},
+		guardrails: {
+			timeoutMs: config[`${prefix}_TIMEOUT_MS`] as number,
+			inputTokenBudget: config[`${prefix}_INPUT_TOKEN_BUDGET`] as number,
+			outputTokenBudget: config[`${prefix}_OUTPUT_TOKEN_BUDGET`] as number,
+			softLimitRatio: config[`${prefix}_SOFT_LIMIT_RATIO`] as number,
 		},
 	};
 };

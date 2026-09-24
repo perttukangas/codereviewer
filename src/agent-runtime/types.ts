@@ -21,6 +21,27 @@ export type AgentLimits = {
 	maxOutputTokens: number;
 };
 
+export type AgentGuardrails = {
+	timeoutMs: number;
+	inputTokenBudget: number;
+	outputTokenBudget: number;
+	softLimitRatio: number;
+};
+
+export type GuardrailDimension = "timeout" | "input_tokens" | "output_tokens";
+
+export type GuardrailOutcome = {
+	dimension: GuardrailDimension;
+	limit: number;
+	observed: number;
+	terminated: boolean;
+};
+
+export type AgentResponse<TOutput> = {
+	output: TOutput;
+	guardrails: GuardrailOutcome[];
+};
+
 export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
 
 export type ReviewCodeChange = {
@@ -48,8 +69,8 @@ export type ReviewFinding = {
 
 export type AgentReview = ReviewFinding[];
 
-export interface AgentSession {
-	prompt: (prompt: string) => Promise<AgentReview>;
+export interface AgentSession<TOutput = AgentReview> {
+	prompt: (prompt: string) => Promise<AgentResponse<TOutput>>;
 	dispose: () => void;
 }
 

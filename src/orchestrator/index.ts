@@ -4,7 +4,10 @@ import { createAgent } from "../agent-runtime/index.js";
 import type { Agent, AgentReview } from "../agent-runtime/types.js";
 import { formatAgentPrompt } from "../agents/agent-utils.js";
 import { CodeQualityAgent } from "../agents/code-quality.js";
-import { createReviewFindingTool } from "../tools/submit_review_finding.js";
+import {
+	createReviewFindingTool,
+	toGuardrailFinding,
+} from "../tools/submit_review_finding.js";
 import { env } from "../utils/env.js";
 import { info, startTimer, stopTimer } from "../utils/logger.js";
 
@@ -31,10 +34,16 @@ const reviewAgent = async (
 	const reviewFindingTool = createReviewFindingTool(env.REPO_DIR, (finding) => {
 		findings.push(finding);
 	});
-	const session = await createAgent(agent, [reviewFindingTool], findings);
+	const session = await createAgent<AgentReview>(agent, {
+		customTools: [reviewFindingTool],
+		output: findings,
+	});
 	try {
 		const response = await session.prompt(formatAgentPrompt(agent, diff));
-		return response;
+		const guardrailFindings = response.guardrails
+			.filter((outcome) => outcome.terminated)
+			.map(toGuardrailFinding);
+		return [...response.output, ...guardrailFindings];
 	} finally {
 		session.dispose();
 		stopTimer(agent.id, "Completed agent review");

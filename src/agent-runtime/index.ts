@@ -5,21 +5,25 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { env, getAgentConfig } from "../utils/env.js";
-import { debug } from "../utils/logger.js";
 import { logAgentDiagnostics, logAgentEvent, logAgentResult } from "./debug.js";
+import { createGuardrails } from "./guardrails.js";
 import type {
 	Agent,
-	AgentReview,
+	AgentResponse,
 	AgentSession,
 	AgentToolDefinition,
-	ReviewFinding,
 } from "./types.js";
 
-export const createAgent = async (
+type CreateAgentOptions<TOutput> = {
+	customTools?: AgentToolDefinition[];
+	output?: TOutput;
+};
+
+export const createAgent = async <TOutput>(
 	agent: Agent,
-	customTools: AgentToolDefinition[] = [],
-	findings: ReviewFinding[] = [],
-): Promise<AgentSession> => {
+	options: CreateAgentOptions<TOutput> = {},
+): Promise<AgentSession<TOutput>> => {
+	const { customTools = [], output = [] as unknown as TOutput } = options;
 	const config = getAgentConfig(agent);
 
 	const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
@@ -66,13 +70,28 @@ export const createAgent = async (
 		turnNumber = logAgentEvent(agent.id, event, turnNumber);
 	});
 
+	const guardrails = createGuardrails({
+		agentId: agent.id,
+		session,
+		config: config.guardrails,
+	});
+
 	return {
-		prompt: async (prompt): Promise<AgentReview> => {
-			await session.prompt(prompt);
+		prompt: async (prompt): Promise<AgentResponse<TOutput>> => {
+			guardrails.start();
+			try {
+				await session.prompt(prompt);
+			} finally {
+				guardrails.stop();
+			}
 			logAgentResult(agent.id, session);
-			return [...findings];
+			return {
+				output,
+				guardrails: guardrails.getOutcomes(),
+			};
 		},
 		dispose: () => {
+			guardrails.dispose();
 			unsubscribe();
 			session.dispose();
 		},
