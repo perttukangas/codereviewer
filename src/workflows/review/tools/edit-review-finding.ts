@@ -6,7 +6,7 @@ import {
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	validateFinding,
-} from "./review-finding.js";
+} from "./review-finding/index.js";
 
 export const createEditReviewFindingTool = (
 	repoDir: string,

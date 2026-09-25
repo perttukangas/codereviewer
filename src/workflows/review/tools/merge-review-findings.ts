@@ -8,7 +8,7 @@ import {
 	reviewFindingSchema,
 	severityRank,
 	validateFinding,
-} from "./review-finding.js";
+} from "./review-finding/index.js";
 
 type FindingSource = {
 	agentId: string;

@@ -1,61 +1,11 @@
-import type {
-	AgentSessionEvent,
-	AgentSession as PiAgentSession,
-} from "@earendil-works/pi-coding-agent";
-
-import { debug } from "../../platform/logger.js";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 type AssistantMessage = Extract<
 	Extract<AgentSessionEvent, { type: "message_end" }>["message"],
 	{ role: "assistant" }
 >;
 
-export type AgentUsage = {
-	inputTokens: number;
-	outputTokens: number;
-	cacheReadTokens: number;
-	cacheWriteTokens: number;
-	totalTokens: number;
-	reportedTotalTokens: number;
-	toolCalls: number;
-	tools: Record<string, number>;
-};
-
-export type AgentDiagnostics = {
-	systemPrompt: string;
-	tools: string[];
-};
-
-export const logAgentEvent = (
-	agentId: string,
-	event: AgentSessionEvent,
-	turnNumber: number,
-): number => {
-	if (event.type === "message_update" && event.message.role === "assistant") {
-		return turnNumber;
-	}
-	if (event.type === "message_end" && event.message.role === "assistant") {
-		debug(
-			"Agent completed message",
-			agentId,
-			describeAssistantMessage(event.message),
-		);
-		return turnNumber;
-	}
-
-	if (event.type === "turn_start") {
-		turnNumber += 1;
-	}
-	debug(
-		"Agent event",
-		agentId,
-		event.type,
-		describeAgentEvent(event, turnNumber),
-	);
-	return turnNumber;
-};
-
-const describeAssistantMessage = (
+export const describeAssistantMessage = (
 	message: AssistantMessage,
 ): Record<string, unknown> => ({
 	content: message.content.map((block) => {
@@ -80,67 +30,7 @@ const describeAssistantMessage = (
 	}),
 });
 
-export const collectAgentUsage = (session: PiAgentSession): AgentUsage => {
-	const assistantMessages = session.messages.filter(
-		(message) => message.role === "assistant",
-	);
-
-	const usage = session.messages.reduce(
-		(summary, message) => {
-			if (!("usage" in message) || !message.usage) {
-				return summary;
-			}
-
-			return {
-				inputTokens: summary.inputTokens + message.usage.input,
-				outputTokens: summary.outputTokens + message.usage.output,
-				cacheReadTokens: summary.cacheReadTokens + message.usage.cacheRead,
-				cacheWriteTokens: summary.cacheWriteTokens + message.usage.cacheWrite,
-				reportedTotalTokens:
-					summary.reportedTotalTokens + message.usage.totalTokens,
-			};
-		},
-		{
-			inputTokens: 0,
-			outputTokens: 0,
-			cacheReadTokens: 0,
-			cacheWriteTokens: 0,
-			reportedTotalTokens: 0,
-		},
-	);
-
-	const toolCalls = assistantMessages.flatMap((message) =>
-		message.content.filter((content) => content.type === "toolCall"),
-	);
-
-	const tools = toolCalls.reduce<Record<string, number>>((counts, toolCall) => {
-		counts[toolCall.name] = (counts[toolCall.name] ?? 0) + 1;
-		return counts;
-	}, {});
-
-	return {
-		...usage,
-		totalTokens: usage.inputTokens + usage.outputTokens,
-		toolCalls: toolCalls.length,
-		tools,
-	};
-};
-
-export const logAgentResult = (
-	agentId: string,
-	session: PiAgentSession,
-): void => {
-	debug("Agent usage", agentId, collectAgentUsage(session));
-};
-
-export const logAgentDiagnostics = (
-	agentId: string,
-	diagnostics: AgentDiagnostics,
-): void => {
-	debug("Agent diagnostics", agentId, diagnostics);
-};
-
-const describeAgentEvent = (
+export const describeAgentEvent = (
 	event: AgentSessionEvent,
 	turnNumber: number,
 ): Record<string, unknown> => {

@@ -18,7 +18,7 @@ import {
 	logAgentDiagnostics,
 	logAgentEvent,
 	logAgentResult,
-} from "./events.js";
+} from "./events/index.js";
 import { toPiTool } from "./tools.js";
 
 const toRuntimeEvent = (
