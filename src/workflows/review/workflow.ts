@@ -20,50 +20,54 @@ import {
 } from "../../platform/logger.js";
 import type { Workflow, WorkflowContext } from "../types.js";
 import { CodeQualityAgent } from "./agents/code-quality.js";
+import { DeduplicatorAgent } from "./agents/deduplicator.js";
 import { PerformanceAgent } from "./agents/performance.js";
 import { VerifierAgent } from "./agents/verifier.js";
 import { getReviewEnv } from "./env.js";
-import { formatReviewPrompt, formatVerificationPrompt } from "./prompt.js";
+import {
+	formatDeduplicationPrompt,
+	formatReviewPrompt,
+	formatVerificationPrompt,
+} from "./prompt.js";
 import { createEditReviewFindingTool } from "./tools/edit-review-finding.js";
-import { nextFindingId } from "./tools/review-finding.js";
+import { createMergeReviewFindingsTool } from "./tools/merge-review-findings.js";
+import { nextId, severityValues } from "./tools/review-finding.js";
 import { createReviewFindingTool } from "./tools/submit-review-finding.js";
-import type { AgentReview, ReviewFinding, ReviewReport } from "./types.js";
+import type { AgentReview, ReviewError, ReviewReport } from "./types.js";
 
 const agents: Agent[] = [CodeQualityAgent, PerformanceAgent];
 
-const toGuardrailFinding = (
+const toGuardrailError = (
 	id: string,
+	agentId: string,
 	outcome: GuardrailOutcome,
-): ReviewFinding => {
+): ReviewError => {
 	const dimension = describeDimension(outcome.dimension);
 	const unit = outcome.dimension === "timeout" ? "ms" : "tokens";
 
 	return {
 		id,
-		title: `Review truncated by guardrail (${outcome.dimension})`,
-		severity: "info",
-		confidence: 1,
-		problem: `The agent reached the ${dimension} of ${outcome.limit} ${unit} (observed ${outcome.observed} ${unit}) and was terminated before completing the review. Findings reported here may be incomplete.`,
-		rationale:
-			"Increase the corresponding per agent guardrail budget or timeout if the review requires more time or tokens.",
+		agentId,
+		kind: "guardrail",
+		dimension: outcome.dimension,
+		limit: outcome.limit,
+		observed: outcome.observed,
+		message: `The agent reached the ${dimension} of ${outcome.limit} ${unit} (observed ${outcome.observed} ${unit}) and was terminated before completing the review. Findings reported here may be incomplete.`,
 	};
 };
 
-const toErrorFinding = (
+const toErrorError = (
 	id: string,
 	agent: Agent,
 	cause: unknown,
-): ReviewFinding => {
+): ReviewError => {
 	const message = cause instanceof Error ? cause.message : String(cause);
 
 	return {
 		id,
-		title: `Review agent failed (${agent.id})`,
-		severity: "info",
-		confidence: 1,
-		problem: `The ${agent.id} review agent failed before completing its review. Any findings reported here may be incomplete. Error: ${message}`,
-		rationale:
-			"Investigate the reported error and re-run the review. Other review agents completed independently and their findings are unaffected.",
+		agentId: agent.id,
+		kind: "error",
+		message: `The ${agent.id} review agent failed before completing its review. Any findings reported here may be incomplete. Error: ${message}`,
 	};
 };
 
@@ -107,7 +111,10 @@ export const run = async (context: WorkflowContext): Promise<ReviewReport> => {
 		),
 	);
 
-	return Object.fromEntries(results);
+	const report: ReviewReport = Object.fromEntries(results);
+	await deduplicate(context, report);
+
+	return report;
 };
 
 const runAgentPipeline = async (
@@ -116,21 +123,34 @@ const runAgentPipeline = async (
 	repositoryDir: string,
 	diff: string,
 ): Promise<[string, AgentReview]> => {
-	const findings: AgentReview = [];
+	const review: AgentReview = { findings: [], errors: [] };
 
 	try {
-		await reviewAgent(context, agent, repositoryDir, diff, findings);
+		await reviewAgent(context, agent, repositoryDir, diff, review);
 		if (getAgentConfig(VerifierAgent).enabled) {
-			await verifyReview(context, agent, findings, repositoryDir, diff);
+			await verifyReview(context, agent, review, repositoryDir, diff);
 		} else {
 			debug("Skipping disabled verifier agent", VerifierAgent.id);
 		}
 	} catch (cause) {
 		error("Review agent failed", agent.id, cause);
-		findings.push(toErrorFinding(nextFindingId(findings, agent), agent, cause));
+		review.errors.push(
+			toErrorError(nextId(review.errors, `${agent.id}:error`), agent, cause),
+		);
 	}
 
-	return [agent.id, findings];
+	info(
+		`Agent reported ${review.findings.length} findings`,
+		agent.id,
+		severityValues
+			.map(
+				(severity) =>
+					`${severity}=${review.findings.filter((finding) => finding.severity === severity).length}`,
+			)
+			.join(", "),
+	);
+
+	return [agent.id, review];
 };
 
 const reviewAgent = async (
@@ -138,12 +158,12 @@ const reviewAgent = async (
 	agent: Agent,
 	repositoryDir: string,
 	diff: string,
-	findings: AgentReview,
+	review: AgentReview,
 ): Promise<void> => {
 	const reviewFindingTool = createReviewFindingTool(
 		agent,
 		repositoryDir,
-		findings,
+		review.findings,
 	);
 	let session: GuardedAgentSession<AgentReview> | undefined;
 	try {
@@ -151,14 +171,18 @@ const reviewAgent = async (
 		session = await createAgent<AgentReview>(agent, context.runtime, {
 			config: getAgentConfig(agent),
 			customTools: [reviewFindingTool],
-			output: findings,
+			output: review,
 		});
 		startTimer(agent.id, "Starting agent review");
 		const response = await session.prompt(formatReviewPrompt(agent, diff));
 		for (const outcome of response.guardrails) {
 			if (outcome.terminated) {
-				findings.push(
-					toGuardrailFinding(nextFindingId(findings, agent), outcome),
+				review.errors.push(
+					toGuardrailError(
+						nextId(review.errors, `${agent.id}:error`),
+						agent.id,
+						outcome,
+					),
 				);
 			}
 		}
@@ -171,42 +195,110 @@ const reviewAgent = async (
 const verifyReview = async (
 	context: WorkflowContext,
 	reviewer: Agent,
-	findings: AgentReview,
+	review: AgentReview,
 	repositoryDir: string,
 	diff: string,
 ): Promise<void> => {
-	if (findings.length === 0) {
-		info("Skipping verification, no findings to verify", reviewer.id);
+	const eligible = review.findings;
+	if (eligible.length === 0) {
+		info("Skipping verification, no eligible findings to verify", reviewer.id);
 		return;
 	}
 
 	const timerId = `${reviewer.id}:${VerifierAgent.id}`;
-	const editFindingTool = createEditReviewFindingTool(repositoryDir, findings);
+	const editFindingTool = createEditReviewFindingTool(
+		repositoryDir,
+		review.findings,
+	);
 	let session: GuardedAgentSession<AgentReview> | undefined;
 	try {
 		info("Creating agent session", timerId);
 		session = await createAgent<AgentReview>(VerifierAgent, context.runtime, {
 			config: getAgentConfig(VerifierAgent),
 			customTools: [editFindingTool],
-			output: findings,
+			output: review,
 		});
 		startTimer(timerId, "Starting agent verification");
 		const response = await session.prompt(
-			formatVerificationPrompt(VerifierAgent, reviewer, findings, diff),
+			formatVerificationPrompt(VerifierAgent, reviewer, eligible, diff),
 		);
 		for (const outcome of response.guardrails) {
 			if (outcome.terminated) {
-				error(
-					"Verification truncated by guardrail",
-					VerifierAgent.id,
-					outcome.dimension,
-					`${outcome.observed}/${outcome.limit}`,
+				review.errors.push(
+					toGuardrailError(
+						nextId(review.errors, `${timerId}:error`),
+						VerifierAgent.id,
+						outcome,
+					),
 				);
 			}
 		}
 	} finally {
 		session?.dispose();
 		stopTimer(timerId, "Completed agent verification");
+	}
+};
+
+const deduplicate = async (
+	context: WorkflowContext,
+	report: ReviewReport,
+): Promise<void> => {
+	if (!getAgentConfig(DeduplicatorAgent).enabled) {
+		debug("Skipping disabled deduplicator agent", DeduplicatorAgent.id);
+		return;
+	}
+
+	const eligible = Object.values(report)
+		.flatMap((review) => review.findings)
+		.filter((finding) => finding.invalidReason === undefined);
+	if (eligible.length < 2) {
+		info(
+			"Skipping deduplication, fewer than two eligible findings",
+			DeduplicatorAgent.id,
+		);
+		return;
+	}
+
+	const dedupReview: AgentReview = { findings: [], errors: [] };
+	const mergeTool = createMergeReviewFindingsTool(
+		env.REPO_DIR,
+		report,
+		dedupReview,
+	);
+	let session: GuardedAgentSession<AgentReview> | undefined;
+	try {
+		info("Creating agent session", DeduplicatorAgent.id);
+		session = await createAgent<AgentReview>(
+			DeduplicatorAgent,
+			context.runtime,
+			{
+				config: getAgentConfig(DeduplicatorAgent),
+				customTools: [mergeTool],
+				output: dedupReview,
+			},
+		);
+		startTimer(DeduplicatorAgent.id, "Starting agent deduplication");
+		const response = await session.prompt(
+			formatDeduplicationPrompt(DeduplicatorAgent, eligible),
+		);
+		for (const outcome of response.guardrails) {
+			if (outcome.terminated) {
+				dedupReview.errors.push(
+					toGuardrailError(
+						nextId(dedupReview.errors, `${DeduplicatorAgent.id}:error`),
+						DeduplicatorAgent.id,
+						outcome,
+					),
+				);
+			}
+		}
+	} finally {
+		session?.dispose();
+		stopTimer(DeduplicatorAgent.id, "Completed agent deduplication");
+	}
+
+	if (dedupReview.findings.length > 0 || dedupReview.errors.length > 0) {
+		report[DeduplicatorAgent.id] = dedupReview;
 	}
 };
 

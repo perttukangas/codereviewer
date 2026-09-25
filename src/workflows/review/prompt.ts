@@ -32,3 +32,18 @@ export const formatVerificationPrompt = (
 				: []),
 		],
 	});
+
+export const formatDeduplicationPrompt = (
+	deduplicator: Agent,
+	findings: ReviewFinding[],
+): string =>
+	formatPrompt({
+		title: "Review Deduplication",
+		intro: deduplicator.role,
+		blocks: [
+			{
+				heading: "Findings To Deduplicate",
+				body: JSON.stringify(findings, null, 2),
+			},
+		],
+	});

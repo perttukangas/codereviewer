@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import { Type } from "typebox";
-import type { Agent } from "../../../engine/types.js";
 import type {
 	ReviewCodeChange,
 	ReviewFinding,
+	ReviewSeverity,
 	ReviewSuggestedChange,
 } from "../types.js";
 
@@ -16,6 +16,9 @@ export const severityValues = [
 	"low",
 	"info",
 ] as const;
+
+export const severityRank = (severity: ReviewSeverity): number =>
+	severityValues.indexOf(severity);
 
 export type ReviewCodeChangeInput = Omit<
 	ReviewCodeChange,
@@ -30,10 +33,18 @@ export type ReviewFindingInput = Omit<
 	suggestedCodeChanges?: ReviewCodeChangeInput[];
 };
 
-export const nextFindingId = (
-	findings: ReviewFinding[],
-	reviewer: Agent,
-): string => `${reviewer.id}-${findings.length + 1}`;
+export const nextId = (items: { id: string }[], prefix: string): string => {
+	const idPrefix = `${prefix}-`;
+	const highest = items.reduce((max, item) => {
+		if (!item.id.startsWith(idPrefix)) {
+			return max;
+		}
+		const suffix = Number.parseInt(item.id.slice(idPrefix.length), 10);
+		return Number.isNaN(suffix) ? max : Math.max(max, suffix);
+	}, 0);
+
+	return `${idPrefix}${highest + 1}`;
+};
 
 export const reviewFindingGuidelines = [
 	"Use severity critical, high, medium, low, or info according to impact, and set confidence from 0 to 1 according to evidence strength.",
