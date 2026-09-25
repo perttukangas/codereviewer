@@ -14,7 +14,7 @@ export type ReviewSuggestedChange = {
 };
 
 export type ReviewFinding = {
-	id: number;
+	id: string;
 	title: string;
 	severity: ReviewSeverity;
 	confidence: number;

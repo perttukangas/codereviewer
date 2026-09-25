@@ -32,7 +32,7 @@ import type { AgentReview, ReviewFinding, ReviewReport } from "./types.js";
 const agents: Agent[] = [CodeQualityAgent, PerformanceAgent];
 
 const toGuardrailFinding = (
-	id: number,
+	id: string,
 	outcome: GuardrailOutcome,
 ): ReviewFinding => {
 	const dimension = describeDimension(outcome.dimension);
@@ -50,7 +50,7 @@ const toGuardrailFinding = (
 };
 
 const toErrorFinding = (
-	id: number,
+	id: string,
 	agent: Agent,
 	cause: unknown,
 ): ReviewFinding => {
@@ -127,7 +127,7 @@ const runAgentPipeline = async (
 		}
 	} catch (cause) {
 		error("Review agent failed", agent.id, cause);
-		findings.push(toErrorFinding(nextFindingId(findings), agent, cause));
+		findings.push(toErrorFinding(nextFindingId(findings, agent), agent, cause));
 	}
 
 	return [agent.id, findings];
@@ -140,7 +140,11 @@ const reviewAgent = async (
 	diff: string,
 	findings: AgentReview,
 ): Promise<void> => {
-	const reviewFindingTool = createReviewFindingTool(repositoryDir, findings);
+	const reviewFindingTool = createReviewFindingTool(
+		agent,
+		repositoryDir,
+		findings,
+	);
 	let session: GuardedAgentSession<AgentReview> | undefined;
 	try {
 		info("Creating agent session", agent.id);
@@ -153,7 +157,9 @@ const reviewAgent = async (
 		const response = await session.prompt(formatReviewPrompt(agent, diff));
 		for (const outcome of response.guardrails) {
 			if (outcome.terminated) {
-				findings.push(toGuardrailFinding(nextFindingId(findings), outcome));
+				findings.push(
+					toGuardrailFinding(nextFindingId(findings, agent), outcome),
+				);
 			}
 		}
 	} finally {

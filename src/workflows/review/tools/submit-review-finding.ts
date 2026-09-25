@@ -1,4 +1,5 @@
 import { defineTool } from "../../../engine/tools.js";
+import type { Agent } from "../../../engine/types.js";
 import type { ReviewFinding } from "../types.js";
 import {
 	nextFindingId,
@@ -8,6 +9,7 @@ import {
 } from "./review-finding.js";
 
 export const createReviewFindingTool = (
+	reviewer: Agent,
 	repoDir: string,
 	findings: ReviewFinding[],
 ) => {
@@ -28,7 +30,7 @@ export const createReviewFindingTool = (
 		executionMode: "sequential",
 		async execute(_toolCallId, params) {
 			const finding: ReviewFinding = {
-				id: nextFindingId(findings),
+				id: nextFindingId(findings, reviewer),
 				...(await validateFinding(params, repoDir, findings)),
 			};
 			findings.push(finding);

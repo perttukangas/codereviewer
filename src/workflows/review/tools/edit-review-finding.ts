@@ -32,8 +32,8 @@ export const createEditReviewFindingTool = (
 			"After verifying all findings do not provide a summary, respond exactly: Verification complete.",
 		],
 		parameters: Type.Object({
-			id: Type.Number({
-				description: "Integer identifier of the finding.",
+			id: Type.String({
+				description: "String identifier of the finding.",
 			}),
 			invalidReason: Type.Optional(
 				Type.String({

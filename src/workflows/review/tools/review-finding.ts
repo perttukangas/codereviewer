@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import { Type } from "typebox";
+import type { Agent } from "../../../engine/types.js";
 import type {
 	ReviewCodeChange,
 	ReviewFinding,
@@ -29,8 +30,10 @@ export type ReviewFindingInput = Omit<
 	suggestedCodeChanges?: ReviewCodeChangeInput[];
 };
 
-export const nextFindingId = (findings: ReviewFinding[]): number =>
-	findings.reduce((highest, finding) => Math.max(highest, finding.id), 0) + 1;
+export const nextFindingId = (
+	findings: ReviewFinding[],
+	reviewer: Agent,
+): string => `${reviewer.id}-${findings.length + 1}`;
 
 export const reviewFindingGuidelines = [
 	"Use severity critical, high, medium, low, or info according to impact, and set confidence from 0 to 1 according to evidence strength.",
@@ -115,7 +118,7 @@ export const validateFinding = async (
 	finding: ReviewFindingInput,
 	repoDir: string,
 	findings: ReviewFinding[],
-	excludeId?: number,
+	excludeId?: string,
 ): Promise<Omit<ReviewFinding, "id">> => {
 	validateSuggestion(finding);
 	validateUniqueTitle(findings, finding.title, excludeId);
@@ -272,7 +275,7 @@ const resolveRepositoryPath = (
 const validateUniqueTitle = (
 	findings: ReviewFinding[],
 	title: string,
-	excludeId?: number,
+	excludeId?: string,
 ): void => {
 	const normalizedTitle = title.trim().toLowerCase();
 	const duplicate = findings.some(
