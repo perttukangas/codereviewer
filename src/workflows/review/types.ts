@@ -22,6 +22,7 @@ export type ReviewFinding = {
 	suggestedChange?: ReviewSuggestedChange;
 	suggestedCodeChanges?: ReviewCodeChange[];
 	rationale: string;
+	invalidReason?: string;
 };
 
 export type AgentReview = ReviewFinding[];

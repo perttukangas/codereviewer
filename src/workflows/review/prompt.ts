@@ -10,7 +10,7 @@ export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 			{ heading: "Scope", items: agent.scope ?? [] },
 			{ heading: "Constraints", items: agent.constraints ?? [] },
 		],
-		blocks: diff ? [{ heading: "Git Diff", body: diff }] : [],
+		blocks: diff ? [{ heading: "Git Diff Under Review", body: diff }] : [],
 	});
 
 export const formatVerificationPrompt = (
@@ -27,6 +27,8 @@ export const formatVerificationPrompt = (
 				heading: "Findings Under Verification",
 				body: JSON.stringify(findings, null, 2),
 			},
-			...(diff ? [{ heading: "Git Diff", body: diff }] : []),
+			...(diff
+				? [{ heading: "Git Diff Used To Produce Findings", body: diff }]
+				: []),
 		],
 	});
