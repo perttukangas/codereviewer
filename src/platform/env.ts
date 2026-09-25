@@ -8,7 +8,7 @@ export const env = cleanEnv(process.env, {
 	}),
 
 	LOG_FILE: str({
-		default: "logs/codereviewer.log",
+		default: "/tmp/codereviewer.log",
 		desc: "The path to the log file. An empty value disables file logging.",
 	}),
 
@@ -73,5 +73,10 @@ export const env = cleanEnv(process.env, {
 	DEFAULT_SOFT_LIMIT_RATIO: num({
 		desc: "The default ratio of a hard guardrail limit at which a soft warning is issued.",
 		default: 0.8,
+	}),
+
+	AGENT_MAX_CONCURRENCY: num({
+		desc: "The maximum number of agent sessions that may run concurrently. Zero disables the limit.",
+		default: 4,
 	}),
 });

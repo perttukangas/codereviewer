@@ -3,7 +3,11 @@ import { access, constants, stat } from "node:fs/promises";
 import { createAgent } from "../../engine/agent.js";
 import { getAgentConfig } from "../../engine/agent-config.js";
 import { describeDimension } from "../../engine/guardrails.js";
-import type { Agent, GuardrailOutcome } from "../../engine/types.js";
+import type {
+	Agent,
+	GuardedAgentSession,
+	GuardrailOutcome,
+} from "../../engine/types.js";
 import { createLocalGitChangeSource } from "../../integrations/local-git.js";
 import type { ChangeSource } from "../../integrations/types.js";
 import { env } from "../../platform/env.js";
@@ -16,6 +20,7 @@ import {
 } from "../../platform/logger.js";
 import type { Workflow, WorkflowContext } from "../types.js";
 import { CodeQualityAgent } from "./agents/code-quality.js";
+import { PerformanceAgent } from "./agents/performance.js";
 import { VerifierAgent } from "./agents/verifier.js";
 import { getReviewEnv } from "./env.js";
 import { formatReviewPrompt, formatVerificationPrompt } from "./prompt.js";
@@ -24,7 +29,7 @@ import { nextFindingId } from "./tools/review-finding.js";
 import { createReviewFindingTool } from "./tools/submit-review-finding.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "./types.js";
 
-const agents: Agent[] = [CodeQualityAgent];
+const agents: Agent[] = [CodeQualityAgent, PerformanceAgent];
 
 const toGuardrailFinding = (
 	id: number,
@@ -41,6 +46,24 @@ const toGuardrailFinding = (
 		problem: `The agent reached the ${dimension} of ${outcome.limit} ${unit} (observed ${outcome.observed} ${unit}) and was terminated before completing the review. Findings reported here may be incomplete.`,
 		rationale:
 			"Increase the corresponding per agent guardrail budget or timeout if the review requires more time or tokens.",
+	};
+};
+
+const toErrorFinding = (
+	id: number,
+	agent: Agent,
+	cause: unknown,
+): ReviewFinding => {
+	const message = cause instanceof Error ? cause.message : String(cause);
+
+	return {
+		id,
+		title: `Review agent failed (${agent.id})`,
+		severity: "info",
+		confidence: 1,
+		problem: `The ${agent.id} review agent failed before completing its review. Any findings reported here may be incomplete. Error: ${message}`,
+		rationale:
+			"Investigate the reported error and re-run the review. Other review agents completed independently and their findings are unaffected.",
 	};
 };
 
@@ -69,35 +92,45 @@ export const run = async (context: WorkflowContext): Promise<ReviewReport> => {
 
 	info("Reading Git diff", GIT_DIFF_PATH);
 	const changeSet = await changeSource.load();
-	const responses: ReviewReport = {};
 
-	for (const agent of agents) {
-		if (!getAgentConfig(agent).enabled) {
-			debug("Skipping disabled review agent", agent.id);
-			continue;
+	const enabledAgents = agents.filter((agent) => {
+		if (getAgentConfig(agent).enabled) {
+			return true;
 		}
+		debug("Skipping disabled review agent", agent.id);
+		return false;
+	});
 
-		const review = await reviewAgent(
-			context,
-			agent,
-			changeSet.repositoryDir,
-			changeSet.diff,
-		);
+	const results = await Promise.all(
+		enabledAgents.map((agent) =>
+			runAgentPipeline(context, agent, changeSet.repositoryDir, changeSet.diff),
+		),
+	);
+
+	return Object.fromEntries(results);
+};
+
+const runAgentPipeline = async (
+	context: WorkflowContext,
+	agent: Agent,
+	repositoryDir: string,
+	diff: string,
+): Promise<[string, AgentReview]> => {
+	const findings: AgentReview = [];
+
+	try {
+		await reviewAgent(context, agent, repositoryDir, diff, findings);
 		if (getAgentConfig(VerifierAgent).enabled) {
-			await verifyReview(
-				context,
-				agent,
-				review,
-				changeSet.repositoryDir,
-				changeSet.diff,
-			);
+			await verifyReview(context, agent, findings, repositoryDir, diff);
 		} else {
 			debug("Skipping disabled verifier agent", VerifierAgent.id);
 		}
-		responses[agent.id] = review;
+	} catch (cause) {
+		error("Review agent failed", agent.id, cause);
+		findings.push(toErrorFinding(nextFindingId(findings), agent, cause));
 	}
 
-	return responses;
+	return [agent.id, findings];
 };
 
 const reviewAgent = async (
@@ -105,25 +138,26 @@ const reviewAgent = async (
 	agent: Agent,
 	repositoryDir: string,
 	diff: string,
-): Promise<AgentReview> => {
-	startTimer(agent.id, "Starting agent review");
-	const findings: AgentReview = [];
+	findings: AgentReview,
+): Promise<void> => {
 	const reviewFindingTool = createReviewFindingTool(repositoryDir, findings);
-	const session = await createAgent<AgentReview>(agent, context.runtime, {
-		config: getAgentConfig(agent),
-		customTools: [reviewFindingTool],
-		output: findings,
-	});
+	let session: GuardedAgentSession<AgentReview> | undefined;
 	try {
+		info("Creating agent session", agent.id);
+		session = await createAgent<AgentReview>(agent, context.runtime, {
+			config: getAgentConfig(agent),
+			customTools: [reviewFindingTool],
+			output: findings,
+		});
+		startTimer(agent.id, "Starting agent review");
 		const response = await session.prompt(formatReviewPrompt(agent, diff));
 		for (const outcome of response.guardrails) {
 			if (outcome.terminated) {
 				findings.push(toGuardrailFinding(nextFindingId(findings), outcome));
 			}
 		}
-		return response.output;
 	} finally {
-		session.dispose();
+		session?.dispose();
 		stopTimer(agent.id, "Completed agent review");
 	}
 };
@@ -140,18 +174,17 @@ const verifyReview = async (
 		return;
 	}
 
-	startTimer(VerifierAgent.id, "Starting review verification");
+	const timerId = `${reviewer.id}:${VerifierAgent.id}`;
 	const editFindingTool = createEditReviewFindingTool(repositoryDir, findings);
-	const session = await createAgent<AgentReview>(
-		VerifierAgent,
-		context.runtime,
-		{
+	let session: GuardedAgentSession<AgentReview> | undefined;
+	try {
+		info("Creating agent session", timerId);
+		session = await createAgent<AgentReview>(VerifierAgent, context.runtime, {
 			config: getAgentConfig(VerifierAgent),
 			customTools: [editFindingTool],
 			output: findings,
-		},
-	);
-	try {
+		});
+		startTimer(timerId, "Starting agent verification");
 		const response = await session.prompt(
 			formatVerificationPrompt(VerifierAgent, reviewer, findings, diff),
 		);
@@ -166,8 +199,8 @@ const verifyReview = async (
 			}
 		}
 	} finally {
-		session.dispose();
-		stopTimer(VerifierAgent.id, "Completed review verification");
+		session?.dispose();
+		stopTimer(timerId, "Completed agent verification");
 	}
 };
 

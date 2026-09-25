@@ -1,3 +1,5 @@
+import { env } from "../platform/env.js";
+import { createSemaphore } from "../platform/semaphore.js";
 import type { AgentRuntime } from "../runtime/types.js";
 import { createGuardrails } from "./guardrails.js";
 import type { AgentToolDefinition } from "./tools.js";
@@ -14,6 +16,8 @@ type CreateAgentOptions<TOutput> = {
 	output: TOutput;
 };
 
+const sessionSlots = createSemaphore(env.AGENT_MAX_CONCURRENCY);
+
 export const createAgent = async <TOutput>(
 	agent: Agent,
 	runtime: AgentRuntime,
@@ -21,11 +25,27 @@ export const createAgent = async <TOutput>(
 ): Promise<GuardedAgentSession<TOutput>> => {
 	const { config, customTools = [], output } = options;
 
-	const session = await runtime.createSession(agent, {
-		model: config.model,
-		limits: config.limits,
-		customTools,
-	});
+	const releaseSlot = await sessionSlots.acquire();
+	let slotReleased = false;
+	const release = (): void => {
+		if (slotReleased) {
+			return;
+		}
+		slotReleased = true;
+		releaseSlot();
+	};
+
+	let session: Awaited<ReturnType<AgentRuntime["createSession"]>>;
+	try {
+		session = await runtime.createSession(agent, {
+			model: config.model,
+			limits: config.limits,
+			customTools,
+		});
+	} catch (cause) {
+		release();
+		throw cause;
+	}
 
 	const guardrails = createGuardrails({
 		agentId: agent.id,
@@ -49,6 +69,7 @@ export const createAgent = async <TOutput>(
 		dispose: () => {
 			guardrails.dispose();
 			session.dispose();
+			release();
 		},
 	};
 };
