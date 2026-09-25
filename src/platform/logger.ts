@@ -1,3 +1,6 @@
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { inspect } from "node:util";
 import { env } from "./env.js";
 
 export enum LogLevel {
@@ -6,6 +9,12 @@ export enum LogLevel {
 	ERROR,
 }
 
+const levelNames: Record<LogLevel, string> = {
+	[LogLevel.DEBUG]: "DEBUG",
+	[LogLevel.INFO]: "INFO",
+	[LogLevel.ERROR]: "ERROR",
+};
+
 const parseLogLevel = (level: string): LogLevel => {
 	if (level in LogLevel) {
 		return LogLevel[level as keyof typeof LogLevel];
@@ -13,10 +22,20 @@ const parseLogLevel = (level: string): LogLevel => {
 	throw new Error(`Invalid log level: ${level}`);
 };
 
+const formatMessage = (level: LogLevel, messages: unknown[]): string => {
+	const text = messages
+		.map((message) =>
+			typeof message === "string" ? message : inspect(message),
+		)
+		.join(" ");
+	return `[${new Date().toISOString()}] [${levelNames[level]}] ${text}`;
+};
+
 class Logger {
 	private static instance: Logger;
 	private logLevel: LogLevel;
 	private readonly timers = new Map<string, number>();
+	private fileLoggingFailed = false;
 
 	private constructor(logLevel: LogLevel) {
 		this.logLevel = logLevel;
@@ -34,10 +53,42 @@ class Logger {
 		return this.logLevel <= level;
 	}
 
-	public debug(...messages: unknown[]): void {
-		if (this.shouldLog(LogLevel.DEBUG)) {
-			console.debug(`[${new Date().toISOString()}] [DEBUG]`, ...messages);
+	private writeToFile(line: string): void {
+		if (!env.LOG_FILE || this.fileLoggingFailed) {
+			return;
 		}
+
+		try {
+			const directory = dirname(env.LOG_FILE);
+			if (directory && directory !== ".") {
+				mkdirSync(directory, { recursive: true });
+			}
+			appendFileSync(env.LOG_FILE, `${line}\n`);
+		} catch (cause) {
+			this.fileLoggingFailed = true;
+			console.error(
+				`[${new Date().toISOString()}] [ERROR] Failed to write log file ${env.LOG_FILE}`,
+				cause,
+			);
+		}
+	}
+
+	private emit(
+		level: LogLevel,
+		write: (...messages: unknown[]) => void,
+		messages: unknown[],
+	): void {
+		if (!this.shouldLog(level)) {
+			return;
+		}
+
+		const line = formatMessage(level, messages);
+		write(line);
+		this.writeToFile(line);
+	}
+
+	public debug(...messages: unknown[]): void {
+		this.emit(LogLevel.DEBUG, console.debug, messages);
 	}
 
 	public startTimer(id: string, message: string): void {
@@ -56,15 +107,11 @@ class Logger {
 	}
 
 	public info(...messages: unknown[]): void {
-		if (this.shouldLog(LogLevel.INFO)) {
-			console.info(`[${new Date().toISOString()}] [INFO]`, ...messages);
-		}
+		this.emit(LogLevel.INFO, console.info, messages);
 	}
 
 	public error(...messages: unknown[]): void {
-		if (this.shouldLog(LogLevel.ERROR)) {
-			console.error(`[${new Date().toISOString()}] [ERROR]`, ...messages);
-		}
+		this.emit(LogLevel.ERROR, console.error, messages);
 	}
 }
 

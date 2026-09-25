@@ -7,6 +7,11 @@ export const env = cleanEnv(process.env, {
 		desc: "The log level for the application.",
 	}),
 
+	LOG_FILE: str({
+		default: "logs/codereviewer.log",
+		desc: "The path to the log file. An empty value disables file logging.",
+	}),
+
 	MODEL_API: str({
 		choices: ["openai-completions"],
 		default: "openai-completions",
@@ -29,10 +34,6 @@ export const env = cleanEnv(process.env, {
 
 	REPO_DIR: str({
 		desc: "The path to the repository directory.",
-	}),
-
-	GIT_DIFF_PATH: str({
-		desc: "The path to the git diff file.",
 	}),
 
 	DEFAULT_MODEL_NAME: str({

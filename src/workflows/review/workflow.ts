@@ -17,6 +17,7 @@ import {
 import type { Workflow, WorkflowContext } from "../types.js";
 import { CodeQualityAgent } from "./agents/code-quality.js";
 import { VerifierAgent } from "./agents/verifier.js";
+import { getReviewEnv } from "./env.js";
 import { formatReviewPrompt, formatVerificationPrompt } from "./prompt.js";
 import { createEditReviewFindingTool } from "./tools/edit-review-finding.js";
 import { nextFindingId } from "./tools/review-finding.js";
@@ -44,28 +45,29 @@ const toGuardrailFinding = (
 };
 
 export const validateReviewInputs = async (): Promise<void> => {
+	const { GIT_DIFF_PATH } = getReviewEnv();
+
 	const repository = await stat(env.REPO_DIR).catch(() => undefined);
 	if (!repository?.isDirectory()) {
 		throw new Error(`REPO_DIR is not a readable directory: ${env.REPO_DIR}`);
 	}
 
-	const diff = await stat(env.GIT_DIFF_PATH).catch(() => undefined);
+	const diff = await stat(GIT_DIFF_PATH).catch(() => undefined);
 	if (!diff?.isFile()) {
-		throw new Error(
-			`GIT_DIFF_PATH is not a readable file: ${env.GIT_DIFF_PATH}`,
-		);
+		throw new Error(`GIT_DIFF_PATH is not a readable file: ${GIT_DIFF_PATH}`);
 	}
 
 	await access(env.REPO_DIR, constants.R_OK);
-	await access(env.GIT_DIFF_PATH, constants.R_OK);
+	await access(GIT_DIFF_PATH, constants.R_OK);
 };
 
 export const run = async (context: WorkflowContext): Promise<ReviewReport> => {
 	await validateReviewInputs();
 
-	const changeSource: ChangeSource = createLocalGitChangeSource();
+	const { GIT_DIFF_PATH } = getReviewEnv();
+	const changeSource: ChangeSource = createLocalGitChangeSource(GIT_DIFF_PATH);
 
-	info("Reading Git diff", env.GIT_DIFF_PATH);
+	info("Reading Git diff", GIT_DIFF_PATH);
 	const changeSet = await changeSource.load();
 	const responses: ReviewReport = {};
 
