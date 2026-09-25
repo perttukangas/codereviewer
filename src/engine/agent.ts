@@ -56,6 +56,7 @@ export const createAgent = async <TOutput>(
 	return {
 		prompt: async (prompt): Promise<AgentResponse<TOutput>> => {
 			guardrails.start();
+			const startedAt = Date.now();
 			try {
 				await session.prompt(prompt);
 			} finally {
@@ -64,6 +65,8 @@ export const createAgent = async <TOutput>(
 			return {
 				output,
 				guardrails: guardrails.getOutcomes(),
+				durationMs: Date.now() - startedAt,
+				usage: session.getUsage(),
 			};
 		},
 		dispose: () => {

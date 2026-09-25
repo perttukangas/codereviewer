@@ -1,15 +1,5 @@
 import type { AgentSession as PiAgentSession } from "@earendil-works/pi-coding-agent";
-
-export type AgentUsage = {
-	inputTokens: number;
-	outputTokens: number;
-	cacheReadTokens: number;
-	cacheWriteTokens: number;
-	totalTokens: number;
-	reportedTotalTokens: number;
-	toolCalls: number;
-	tools: Record<string, number>;
-};
+import type { AgentUsage } from "../../types.js";
 
 export const collectAgentUsage = (session: PiAgentSession): AgentUsage => {
 	const assistantMessages = session.messages.filter(

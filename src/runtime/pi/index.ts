@@ -11,6 +11,7 @@ import type {
 	AgentRuntime,
 	AgentRuntimeEvent,
 	AgentRuntimeEventListener,
+	AgentUsage,
 	CreateSessionOptions,
 	RuntimeSession,
 } from "../types.js";
@@ -19,6 +20,7 @@ import {
 	logAgentEvent,
 	logAgentResult,
 } from "./events/index.js";
+import { collectAgentUsage } from "./events/usage.js";
 import { toPiTool } from "./tools.js";
 
 const toRuntimeEvent = (
@@ -136,6 +138,7 @@ export const createPiRuntime = (): AgentRuntime => ({
 			clearQueue: (): void => {
 				session.clearQueue();
 			},
+			getUsage: (): AgentUsage => collectAgentUsage(session),
 			get isStreaming(): boolean {
 				return session.isStreaming;
 			},

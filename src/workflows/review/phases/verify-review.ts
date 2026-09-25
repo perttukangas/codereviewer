@@ -7,8 +7,85 @@ import { VerifierAgent } from "../agents/verifier.js";
 import { formatVerificationPrompt } from "../prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId } from "../tools/review-finding/index.js";
-import type { AgentReview } from "../types.js";
+import type { AgentReview, ReviewFinding, ReviewRunState } from "../types.js";
 import { toGuardrailError } from "./errors.js";
+
+const DIFF_HEADER_PREFIX = "diff --git ";
+
+type DiffFile = {
+	path: string;
+	content: string;
+};
+
+const parseDiffPath = (header: string): string => {
+	const rest = header.slice(DIFF_HEADER_PREFIX.length).trim();
+
+	const quoted = rest.match(/"b\/(.+)"$/);
+	if (quoted) {
+		return quoted[1];
+	}
+
+	const plain = rest.match(/\sb\/(.+)$/);
+	if (plain) {
+		return plain[1];
+	}
+
+	return rest;
+};
+
+const parseDiff = (diff: string): DiffFile[] => {
+	const files: DiffFile[] = [];
+	let current: { path: string; lines: string[] } | undefined;
+
+	for (const line of diff.split("\n")) {
+		if (line.startsWith(DIFF_HEADER_PREFIX)) {
+			if (current) {
+				files.push({ path: current.path, content: current.lines.join("\n") });
+			}
+			current = { path: parseDiffPath(line), lines: [line] };
+			continue;
+		}
+
+		if (current) {
+			current.lines.push(line);
+		}
+	}
+
+	if (current) {
+		files.push({ path: current.path, content: current.lines.join("\n") });
+	}
+
+	return files;
+};
+
+const selectDiffFiles = (diff: string, paths: string[]): string => {
+	if (paths.length === 0) {
+		return diff;
+	}
+
+	const wanted = new Set(paths);
+	const selected = parseDiff(diff).filter((file) => wanted.has(file.path));
+
+	return selected.map((file) => file.content).join("\n");
+};
+
+const findingFilePaths = (findings: ReviewFinding[]): string[] => {
+	const paths = new Set<string>();
+
+	for (const finding of findings) {
+		for (const filePath of finding.suggestedChange?.filePaths ?? []) {
+			paths.add(filePath);
+		}
+		for (const codeChange of finding.suggestedCodeChanges ?? []) {
+			paths.add(codeChange.filePath);
+			for (const filePath of codeChange.additionalFilePaths ?? []) {
+				paths.add(filePath);
+			}
+		}
+	}
+
+	return [...paths];
+};
 
 export const verifyReview = async (
 	context: WorkflowContext,
@@ -16,6 +93,7 @@ export const verifyReview = async (
 	review: AgentReview,
 	repositoryDir: string,
 	diff: string,
+	run: ReviewRunState,
 ): Promise<void> => {
 	const eligible = review.findings;
 	if (eligible.length === 0) {
@@ -29,20 +107,31 @@ export const verifyReview = async (
 		review.findings,
 	);
 
-	const outcomes = await runGuardedSession({
+	const scopedDiff = selectDiffFiles(diff, findingFilePaths(eligible));
+
+	const response = await runGuardedSession({
 		agent: VerifierAgent,
 		runtime: context.runtime,
 		config: getAgentConfig(VerifierAgent),
 		customTools: [editFindingTool],
 		output: review,
-		prompt: formatVerificationPrompt(VerifierAgent, reviewer, eligible, diff),
+		prompt: formatVerificationPrompt(
+			VerifierAgent,
+			reviewer,
+			eligible,
+			scopedDiff,
+		),
 		timerId,
 	});
 
-	for (const outcome of outcomes) {
-		review.errors.push(
+	run.telemetry.record(timerId, response.durationMs, response.usage);
+
+	for (const outcome of response.guardrails.filter(
+		(guardrail) => guardrail.terminated,
+	)) {
+		run.errors.push(
 			toGuardrailError(
-				nextId(review.errors, `${timerId}:error`),
+				nextId(run.errors, `${timerId}:error`),
 				VerifierAgent.id,
 				outcome,
 			),

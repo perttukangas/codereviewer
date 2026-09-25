@@ -55,6 +55,14 @@ const normalizeCodeChanges = async (
 				suggestedCodeChange.oldText,
 			);
 
+			const additionalFilePaths = suggestedCodeChange.additionalFilePaths
+				? await Promise.all(
+						suggestedCodeChange.additionalFilePaths.map((additionalPath) =>
+							validateFilePath(additionalPath, repoDir),
+						),
+					)
+				: undefined;
+
 			return {
 				...suggestedCodeChange,
 				filePath: filePath.relativePath,
@@ -64,6 +72,7 @@ const normalizeCodeChanges = async (
 					matchIndex,
 					suggestedCodeChange.oldText,
 				),
+				additionalFilePaths,
 			};
 		}),
 	);

@@ -48,6 +48,7 @@ export const reviewFindingGuidelines = [
 	"Shared severity rubric: CRITICAL means an active or highly likely issue with severe impact that should block release or immediate merge. HIGH means significant risk with clear impact and high confidence that should be fixed before release or in the current change window. MEDIUM means an important issue with meaningful impact that is not release-blocking by itself. LOW means a minor but actionable issue with limited impact. INFO means an improvement note or clarification with minimal direct risk.",
 	"Use suggestedCodeChanges for small, localized issues when you can suggest a concrete code fix, even if you are not entirely confident it is the intended solution.",
 	"Use suggestedChange for fixes that are likely multi-step, broad, or cannot be easily represented as a small set of exact code changes; provide suggestedCodeChanges or suggestedChange, never both.",
+	"List every repository-relative file that contributed to the suggestion in suggestedChange.filePaths and in each suggestedCodeChanges entry's additionalFilePaths, not only the file that contains the primary change. Include callers, definitions, configuration, and tests when they are part of the issue.",
 ];
 
 export const reviewCodeChangeSchema = Type.Object({
@@ -63,6 +64,20 @@ export const reviewCodeChangeSchema = Type.Object({
 		description:
 			"Text that replaces the exact oldText. Use an empty string for deletion.",
 	}),
+	additionalFilePaths: Type.Optional(
+		Type.Array(
+			Type.String({
+				minLength: 1,
+				description:
+					"Repository-relative path of a file that contributed to this suggestion.",
+			}),
+			{
+				minItems: 1,
+				description:
+					"Every repository-relative file that contributed to this suggestion, including callers, definitions, configuration, and tests where applicable.",
+			},
+		),
+	),
 });
 
 export const reviewFindingSchema = Type.Object({
@@ -97,7 +112,7 @@ export const reviewFindingSchema = Type.Object({
 				{
 					minItems: 1,
 					description:
-						"One or more exact file paths affected by the broader fix.",
+						"Every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests where applicable.",
 				},
 			),
 

@@ -1,4 +1,8 @@
-import type { GuardrailDimension } from "../../engine/types.js";
+import type { TelemetryCollector } from "../../engine/telemetry.js";
+import type {
+	WorkflowFailureError,
+	WorkflowGuardrailError,
+} from "../../engine/types.js";
 
 export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
 
@@ -8,6 +12,7 @@ export type ReviewCodeChange = {
 	newText: string;
 	startLine: number;
 	endLine: number;
+	additionalFilePaths?: string[];
 };
 
 export type ReviewSuggestedChange = {
@@ -29,28 +34,19 @@ export type ReviewFinding = {
 	mergedFindingIds?: string[];
 };
 
-export type ReviewGuardrailError = {
-	id: string;
-	agentId: string;
-	kind: "guardrail";
-	dimension: GuardrailDimension;
-	limit: number;
-	observed: number;
-	message: string;
-};
+export type ReviewGuardrailError = WorkflowGuardrailError;
 
-export type ReviewFailureError = {
-	id: string;
-	agentId: string;
-	kind: "error";
-	message: string;
-};
+export type ReviewFailureError = WorkflowFailureError;
 
 export type ReviewError = ReviewGuardrailError | ReviewFailureError;
 
 export type AgentReview = {
 	findings: ReviewFinding[];
-	errors: ReviewError[];
 };
 
 export type ReviewReport = Record<string, AgentReview>;
+
+export type ReviewRunState = {
+	errors: ReviewError[];
+	telemetry: TelemetryCollector;
+};

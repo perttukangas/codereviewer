@@ -5,8 +5,8 @@ import type { AgentToolDefinition } from "./tools.js";
 import type {
 	Agent,
 	AgentConfig,
+	AgentResponse,
 	GuardedAgentSession,
-	GuardrailOutcome,
 } from "./types.js";
 
 export type RunGuardedSessionOptions<TOutput> = {
@@ -21,7 +21,7 @@ export type RunGuardedSessionOptions<TOutput> = {
 
 export const runGuardedSession = async <TOutput>(
 	options: RunGuardedSessionOptions<TOutput>,
-): Promise<GuardrailOutcome[]> => {
+): Promise<AgentResponse<TOutput>> => {
 	const {
 		agent,
 		runtime,
@@ -41,9 +41,7 @@ export const runGuardedSession = async <TOutput>(
 			output,
 		});
 		startTimer(timerId, "Starting agent");
-		const response = await session.prompt(prompt);
-
-		return response.guardrails.filter((outcome) => outcome.terminated);
+		return await session.prompt(prompt);
 	} finally {
 		session?.dispose();
 		stopTimer(timerId, "Completed agent");

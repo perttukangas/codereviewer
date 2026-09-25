@@ -7,12 +7,13 @@ import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import { formatDeduplicationPrompt } from "../prompt.js";
 import { createMergeReviewFindingsTool } from "../tools/merge-review-findings.js";
 import { nextId } from "../tools/review-finding/index.js";
-import type { AgentReview, ReviewReport } from "../types.js";
+import type { AgentReview, ReviewReport, ReviewRunState } from "../types.js";
 import { toGuardrailError } from "./errors.js";
 
 export const deduplicate = async (
 	context: WorkflowContext,
 	report: ReviewReport,
+	run: ReviewRunState,
 ): Promise<void> => {
 	if (!getAgentConfig(DeduplicatorAgent).enabled) {
 		debug("Skipping disabled deduplicator agent", DeduplicatorAgent.id);
@@ -30,14 +31,14 @@ export const deduplicate = async (
 		return;
 	}
 
-	const dedupReview: AgentReview = { findings: [], errors: [] };
+	const dedupReview: AgentReview = { findings: [] };
 	const mergeTool = createMergeReviewFindingsTool(
 		env.REPO_DIR,
 		report,
 		dedupReview,
 	);
 
-	const outcomes = await runGuardedSession({
+	const response = await runGuardedSession({
 		agent: DeduplicatorAgent,
 		runtime: context.runtime,
 		config: getAgentConfig(DeduplicatorAgent),
@@ -46,17 +47,25 @@ export const deduplicate = async (
 		prompt: formatDeduplicationPrompt(DeduplicatorAgent, eligible),
 	});
 
-	for (const outcome of outcomes) {
-		dedupReview.errors.push(
+	run.telemetry.record(
+		DeduplicatorAgent.id,
+		response.durationMs,
+		response.usage,
+	);
+
+	for (const outcome of response.guardrails.filter(
+		(guardrail) => guardrail.terminated,
+	)) {
+		run.errors.push(
 			toGuardrailError(
-				nextId(dedupReview.errors, `${DeduplicatorAgent.id}:error`),
+				nextId(run.errors, `${DeduplicatorAgent.id}:error`),
 				DeduplicatorAgent.id,
 				outcome,
 			),
 		);
 	}
 
-	if (dedupReview.findings.length > 0 || dedupReview.errors.length > 0) {
+	if (dedupReview.findings.length > 0) {
 		report[DeduplicatorAgent.id] = dedupReview;
 	}
 };

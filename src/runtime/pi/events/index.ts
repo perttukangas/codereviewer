@@ -7,7 +7,7 @@ import { debug } from "../../../platform/logger.js";
 import { describeAgentEvent, describeAssistantMessage } from "./describe.js";
 import { collectAgentUsage } from "./usage.js";
 
-export type { AgentUsage } from "./usage.js";
+export type { AgentUsage } from "../../types.js";
 
 export type AgentDiagnostics = {
 	systemPrompt: string;

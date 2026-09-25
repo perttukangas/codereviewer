@@ -5,7 +5,7 @@ import type { WorkflowContext } from "../../types.js";
 import { formatReviewPrompt } from "../prompt.js";
 import { nextId } from "../tools/review-finding/index.js";
 import { createReviewFindingTool } from "../tools/submit-review-finding.js";
-import type { AgentReview } from "../types.js";
+import type { AgentReview, ReviewRunState } from "../types.js";
 import { toGuardrailError } from "./errors.js";
 
 export const reviewAgent = async (
@@ -14,6 +14,7 @@ export const reviewAgent = async (
 	repositoryDir: string,
 	diff: string,
 	review: AgentReview,
+	run: ReviewRunState,
 ): Promise<void> => {
 	const reviewFindingTool = createReviewFindingTool(
 		agent,
@@ -21,7 +22,7 @@ export const reviewAgent = async (
 		review.findings,
 	);
 
-	const outcomes = await runGuardedSession({
+	const response = await runGuardedSession({
 		agent,
 		runtime: context.runtime,
 		config: getAgentConfig(agent),
@@ -30,10 +31,14 @@ export const reviewAgent = async (
 		prompt: formatReviewPrompt(agent, diff),
 	});
 
-	for (const outcome of outcomes) {
-		review.errors.push(
+	run.telemetry.record(agent.id, response.durationMs, response.usage);
+
+	for (const outcome of response.guardrails.filter(
+		(guardrail) => guardrail.terminated,
+	)) {
+		run.errors.push(
 			toGuardrailError(
-				nextId(review.errors, `${agent.id}:error`),
+				nextId(run.errors, `${agent.id}:error`),
 				agent.id,
 				outcome,
 			),

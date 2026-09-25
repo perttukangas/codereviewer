@@ -1,3 +1,5 @@
+import type { AgentUsage } from "../runtime/types.js";
+
 export type Agent = {
 	id: string;
 	tools: string[];
@@ -39,9 +41,41 @@ export type GuardrailOutcome = {
 	terminated: boolean;
 };
 
+export type WorkflowGuardrailError = {
+	id: string;
+	agentId: string;
+	kind: "guardrail";
+	dimension: GuardrailDimension;
+	limit: number;
+	observed: number;
+	message: string;
+};
+
+export type WorkflowFailureError = {
+	id: string;
+	agentId: string;
+	kind: "error";
+	message: string;
+};
+
+export type WorkflowError = WorkflowGuardrailError | WorkflowFailureError;
+
+export type AgentTelemetry = {
+	durationMs: number;
+	usage: AgentUsage;
+};
+
+export type WorkflowTelemetry = {
+	durationMs: number;
+	usage: AgentUsage;
+	agents: Record<string, AgentTelemetry>;
+};
+
 export type AgentResponse<TOutput> = {
 	output: TOutput;
 	guardrails: GuardrailOutcome[];
+	durationMs: number;
+	usage: AgentUsage;
 };
 
 export interface GuardedAgentSession<TOutput> {
