@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { ReviewCodeChange, ReviewFinding } from "../../types.js";
+import type {
+	ReviewCodeChange,
+	ReviewFinding,
+	ReviewSuggestedChange,
+} from "../../types.js";
 import type { ReviewCodeChangeInput, ReviewFindingInput } from "./schema.js";
 
 export const validateFinding = async (
@@ -10,72 +14,69 @@ export const validateFinding = async (
 	findings: ReviewFinding[],
 	excludeId?: string,
 ): Promise<Omit<ReviewFinding, "id">> => {
-	validateSuggestion(finding);
 	validateUniqueTitle(findings, finding.title, excludeId);
 
-	const suggestedChange = finding.suggestedChange
-		? {
-				...finding.suggestedChange,
-				filePaths: await Promise.all(
-					finding.suggestedChange.filePaths.map((filePath) =>
-						validateFilePath(filePath, repoDir),
-					),
-				),
-			}
+	const codeChange = finding.suggestedChange.codeChange
+		? await normalizeCodeChange(finding.suggestedChange.codeChange, repoDir)
 		: undefined;
+
+	const suggestedChange: ReviewSuggestedChange = {
+		...finding.suggestedChange,
+		filePaths: await normalizeFilePaths(
+			finding.suggestedChange.filePaths,
+			codeChange?.filePath,
+			repoDir,
+		),
+		codeChange,
+	};
 
 	const normalizedFinding: Omit<ReviewFinding, "id"> = {
 		...finding,
 		suggestedChange,
-		suggestedCodeChanges: await normalizeCodeChanges(
-			finding.suggestedCodeChanges,
-			repoDir,
-		),
 	};
 
 	return normalizedFinding;
 };
 
-const normalizeCodeChanges = async (
-	suggestedCodeChanges: ReviewCodeChangeInput[] | undefined,
+const normalizeFilePaths = async (
+	filePaths: string[],
+	codeChangeFilePath: string | undefined,
 	repoDir: string,
-): Promise<ReviewCodeChange[] | undefined> => {
-	if (!suggestedCodeChanges) {
-		return undefined;
-	}
+): Promise<string[]> => {
+	const candidates = codeChangeFilePath
+		? [...filePaths, codeChangeFilePath]
+		: filePaths;
 
-	return Promise.all(
-		suggestedCodeChanges.map(async (suggestedCodeChange) => {
-			const filePath = await readRepositoryFile(
-				suggestedCodeChange.filePath,
-				repoDir,
-			);
-			const matchIndex = findUniqueMatch(
-				filePath.content,
-				suggestedCodeChange.oldText,
-			);
-
-			const additionalFilePaths = suggestedCodeChange.additionalFilePaths
-				? await Promise.all(
-						suggestedCodeChange.additionalFilePaths.map((additionalPath) =>
-							validateFilePath(additionalPath, repoDir),
-						),
-					)
-				: undefined;
-
-			return {
-				...suggestedCodeChange,
-				filePath: filePath.relativePath,
-				startLine: getLineNumber(filePath.content, matchIndex),
-				endLine: getEndLineNumber(
-					filePath.content,
-					matchIndex,
-					suggestedCodeChange.oldText,
-				),
-				additionalFilePaths,
-			};
-		}),
+	const normalized = await Promise.all(
+		candidates.map((filePath) => validateFilePath(filePath, repoDir)),
 	);
+
+	return [...new Set(normalized)];
+};
+
+const normalizeCodeChange = async (
+	suggestedCodeChange: ReviewCodeChangeInput,
+	repoDir: string,
+): Promise<ReviewCodeChange> => {
+	const filePath = await readRepositoryFile(
+		suggestedCodeChange.filePath,
+		repoDir,
+	);
+	const matchIndex = findUniqueMatch(
+		filePath.content,
+		suggestedCodeChange.oldText,
+	);
+
+	return {
+		...suggestedCodeChange,
+		filePath: filePath.relativePath,
+		startLine: getLineNumber(filePath.content, matchIndex),
+		endLine: getEndLineNumber(
+			filePath.content,
+			matchIndex,
+			suggestedCodeChange.oldText,
+		),
+	};
 };
 
 const readRepositoryFile = async (
@@ -98,7 +99,7 @@ const findUniqueMatch = (content: string, oldText: string): number => {
 	const firstMatch = content.indexOf(oldText);
 	if (firstMatch === -1 || content.indexOf(oldText, firstMatch + 1) !== -1) {
 		throw new Error(
-			"suggestedCodeChange.oldText must occur exactly once in the current file.",
+			"suggestedChange.codeChange.oldText must occur exactly once in the current file.",
 		);
 	}
 
@@ -119,17 +120,6 @@ const getEndLineNumber = (
 	return (
 		getLineNumber(content, startIndex) + lineBreaks - (endsAtLineBreak ? 1 : 0)
 	);
-};
-
-const validateSuggestion = (finding: ReviewFindingInput): void => {
-	const hasSuggestedChange = finding.suggestedChange !== undefined;
-	const hasCodeChanges = finding.suggestedCodeChanges !== undefined;
-
-	if (hasSuggestedChange === hasCodeChanges) {
-		throw new Error(
-			"Exactly one of suggestedChange or suggestedCodeChanges must be provided.",
-		);
-	}
 };
 
 const validateFilePath = async (

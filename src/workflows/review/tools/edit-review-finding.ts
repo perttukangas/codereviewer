@@ -21,11 +21,11 @@ export const createEditReviewFindingTool = (
 			"If required correct or invalidate an incorrect review finding",
 		promptGuidelines: [
 			"Critically evaluate each supplied finding rather than trusting the reviewer's claims. Independently confirm the evidence, challenge its assumptions, and re-derive the severity and confidence from the rubric yourself.",
-			"Use edit_review_finding when your own analysis shows a finding is incorrect, unsupported by the diff or read-only evidence, misclassified in severity, has an inaccurate confidence, or has a wrong suggested fix. Do not edit a finding for wording, style, or other semantics that do not change its correctness.",
+			"Use edit_review_finding when your own analysis shows a finding is incorrect, unsupported by the diff or read-only evidence, misclassified in severity, has an inaccurate confidence, or has a wrong suggested change. Do not edit a finding for wording, style, or other semantics that do not change its correctness.",
 			...reviewFindingGuidelines,
 			"Actively re-derive the correct severity from the rubric for every finding rather than accepting the submitted label. If the impact you identify meets a higher severity definition than the one submitted, raise the severity. A severe issue must not keep a lower label.",
 			"Provide only the fields that need correction. Fields you omit keep their current values.",
-			"To replace the suggested fix, provide suggestedCodeChanges or suggestedChange. Providing one clears the other. If you provide neither, the existing suggested fix is kept.",
+			"To replace the suggested change, provide suggestedChange. If you omit suggestedChange, the existing suggested change is kept.",
 			"Mark a finding invalid with a clear invalidReason ONLY when it cannot be corrected by editing, never for wording or style. Do not combine invalidReason with field changes.",
 			"A finding already marked invalid cannot be edited. Clear invalidReason with an empty string before editing its fields.",
 			"Use the finding id from the findings under verification. Do not invent identifiers.",
@@ -107,22 +107,13 @@ export const createEditReviewFindingTool = (
 				};
 			}
 
-			const hasSuggestion =
-				changes.suggestedChange !== undefined ||
-				changes.suggestedCodeChanges !== undefined;
-
 			const merged: ReviewFindingInput = {
 				title: changes.title ?? base.title,
 				severity: changes.severity ?? base.severity,
 				confidence: changes.confidence ?? base.confidence,
 				problem: changes.problem ?? base.problem,
 				rationale: changes.rationale ?? base.rationale,
-				suggestedChange: hasSuggestion
-					? changes.suggestedChange
-					: base.suggestedChange,
-				suggestedCodeChanges: hasSuggestion
-					? changes.suggestedCodeChanges
-					: base.suggestedCodeChanges,
+				suggestedChange: changes.suggestedChange ?? base.suggestedChange,
 			};
 
 			const updated: ReviewFinding = {

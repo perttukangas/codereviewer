@@ -12,12 +12,12 @@ export type ReviewCodeChange = {
 	newText: string;
 	startLine: number;
 	endLine: number;
-	additionalFilePaths?: string[];
 };
 
 export type ReviewSuggestedChange = {
 	filePaths: string[];
 	explanation: string;
+	codeChange?: ReviewCodeChange;
 };
 
 export type ReviewFinding = {
@@ -26,8 +26,7 @@ export type ReviewFinding = {
 	severity: ReviewSeverity;
 	confidence: number;
 	problem: string;
-	suggestedChange?: ReviewSuggestedChange;
-	suggestedCodeChanges?: ReviewCodeChange[];
+	suggestedChange: ReviewSuggestedChange;
 	rationale: string;
 	invalidReason?: string;
 	mergedFrom?: string[];

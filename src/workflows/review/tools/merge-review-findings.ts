@@ -66,7 +66,7 @@ export const createMergeReviewFindingsTool = (
 		promptGuidelines: [
 			"Use merge_review_findings once for each group of findings that describe the same underlying issue, including findings produced by different review agents.",
 			"Provide the ids of every finding in the group. At least two distinct ids are required.",
-			"Author the merged finding yourself. Combine the evidence from every source into one clear title, problem, and rationale, and provide exactly one suggested fix.",
+			"Author the merged finding yourself. Combine the evidence from every source into one clear title, problem, and rationale, and provide a single suggested change.",
 			"Favor higher confidence when multiple agents independently report the same issue because corroborating evidence strengthens the finding, but confidence must never be set lower than the lowest confidence among the merged findings.",
 			...reviewFindingGuidelines,
 			"The merged severity must stay between the least and most severe severity among the merged findings. Do not invent a severity outside that range.",

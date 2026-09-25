@@ -76,11 +76,9 @@ const findingFilePaths = (findings: ReviewFinding[]): string[] => {
 		for (const filePath of finding.suggestedChange?.filePaths ?? []) {
 			paths.add(filePath);
 		}
-		for (const codeChange of finding.suggestedCodeChanges ?? []) {
-			paths.add(codeChange.filePath);
-			for (const filePath of codeChange.additionalFilePaths ?? []) {
-				paths.add(filePath);
-			}
+		const codeChangeFilePath = finding.suggestedChange?.codeChange?.filePath;
+		if (codeChangeFilePath) {
+			paths.add(codeChangeFilePath);
 		}
 	}
 

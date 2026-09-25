@@ -6,6 +6,7 @@ export {
 	reviewCodeChangeSchema,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
+	reviewSuggestedChangeSchema,
 	severityRank,
 	severityValues,
 } from "./schema.js";
