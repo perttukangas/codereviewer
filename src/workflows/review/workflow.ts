@@ -6,7 +6,6 @@ import type { ChangeSource } from "../../integrations/types.js";
 import { debug, info } from "../../shared/logger.js";
 import type { Workflow, WorkflowContext, WorkflowResult } from "../types.js";
 import { reviewAgents } from "./agents/index.js";
-import { VerifierAgent } from "./agents/verifier.js";
 import { deduplicate } from "./phases/deduplicate.js";
 import { reviewAgent } from "./phases/review-agent.js";
 import { verifyReview } from "./phases/verify-review.js";
@@ -74,11 +73,7 @@ const runAgentPipeline = async (
 
 	try {
 		await reviewAgent(context, agent, repositoryDir, diff, review, runState);
-		if (getAgentConfig(VerifierAgent).enabled) {
-			await verifyReview(context, agent, review, repositoryDir, diff, runState);
-		} else {
-			debug("Skipping disabled verifier agent", VerifierAgent.id);
-		}
+		await verifyReview(context, agent, review, repositoryDir, diff, runState);
 	} catch (cause) {
 		runState.errors.push(
 			toReviewError(nextId(runState.errors, `${agent.id}:error`), agent, cause),

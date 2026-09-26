@@ -1,6 +1,7 @@
+import { deriveAgent } from "../../../engine/agent-id.js";
 import type { Agent } from "../../../engine/types.js";
 
-export const VerifierAgent: Agent = {
+const baseVerifierAgent: Agent = {
 	id: "verifier",
 	tools: ["read", "grep", "find", "ls", "edit_review_finding"],
 	role: "You are a code review verification specialist. Are the findings produced by the reviewer valid?",
@@ -14,3 +15,6 @@ export const VerifierAgent: Agent = {
 		"Do not edit for wording or style.",
 	],
 };
+
+export const createVerifierAgent = (reviewer: Agent): Agent =>
+	deriveAgent(baseVerifierAgent, `${reviewer.id}:${baseVerifierAgent.id}`);

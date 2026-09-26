@@ -1,9 +1,9 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
-import { info } from "../../../shared/logger.js";
+import { debug, info } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
-import { VerifierAgent } from "../agents/verifier.js";
+import { createVerifierAgent } from "../agents/verifier.js";
 import { toGuardrailError } from "../shared/errors.js";
 import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
@@ -93,44 +93,48 @@ export const verifyReview = async (
 	diff: string,
 	run: ReviewRunState,
 ): Promise<void> => {
-	const eligible = review.findings;
-	if (eligible.length === 0) {
-		info("Skipping verification, no eligible findings to verify", reviewer.id);
+	const verifier = createVerifierAgent(reviewer);
+
+	if (!getAgentConfig(verifier).enabled) {
+		debug("Skipping disabled verifier agent", verifier.id);
 		return;
 	}
 
-	const timerId = `${reviewer.id}:${VerifierAgent.id}`;
+	if (review.findings.length === 0) {
+		info("Skipping verification, no findings to verify", reviewer.id);
+		return;
+	}
+
 	const editFindingTool = createEditReviewFindingTool(
 		repositoryDir,
 		review.findings,
 	);
 
-	const scopedDiff = selectDiffFiles(diff, findingFilePaths(eligible));
+	const scopedDiff = selectDiffFiles(diff, findingFilePaths(review.findings));
 
 	const response = await runGuardedSession({
-		agent: VerifierAgent,
+		agent: verifier,
 		runtime: context.runtime,
-		config: getAgentConfig(VerifierAgent),
+		config: getAgentConfig(verifier),
 		customTools: [editFindingTool],
 		output: review,
 		prompt: formatVerificationPrompt(
-			VerifierAgent,
+			verifier,
 			reviewer,
-			eligible,
+			review.findings,
 			scopedDiff,
 		),
-		timerId,
 	});
 
-	run.telemetry.record(timerId, response.durationMs, response.usage);
+	run.telemetry.record(verifier.id, response.durationMs, response.usage);
 
 	for (const outcome of response.guardrails.filter(
 		(guardrail) => guardrail.terminated,
 	)) {
 		run.errors.push(
 			toGuardrailError(
-				nextId(run.errors, `${timerId}:error`),
-				VerifierAgent.id,
+				nextId(run.errors, `${verifier.id}:error`),
+				verifier.id,
 				outcome,
 			),
 		);

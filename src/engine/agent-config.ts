@@ -7,7 +7,7 @@ const toEnvPrefix = (agentId: string): string =>
 	agentId.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 
 export const getAgentConfig = (agent: Agent): AgentConfig => {
-	const prefix = toEnvPrefix(agent.id);
+	const prefix = toEnvPrefix(agent.configId ?? agent.id);
 	const config = cleanEnv(process.env, {
 		[`${prefix}_ENABLED`]: bool({
 			default: true,

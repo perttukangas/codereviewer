@@ -16,34 +16,25 @@ export type RunGuardedSessionOptions<TOutput> = {
 	customTools?: AgentToolDefinition[];
 	output: TOutput;
 	prompt: string;
-	timerId?: string;
 };
 
 export const runGuardedSession = async <TOutput>(
 	options: RunGuardedSessionOptions<TOutput>,
 ): Promise<AgentResponse<TOutput>> => {
-	const {
-		agent,
-		runtime,
-		config,
-		customTools,
-		output,
-		prompt,
-		timerId = agent.id,
-	} = options;
+	const { agent, runtime, config, customTools, output, prompt } = options;
 
 	let session: GuardedAgentSession<TOutput> | undefined;
 	try {
-		info("Creating guarded agent session", timerId);
+		info("Creating guarded agent session", agent.id);
 		session = await createAgent<TOutput>(agent, runtime, {
 			config,
 			customTools,
 			output,
 		});
-		startTimer(timerId, "Starting agent");
+		startTimer(agent.id, "Starting agent");
 		return await session.prompt(prompt);
 	} finally {
 		session?.dispose();
-		stopTimer(timerId, "Completed agent");
+		stopTimer(agent.id, "Completed agent");
 	}
 };

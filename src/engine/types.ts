@@ -2,6 +2,12 @@ import type { AgentUsage } from "../runtime/types.js";
 
 export type Agent = {
 	id: string;
+	/**
+	 * Base id used to resolve configuration. Defaults to `id`. Set this when an
+	 * agent runs under a scoped runtime id (for example `code-quality:verifier`)
+	 * but should share the configuration of its base agent (`verifier`).
+	 */
+	configId?: string;
 	tools: string[];
 	role: string;
 	scope?: string[];
