@@ -23,17 +23,28 @@ export const logAgentEvent = (
 		return turnNumber;
 	}
 	if (event.type === "message_end" && event.message.role === "assistant") {
-		log.debug(
-			"Agent completed message",
-			describeAssistantMessage(event.message),
-		);
+		const described = describeAssistantMessage(event.message);
+		if (event.message.errorMessage) {
+			log.error("Agent message ended with error", {
+				error: event.message.errorMessage,
+				...described,
+			});
+		} else {
+			log.debug("Agent completed message", described);
+		}
 		return turnNumber;
 	}
 
 	if (event.type === "turn_start") {
 		turnNumber += 1;
 	}
-	log.debug("Agent event", event.type, describeAgentEvent(event, turnNumber));
+
+	const described = describeAgentEvent(event, turnNumber);
+	if (event.type === "agent_end" && "error" in described) {
+		log.error("Agent ended with error", described);
+	} else {
+		log.debug("Agent event", event.type, described);
+	}
 	return turnNumber;
 };
 
