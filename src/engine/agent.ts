@@ -1,6 +1,6 @@
-import { env } from "../platform/env.js";
-import { createSemaphore } from "../platform/semaphore.js";
 import type { AgentRuntime } from "../runtime/types.js";
+import { env } from "../shared/env.js";
+import { createSemaphore } from "../shared/semaphore.js";
 import { createGuardrails } from "./guardrails.js";
 import type { AgentToolDefinition } from "./tools.js";
 import type {

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { env } from "../platform/env.js";
+import { env } from "../shared/env.js";
 import type { ChangeSet, ChangeSource } from "./types.js";
 
 export const createLocalGitChangeSource = (diffPath: string): ChangeSource => ({

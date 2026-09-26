@@ -3,7 +3,7 @@ import type {
 	AgentSession as PiAgentSession,
 } from "@earendil-works/pi-coding-agent";
 
-import { debug } from "../../../platform/logger.js";
+import { debug } from "../../../shared/logger.js";
 import { describeAgentEvent, describeAssistantMessage } from "./describe.js";
 import { collectAgentUsage } from "./usage.js";
 

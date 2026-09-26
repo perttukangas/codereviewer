@@ -1,5 +1,5 @@
-import { debug, error, info } from "../platform/logger.js";
 import type { AgentRuntimeEvent, RuntimeSession } from "../runtime/types.js";
+import { debug, error, info } from "../shared/logger.js";
 import type {
 	AgentGuardrails,
 	GuardrailDimension,

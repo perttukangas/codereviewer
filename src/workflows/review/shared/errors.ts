@@ -1,6 +1,6 @@
 import { describeDimension } from "../../../engine/guardrails.js";
 import type { Agent, GuardrailOutcome } from "../../../engine/types.js";
-import { error } from "../../../platform/logger.js";
+import { error } from "../../../shared/logger.js";
 import type { ReviewError } from "../types.js";
 
 export const toGuardrailError = (

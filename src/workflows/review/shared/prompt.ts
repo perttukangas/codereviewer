@@ -1,6 +1,6 @@
-import { formatPrompt, toTitle } from "../../engine/prompt.js";
-import type { Agent } from "../../engine/types.js";
-import type { ReviewFinding } from "./types.js";
+import { formatPrompt, toTitle } from "../../../engine/prompt.js";
+import type { Agent } from "../../../engine/types.js";
+import type { ReviewFinding } from "../types.js";
 
 export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 	formatPrompt({

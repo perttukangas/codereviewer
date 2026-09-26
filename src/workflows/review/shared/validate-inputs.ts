@@ -1,7 +1,6 @@
 import { access, constants, stat } from "node:fs/promises";
-
-import { env } from "../../../platform/env.js";
-import { getReviewEnv } from "../env.js";
+import { env } from "../../../shared/env.js";
+import { getReviewEnv } from "./env.js";
 
 export const validateReviewInputs = async (): Promise<void> => {
 	const { GIT_DIFF_PATH } = getReviewEnv();

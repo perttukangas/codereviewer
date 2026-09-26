@@ -5,8 +5,8 @@ import {
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import { env } from "../../platform/env.js";
-import { debug } from "../../platform/logger.js";
+import { env } from "../../shared/env.js";
+import { debug } from "../../shared/logger.js";
 import type {
 	AgentRuntime,
 	AgentRuntimeEvent,

@@ -3,20 +3,18 @@ import { createTelemetryCollector } from "../../engine/telemetry.js";
 import type { Agent } from "../../engine/types.js";
 import { createLocalGitChangeSource } from "../../integrations/local-git.js";
 import type { ChangeSource } from "../../integrations/types.js";
-import { debug, info } from "../../platform/logger.js";
+import { debug, info } from "../../shared/logger.js";
 import type { Workflow, WorkflowContext, WorkflowResult } from "../types.js";
 import { reviewAgents } from "./agents/index.js";
 import { VerifierAgent } from "./agents/verifier.js";
-import { getReviewEnv } from "./env.js";
 import { deduplicate } from "./phases/deduplicate.js";
-import { toReviewError } from "./phases/errors.js";
 import { reviewAgent } from "./phases/review-agent.js";
-import { validateReviewInputs } from "./phases/validate-inputs.js";
 import { verifyReview } from "./phases/verify-review.js";
+import { getReviewEnv } from "./shared/env.js";
+import { toReviewError } from "./shared/errors.js";
+import { validateReviewInputs } from "./shared/validate-inputs.js";
 import { nextId, severityValues } from "./tools/review-finding/index.js";
 import type { AgentReview, ReviewReport, ReviewRunState } from "./types.js";
-
-export { validateReviewInputs } from "./phases/validate-inputs.js";
 
 export const run = async (
 	context: WorkflowContext,

@@ -1,14 +1,14 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
-import { info } from "../../../platform/logger.js";
+import { info } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { VerifierAgent } from "../agents/verifier.js";
-import { formatVerificationPrompt } from "../prompt.js";
+import { toGuardrailError } from "../shared/errors.js";
+import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId } from "../tools/review-finding/index.js";
 import type { AgentReview, ReviewFinding, ReviewRunState } from "../types.js";
-import { toGuardrailError } from "./errors.js";
 
 const DIFF_HEADER_PREFIX = "diff --git ";
 

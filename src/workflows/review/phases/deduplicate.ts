@@ -1,14 +1,14 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
-import { env } from "../../../platform/env.js";
-import { debug, info } from "../../../platform/logger.js";
+import { env } from "../../../shared/env.js";
+import { debug, info } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
-import { formatDeduplicationPrompt } from "../prompt.js";
+import { toGuardrailError } from "../shared/errors.js";
+import { formatDeduplicationPrompt } from "../shared/prompt.js";
 import { createMergeReviewFindingsTool } from "../tools/merge-review-findings.js";
 import { nextId } from "../tools/review-finding/index.js";
 import type { AgentReview, ReviewReport, ReviewRunState } from "../types.js";
-import { toGuardrailError } from "./errors.js";
 
 export const deduplicate = async (
 	context: WorkflowContext,

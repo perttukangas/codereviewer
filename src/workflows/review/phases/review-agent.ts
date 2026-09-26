@@ -2,11 +2,11 @@ import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
 import type { WorkflowContext } from "../../types.js";
-import { formatReviewPrompt } from "../prompt.js";
+import { toGuardrailError } from "../shared/errors.js";
+import { formatReviewPrompt } from "../shared/prompt.js";
 import { nextId } from "../tools/review-finding/index.js";
 import { createReviewFindingTool } from "../tools/submit-review-finding.js";
 import type { AgentReview, ReviewRunState } from "../types.js";
-import { toGuardrailError } from "./errors.js";
 
 export const reviewAgent = async (
 	context: WorkflowContext,

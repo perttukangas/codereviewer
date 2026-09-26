@@ -1,6 +1,6 @@
 import { bool, cleanEnv, json, num, str } from "envalid";
 
-import { env } from "../platform/env.js";
+import { env } from "../shared/env.js";
 import type { Agent, AgentConfig } from "./types.js";
 
 const toEnvPrefix = (agentId: string): string =>

@@ -1,4 +1,4 @@
-import { info } from "../../platform/logger.js";
+import { info } from "../../shared/logger.js";
 import { getWorkflow } from "../../workflows/registry.js";
 import { renderReviewReport } from "../../workflows/review/report/json.js";
 import type { ReviewReport } from "../../workflows/review/types.js";

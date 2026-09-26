@@ -1,5 +1,5 @@
-import { info, startTimer, stopTimer } from "../platform/logger.js";
 import type { AgentRuntime } from "../runtime/types.js";
+import { info, startTimer, stopTimer } from "../shared/logger.js";
 import { createAgent } from "./agent.js";
 import type { AgentToolDefinition } from "./tools.js";
 import type {
