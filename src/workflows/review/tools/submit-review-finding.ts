@@ -20,11 +20,8 @@ export const createReviewFindingTool = (
 			"Submit one evidence-based code review finding with precise file paths and specific fix guidance.",
 		promptSnippet: "Submit structured review findings",
 		promptGuidelines: [
-			"Use submit_review_finding once for each distinct finding, and call it repeatedly for multiple findings.",
-			"Scope findings to behavior affected by the diff. Report issues that are directly observable in the diff, or issues caused by the diff whose impact on other code can be confirmed through a read-only investigation. Do not report pre-existing issues, unrelated issues elsewhere in the codebase, speculative risks, or issues that require assumptions not supported by the diff or read-only evidence.",
-			"If no findings are worth reporting, respond exactly: No reportable issues found.",
+			"Use submit_review_finding once for each distinct finding. Call it repeatedly for multiple findings.",
 			...reviewFindingGuidelines,
-			"After submitting all findings do not provide summary, respond exactly: Review complete.",
 		],
 		parameters: reviewFindingSchema,
 		executionMode: "sequential",

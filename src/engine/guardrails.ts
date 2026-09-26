@@ -44,7 +44,7 @@ const softWarningMessage = (
 
 	return [
 		`You are approaching the ${describeDimension(dimension)} (${observedText} of ${limitText}).`,
-		"Wrap up now. Submit any findings you already have and stop investigating.",
+		"Finish your task with the data you already have and stop investigating.",
 	].join(" ");
 };
 

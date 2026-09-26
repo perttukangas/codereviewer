@@ -64,14 +64,9 @@ export const createMergeReviewFindingsTool = (
 			"Merge two or more duplicate review findings into a single consolidated finding and remove the originals.",
 		promptSnippet: "Merge duplicate review findings into one",
 		promptGuidelines: [
-			"Use merge_review_findings once for each group of findings that describe the same underlying issue, including findings produced by different review agents.",
+			"Use merge_review_findings once for each group of findings that describe the same underlying issue.",
 			"Provide the ids of every finding in the group. At least two distinct ids are required.",
-			"Author the merged finding yourself. Combine the evidence from every source into one clear title, problem, and rationale, and provide a single suggested change.",
-			"Favor higher confidence when multiple agents independently report the same issue because corroborating evidence strengthens the finding, but confidence must never be set lower than the lowest confidence among the merged findings.",
 			...reviewFindingGuidelines,
-			"The merged severity must stay between the least and most severe severity among the merged findings. Do not invent a severity outside that range.",
-			"Only merge findings that are genuinely the same issue. Do not merge findings that merely share a file or topic.",
-			"After merging all duplicate groups do not provide a summary, respond exactly: Deduplication complete.",
 		],
 		parameters: Type.Object({
 			findingIds: Type.Array(

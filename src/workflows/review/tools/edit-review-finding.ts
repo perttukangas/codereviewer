@@ -20,16 +20,13 @@ export const createEditReviewFindingTool = (
 		promptSnippet:
 			"If required correct or invalidate an incorrect review finding",
 		promptGuidelines: [
-			"Critically evaluate each supplied finding rather than trusting the reviewer's claims. Independently confirm the evidence, challenge its assumptions, and re-derive the severity and confidence from the rubric yourself.",
-			"Use edit_review_finding when your own analysis shows a finding is incorrect, unsupported by the diff or read-only evidence, misclassified in severity, has an inaccurate confidence, or has a wrong suggested change. Do not edit a finding for wording, style, or other semantics that do not change its correctness.",
-			...reviewFindingGuidelines,
-			"Actively re-derive the correct severity from the rubric for every finding rather than accepting the submitted label. If the impact you identify meets a higher severity definition than the one submitted, raise the severity. A severe issue must not keep a lower label.",
-			"Provide only the fields that need correction. Fields you omit keep their current values.",
-			"To replace the suggested change, provide suggestedChange. If you omit suggestedChange, the existing suggested change is kept.",
-			"Mark a finding invalid with a clear invalidReason ONLY when it cannot be corrected by editing, never for wording or style. Do not combine invalidReason with field changes.",
+			"Use edit_review_finding to correct a finding or mark it invalid.",
+			"Provide only the fields that need correction. Omitted fields keep their current values.",
+			"To replace the suggested change, provide suggestedChange. Omit it to keep the existing one.",
+			"Mark a finding invalid with a non-empty invalidReason only when it cannot be corrected by editing. Do not combine invalidReason with field changes.",
 			"A finding already marked invalid cannot be edited. Clear invalidReason with an empty string before editing its fields.",
 			"Use the finding id from the findings under verification. Do not invent identifiers.",
-			"After verifying all findings do not provide a summary, respond exactly: Verification complete.",
+			...reviewFindingGuidelines,
 		],
 		parameters: Type.Object({
 			id: Type.String({

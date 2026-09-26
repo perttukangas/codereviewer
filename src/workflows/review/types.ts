@@ -4,7 +4,7 @@ import type {
 	WorkflowGuardrailError,
 } from "../../engine/types.js";
 
-export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
+export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
 export type ReviewCodeChange = {
 	filePath: string;

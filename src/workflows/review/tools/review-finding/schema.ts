@@ -7,11 +7,11 @@ import type {
 } from "../../types.js";
 
 export const severityValues = [
-	"critical",
-	"high",
-	"medium",
-	"low",
-	"info",
+	"CRITICAL",
+	"HIGH",
+	"MEDIUM",
+	"LOW",
+	"INFO",
 ] as const;
 
 export const severityRank = (severity: ReviewSeverity): number =>
@@ -48,10 +48,10 @@ export const nextId = (items: { id: string }[], prefix: string): string => {
 };
 
 export const reviewFindingGuidelines = [
-	"Use severity critical, high, medium, low, or info according to impact, and set confidence from 0 to 1 according to evidence strength.",
-	"Shared severity rubric: CRITICAL means an active or highly likely issue with severe impact that should block release or immediate merge. HIGH means significant risk with clear impact and high confidence that should be fixed before release or in the current change window. MEDIUM means an important issue with meaningful impact that is not release-blocking by itself. LOW means a minor but actionable issue with limited impact. INFO means an improvement note or clarification with minimal direct risk.",
-	"Use code change suggestion for small, localized issues when you can suggest a concrete code fix, even if you are not entirely confident it is the intended solution.",
-	"Use suggested change file paths array to provide every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests where applicable.",
+	"Set severity by impact. Set confidence from 0 to 1 by evidence strength.",
+	"Severity rubric. CRITICAL blocks release or immediate merge. HIGH should be fixed before release or in the current change window. MEDIUM is important but not release-blocking alone. LOW is minor but actionable. INFO is an improvement note with minimal risk.",
+	"Provide a code change for small, localized issues when you can suggest a concrete fix.",
+	"List every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests.",
 ];
 
 export const reviewCodeChangeSchema = Type.Object({
@@ -64,8 +64,7 @@ export const reviewCodeChangeSchema = Type.Object({
 		description: "Exact text that must occur once in the current file.",
 	}),
 	newText: Type.String({
-		description:
-			"Text that replaces the exact oldText. Use an empty string for deletion.",
+		description: "Text that replaces oldText. Use an empty string to delete.",
 	}),
 });
 
@@ -78,13 +77,13 @@ export const reviewSuggestedChangeSchema = Type.Object({
 		{
 			minItems: 1,
 			description:
-				"Every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests where applicable.",
+				"Every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests.",
 		},
 	),
 	explanation: Type.String({
 		minLength: 1,
 		description:
-			"Describe the suggested change. For multi-step or broad changes, describe the full approach here.",
+			"Describe the suggested change. For broad or multi-step changes, describe the full approach.",
 	}),
 	codeChange: Type.Optional(reviewCodeChangeSchema),
 });
@@ -92,11 +91,10 @@ export const reviewSuggestedChangeSchema = Type.Object({
 export const reviewFindingSchema = Type.Object({
 	title: Type.String({
 		minLength: 1,
-		description: "Short, specific title describing the review finding.",
+		description: "Short, specific title describing the finding.",
 	}),
 	severity: Type.Enum(severityValues, {
-		description:
-			"Impact level. Use CRITICAL, HIGH, MEDIUM, LOW, or INFO according to the shared severity rubric.",
+		description: "Impact level. Use the shared severity rubric.",
 	}),
 	confidence: Type.Number({
 		minimum: 0,
@@ -106,7 +104,7 @@ export const reviewFindingSchema = Type.Object({
 	}),
 	problem: Type.String({
 		minLength: 1,
-		description: "What is wrong, including the relevant failure or risk.",
+		description: "What is wrong, including the failure or risk.",
 	}),
 	suggestedChange: reviewSuggestedChangeSchema,
 	rationale: Type.String({
