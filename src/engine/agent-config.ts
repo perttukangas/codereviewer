@@ -33,6 +33,12 @@ export const getAgentConfig = (agent: Agent): AgentConfig => {
 		[`${prefix}_OUTPUT_TOKEN_BUDGET`]: num({
 			default: env.DEFAULT_OUTPUT_TOKEN_BUDGET,
 		}),
+		[`${prefix}_TOOL_LOOP_THRESHOLD`]: num({
+			default: env.DEFAULT_TOOL_LOOP_THRESHOLD,
+		}),
+		[`${prefix}_TOOL_FAILURE_THRESHOLD`]: num({
+			default: env.DEFAULT_TOOL_FAILURE_THRESHOLD,
+		}),
 		[`${prefix}_SOFT_LIMIT_RATIO`]: num({
 			default: env.DEFAULT_SOFT_LIMIT_RATIO,
 		}),
@@ -55,6 +61,10 @@ export const getAgentConfig = (agent: Agent): AgentConfig => {
 			timeoutMs: config[`${prefix}_TIMEOUT_MS`] as number,
 			inputTokenBudget: config[`${prefix}_INPUT_TOKEN_BUDGET`] as number,
 			outputTokenBudget: config[`${prefix}_OUTPUT_TOKEN_BUDGET`] as number,
+			toolLoopThreshold: config[`${prefix}_TOOL_LOOP_THRESHOLD`] as number,
+			toolFailureThreshold: config[
+				`${prefix}_TOOL_FAILURE_THRESHOLD`
+			] as number,
 			softLimitRatio: config[`${prefix}_SOFT_LIMIT_RATIO`] as number,
 		},
 	};

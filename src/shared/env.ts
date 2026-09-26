@@ -70,6 +70,16 @@ export const env = cleanEnv(process.env, {
 		default: 20000,
 	}),
 
+	DEFAULT_TOOL_LOOP_THRESHOLD: num({
+		desc: "The default number of consecutive identical tool calls before an agent is terminated. Zero disables the limit.",
+		default: 5,
+	}),
+
+	DEFAULT_TOOL_FAILURE_THRESHOLD: num({
+		desc: "The default number of consecutive failures of the same tool before an agent is terminated. Zero disables the limit.",
+		default: 5,
+	}),
+
 	DEFAULT_SOFT_LIMIT_RATIO: num({
 		desc: "The default ratio of a hard guardrail limit at which a soft warning is issued.",
 		default: 0.8,

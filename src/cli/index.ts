@@ -1,4 +1,5 @@
 import { createAgentRuntime } from "../runtime/create-runtime.js";
+import { info } from "../shared/logger.js";
 import { listWorkflows } from "../workflows/registry.js";
 import type { WorkflowContext } from "../workflows/types.js";
 import { reviewCommand } from "./commands/review.js";
@@ -20,7 +21,7 @@ const parseCommandId = (argv: string[]): string => {
 
 export const run = async (argv: string[]): Promise<void> => {
 	if (argv.includes("--help")) {
-		console.log(
+		info(
 			`Usage: codereviewer [command]\n\nCommands: ${[...commands.keys()].join(", ")}\nWorkflows: ${listWorkflows().join(", ")}`,
 		);
 		return;

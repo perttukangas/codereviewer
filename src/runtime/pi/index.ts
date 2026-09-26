@@ -54,7 +54,11 @@ const toRuntimeEvent = (
 			};
 		}
 		case "tool_execution_start":
-			return { type: "tool_execution_start", toolName: event.toolName };
+			return {
+				type: "tool_execution_start",
+				toolName: event.toolName,
+				args: event.args,
+			};
 		case "tool_execution_end":
 			return {
 				type: "tool_execution_end",

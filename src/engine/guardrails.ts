@@ -28,14 +28,64 @@ export const describeDimension = (dimension: GuardrailDimension): string => {
 			return "input token budget";
 		case "output_tokens":
 			return "output token budget";
+		case "tool_loop":
+			return "repeated tool call limit";
+		case "tool_failure":
+			return "consecutive tool failure limit";
 	}
+};
+
+export const describeUnit = (dimension: GuardrailDimension): string => {
+	switch (dimension) {
+		case "timeout":
+			return "ms";
+		case "input_tokens":
+		case "output_tokens":
+			return "tokens";
+		case "tool_loop":
+		case "tool_failure":
+			return "calls";
+	}
+};
+
+const stableStringify = (value: unknown): string => {
+	if (value === null || typeof value !== "object") {
+		return JSON.stringify(value) ?? "undefined";
+	}
+	if (Array.isArray(value)) {
+		return `[${value.map(stableStringify).join(",")}]`;
+	}
+	const entries = Object.entries(value as Record<string, unknown>)
+		.filter(([, entryValue]) => entryValue !== undefined)
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+	return `{${entries
+		.map(
+			([key, entryValue]) =>
+				`${JSON.stringify(key)}:${stableStringify(entryValue)}`,
+		)
+		.join(",")}}`;
 };
 
 const softWarningMessage = (
 	dimension: GuardrailDimension,
 	limit: number,
 	observed: number,
+	toolName?: string,
 ): string => {
+	if (dimension === "tool_loop" || dimension === "tool_failure") {
+		const tool = toolName ? `"${toolName}"` : "the same tool";
+		const reason =
+			dimension === "tool_loop"
+				? `You have called ${tool} with identical arguments ${observed} times in a row without making progress.`
+				: `You have called ${tool} and it has failed ${observed} times in a row.`;
+
+		return [
+			reason,
+			"Stop repeating this call.",
+			"Rethink how you are using the tool. Change your arguments, use a different tool, or take a different approach.",
+		].join(" ");
+	}
+
 	const observedText =
 		dimension === "timeout"
 			? `${Math.round(observed)} ms`
@@ -62,6 +112,10 @@ export const createGuardrails = ({
 	let startedAt = 0;
 	let inputTokens = 0;
 	let outputTokens = 0;
+	let lastSignature: string | undefined;
+	let identicalCount = 0;
+	let lastFailedTool: string | undefined;
+	let failureCount = 0;
 	let softTimer: NodeJS.Timeout | undefined;
 	let hardTimer: NodeJS.Timeout | undefined;
 	let unsubscribe: (() => void) | undefined;
@@ -75,13 +129,14 @@ export const createGuardrails = ({
 		dimension: GuardrailDimension,
 		limit: number,
 		observed: number,
+		toolName?: string,
 	): void => {
 		if (warned.has(dimension)) {
 			return;
 		}
 		warned.add(dimension);
 
-		const message = softWarningMessage(dimension, limit, observed);
+		const message = softWarningMessage(dimension, limit, observed, toolName);
 		log.info("Guardrail soft limit reached", dimension, `${observed}/${limit}`);
 
 		if (session.isStreaming) {
@@ -98,6 +153,7 @@ export const createGuardrails = ({
 		dimension: GuardrailDimension,
 		limit: number,
 		observed: number,
+		toolName?: string,
 	): void => {
 		if (terminated) {
 			return;
@@ -109,6 +165,7 @@ export const createGuardrails = ({
 			limit,
 			observed,
 			terminated: true,
+			...(toolName ? { toolName } : {}),
 		};
 		record(outcome);
 		log.error(
@@ -130,17 +187,18 @@ export const createGuardrails = ({
 		dimension: GuardrailDimension,
 		budget: number,
 		observed: number,
+		toolName?: string,
 	): void => {
 		if (budget <= 0) {
 			return;
 		}
 		if (observed >= budget) {
-			terminate(dimension, budget, observed);
+			terminate(dimension, budget, observed, toolName);
 			return;
 		}
 		const softLimit = budget * config.softLimitRatio;
 		if (softLimit > 0 && observed >= softLimit) {
-			warn(dimension, budget, observed);
+			warn(dimension, budget, observed, toolName);
 		}
 	};
 
@@ -152,7 +210,57 @@ export const createGuardrails = ({
 		checkBudget("output_tokens", config.outputTokenBudget, outputTokens);
 	};
 
+	const handleToolStart = (toolName: string, args: unknown): void => {
+		if (terminated) {
+			return;
+		}
+		const signature = `${toolName}:${stableStringify(args)}`;
+		if (signature === lastSignature) {
+			identicalCount += 1;
+		} else {
+			lastSignature = signature;
+			identicalCount = 1;
+		}
+		checkBudget(
+			"tool_loop",
+			config.toolLoopThreshold,
+			identicalCount,
+			toolName,
+		);
+	};
+
+	const handleToolEnd = (toolName: string, isError: boolean): void => {
+		if (terminated) {
+			return;
+		}
+		if (!isError) {
+			lastFailedTool = undefined;
+			failureCount = 0;
+			return;
+		}
+		if (toolName === lastFailedTool) {
+			failureCount += 1;
+		} else {
+			lastFailedTool = toolName;
+			failureCount = 1;
+		}
+		checkBudget(
+			"tool_failure",
+			config.toolFailureThreshold,
+			failureCount,
+			toolName,
+		);
+	};
+
 	const handleEvent = (event: AgentRuntimeEvent): void => {
+		if (event.type === "tool_execution_start") {
+			handleToolStart(event.toolName, event.args);
+			return;
+		}
+		if (event.type === "tool_execution_end") {
+			handleToolEnd(event.toolName, event.isError);
+			return;
+		}
 		if (event.type !== "message_end" || event.role !== "assistant") {
 			return;
 		}

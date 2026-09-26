@@ -28,6 +28,8 @@ export type AgentGuardrails = {
 	timeoutMs: number;
 	inputTokenBudget: number;
 	outputTokenBudget: number;
+	toolLoopThreshold: number;
+	toolFailureThreshold: number;
 	softLimitRatio: number;
 };
 
@@ -38,13 +40,19 @@ export type AgentConfig = {
 	guardrails: AgentGuardrails;
 };
 
-export type GuardrailDimension = "timeout" | "input_tokens" | "output_tokens";
+export type GuardrailDimension =
+	| "timeout"
+	| "input_tokens"
+	| "output_tokens"
+	| "tool_loop"
+	| "tool_failure";
 
 export type GuardrailOutcome = {
 	dimension: GuardrailDimension;
 	limit: number;
 	observed: number;
 	terminated: boolean;
+	toolName?: string;
 };
 
 export type WorkflowGuardrailError = {

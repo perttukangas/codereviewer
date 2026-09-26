@@ -26,7 +26,7 @@ export type AgentRuntimeEvent =
 	| { type: "turn_start" }
 	| { type: "turn_end" }
 	| { type: "message_end"; role: string; usage?: MessageUsage }
-	| { type: "tool_execution_start"; toolName: string }
+	| { type: "tool_execution_start"; toolName: string; args: unknown }
 	| { type: "tool_execution_end"; toolName: string; isError: boolean };
 
 export type AgentRuntimeEventListener = (event: AgentRuntimeEvent) => void;
