@@ -3,16 +3,15 @@ import { createTelemetryCollector } from "../../engine/telemetry.js";
 import type { Agent } from "../../engine/types.js";
 import { createLocalGitChangeSource } from "../../integrations/local-git.js";
 import type { ChangeSource } from "../../integrations/types.js";
-import { debug, info } from "../../shared/logger.js";
+import { createLogger, info } from "../../shared/logger.js";
 import type { Workflow, WorkflowContext, WorkflowResult } from "../types.js";
 import { reviewAgents } from "./agents/index.js";
 import { deduplicate } from "./phases/deduplicate.js";
 import { reviewAgent } from "./phases/review-agent.js";
 import { verifyReview } from "./phases/verify-review.js";
 import { getReviewEnv } from "./shared/env.js";
-import { toReviewError } from "./shared/errors.js";
 import { validateReviewInputs } from "./shared/validate-inputs.js";
-import { nextId, severityValues } from "./tools/review-finding/index.js";
+import { severityValues } from "./tools/review-finding/index.js";
 import type { AgentReview, ReviewReport, ReviewRunState } from "./types.js";
 
 export const run = async (
@@ -36,7 +35,7 @@ export const run = async (
 		if (getAgentConfig(agent).enabled) {
 			return true;
 		}
-		debug("Skipping disabled review agent", agent.id);
+		createLogger({ agentId: agent.id }).debug("Skipping disabled review agent");
 		return false;
 	});
 
@@ -70,19 +69,13 @@ const runAgentPipeline = async (
 	runState: ReviewRunState,
 ): Promise<[string, AgentReview]> => {
 	const review: AgentReview = { findings: [] };
+	const log = createLogger({ agentId: agent.id });
 
-	try {
-		await reviewAgent(context, agent, repositoryDir, diff, review, runState);
-		await verifyReview(context, agent, review, repositoryDir, diff, runState);
-	} catch (cause) {
-		runState.errors.push(
-			toReviewError(nextId(runState.errors, `${agent.id}:error`), agent, cause),
-		);
-	}
+	await reviewAgent(context, agent, repositoryDir, diff, review, runState);
+	await verifyReview(context, agent, review, repositoryDir, diff, runState);
 
-	info(
+	log.info(
 		`Agent reported ${review.findings.length} findings`,
-		agent.id,
 		severityValues
 			.map(
 				(severity) =>

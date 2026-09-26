@@ -1,7 +1,7 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
-import { debug, info } from "../../../shared/logger.js";
+import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { createVerifierAgent } from "../agents/verifier.js";
 import { toGuardrailError } from "../shared/errors.js";
@@ -94,14 +94,15 @@ export const verifyReview = async (
 	run: ReviewRunState,
 ): Promise<void> => {
 	const verifier = createVerifierAgent(reviewer);
+	const log = createLogger({ agentId: verifier.id });
 
 	if (!getAgentConfig(verifier).enabled) {
-		debug("Skipping disabled verifier agent", verifier.id);
+		log.debug("Skipping disabled verifier agent");
 		return;
 	}
 
 	if (review.findings.length === 0) {
-		info("Skipping verification, no findings to verify", reviewer.id);
+		log.info("Skipping verification, no findings to verify");
 		return;
 	}
 

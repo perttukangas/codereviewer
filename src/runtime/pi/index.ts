@@ -6,7 +6,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { env } from "../../shared/env.js";
-import { debug } from "../../shared/logger.js";
+import { createLogger } from "../../shared/logger.js";
 import type {
 	AgentRuntime,
 	AgentRuntimeEvent,
@@ -82,6 +82,7 @@ export const createPiRuntime = (): AgentRuntime => ({
 		});
 
 		const piTools = customTools.map(toPiTool);
+		const log = createLogger({ agentId: agent.id });
 
 		const { session } = await createAgentSession({
 			cwd: env.REPO_DIR,
@@ -109,21 +110,21 @@ export const createPiRuntime = (): AgentRuntime => ({
 			}),
 		});
 
-		logAgentDiagnostics(agent.id, {
+		logAgentDiagnostics(log, {
 			systemPrompt: session.agent.state.systemPrompt,
 			tools: session.agent.state.tools.map((tool) => tool.name),
 		});
 
 		let turnNumber = 0;
 		const unsubscribe = session.subscribe((event) => {
-			turnNumber = logAgentEvent(agent.id, event, turnNumber);
+			turnNumber = logAgentEvent(log, event, turnNumber);
 		});
 
 		return {
 			prompt: async (prompt): Promise<void> => {
-				debug("Initial agent prompt", agent.id, prompt);
+				log.debug("Initial agent prompt", prompt);
 				await session.prompt(prompt);
-				logAgentResult(agent.id, session);
+				logAgentResult(log, session);
 			},
 			subscribe: (listener: AgentRuntimeEventListener): (() => void) => {
 				return session.subscribe((event) => {

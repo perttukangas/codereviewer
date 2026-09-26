@@ -1,8 +1,5 @@
 import type { TelemetryCollector } from "../../engine/telemetry.js";
-import type {
-	WorkflowFailureError,
-	WorkflowGuardrailError,
-} from "../../engine/types.js";
+import type { WorkflowGuardrailError } from "../../engine/types.js";
 
 export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
@@ -27,9 +24,7 @@ export type ReviewFinding = {
 
 export type ReviewGuardrailError = WorkflowGuardrailError;
 
-export type ReviewFailureError = WorkflowFailureError;
-
-export type ReviewError = ReviewGuardrailError | ReviewFailureError;
+export type ReviewError = ReviewGuardrailError;
 
 export type AgentReview = {
 	findings: ReviewFinding[];

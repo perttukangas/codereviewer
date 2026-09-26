@@ -20,8 +20,8 @@ set +a
 : "${DEFAULT_MODEL_NAME:?Set DEFAULT_MODEL_NAME to the model name}"
 
 container_name="codereviewer-fixture-$$"
-container_log_path=${LOG_FILE:-/tmp/codereviewer.log}
-host_log_path="$project_dir/tmp/codereviewer.log"
+container_log_dir=${LOG_DIR:-/tmp/codereviewer}
+host_log_dir="$project_dir/tmp/logs"
 
 if [[ ! -d "$input_dir" ]]; then
 	echo "Missing fixture input directory: $input_dir" >&2
@@ -60,8 +60,8 @@ restore_repository() {
 	local exit_code=$?
 	trap - EXIT INT TERM
 
-	if docker cp "$container_name:$container_log_path" "$host_log_path" >/dev/null 2>&1; then
-		echo "Copied container logs to $host_log_path"
+	if docker cp "$container_name:$container_log_dir/." "$host_log_dir" >/dev/null 2>&1; then
+		echo "Copied container logs to $host_log_dir"
 	fi
 	docker rm -f "$container_name" >/dev/null 2>&1 || true
 
@@ -94,6 +94,8 @@ find "$repository_dir" "$input_dir" -type f \
 docker build --tag codereviewer:local "$project_dir"
 
 mkdir -p "$project_dir/tmp"
+rm -rf "$host_log_dir"
+mkdir -p "$host_log_dir"
 
 docker run --name "$container_name" \
 	--mount "type=bind,src=$repository_dir,dst=/workspace/repository,readonly" \
@@ -101,5 +103,5 @@ docker run --name "$container_name" \
 	--env-file "$project_dir/.env" \
 	--env REPO_DIR=/workspace/repository \
 	--env GIT_DIFF_PATH=/workspace/input/review.diff \
-	--env LOG_FILE="$container_log_path" \
+	--env LOG_DIR="$container_log_dir" \
 	codereviewer:local

@@ -57,14 +57,7 @@ export type WorkflowGuardrailError = {
 	message: string;
 };
 
-export type WorkflowFailureError = {
-	id: string;
-	agentId: string;
-	kind: "error";
-	message: string;
-};
-
-export type WorkflowError = WorkflowGuardrailError | WorkflowFailureError;
+export type WorkflowError = WorkflowGuardrailError;
 
 export type AgentTelemetry = {
 	durationMs: number;

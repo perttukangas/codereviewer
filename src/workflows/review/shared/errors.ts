@@ -1,6 +1,6 @@
 import { describeDimension } from "../../../engine/guardrails.js";
-import type { Agent, GuardrailOutcome } from "../../../engine/types.js";
-import { error } from "../../../shared/logger.js";
+import type { GuardrailOutcome } from "../../../engine/types.js";
+import { createLogger } from "../../../shared/logger.js";
 import type { ReviewError } from "../types.js";
 
 export const toGuardrailError = (
@@ -21,24 +21,6 @@ export const toGuardrailError = (
 		message: `The agent reached the ${dimension} (${outcome.observed} of ${outcome.limit} ${unit}) and was terminated before completing its review. Findings may be incomplete.`,
 	};
 
-	error(guardrailError.id, guardrailError.agentId, guardrailError.message);
+	createLogger({ agentId }).error(guardrailError.message);
 	return guardrailError;
-};
-
-export const toReviewError = (
-	id: string,
-	agent: Agent,
-	cause: unknown,
-): ReviewError => {
-	const message = cause instanceof Error ? cause.message : String(cause);
-
-	const reviewError: ReviewError = {
-		id,
-		agentId: agent.id,
-		kind: "error",
-		message: `The ${agent.id} review agent failed before completing its review. Findings may be incomplete. Error: ${message}`,
-	};
-
-	error(reviewError.id, reviewError.agentId, reviewError.message);
-	return reviewError;
 };

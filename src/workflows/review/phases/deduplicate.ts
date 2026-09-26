@@ -1,7 +1,7 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import { env } from "../../../shared/env.js";
-import { debug, info } from "../../../shared/logger.js";
+import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import { toGuardrailError } from "../shared/errors.js";
@@ -15,8 +15,10 @@ export const deduplicate = async (
 	report: ReviewReport,
 	run: ReviewRunState,
 ): Promise<void> => {
+	const log = createLogger({ agentId: DeduplicatorAgent.id });
+
 	if (!getAgentConfig(DeduplicatorAgent).enabled) {
-		debug("Skipping disabled deduplicator agent", DeduplicatorAgent.id);
+		log.debug("Skipping disabled deduplicator agent");
 		return;
 	}
 
@@ -24,10 +26,7 @@ export const deduplicate = async (
 		.flatMap((review) => review.findings)
 		.filter((finding) => finding.invalidReason === undefined);
 	if (eligible.length < 2) {
-		info(
-			"Skipping deduplication, fewer than two eligible findings",
-			DeduplicatorAgent.id,
-		);
+		log.info("Skipping deduplication, fewer than two eligible findings");
 		return;
 	}
 

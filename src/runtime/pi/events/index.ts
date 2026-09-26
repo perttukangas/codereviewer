@@ -3,7 +3,7 @@ import type {
 	AgentSession as PiAgentSession,
 } from "@earendil-works/pi-coding-agent";
 
-import { debug } from "../../../shared/logger.js";
+import type { ScopedLogger } from "../../../shared/logger.js";
 import { describeAgentEvent, describeAssistantMessage } from "./describe.js";
 import { collectAgentUsage } from "./usage.js";
 
@@ -15,7 +15,7 @@ export type AgentDiagnostics = {
 };
 
 export const logAgentEvent = (
-	agentId: string,
+	log: ScopedLogger,
 	event: AgentSessionEvent,
 	turnNumber: number,
 ): number => {
@@ -23,9 +23,8 @@ export const logAgentEvent = (
 		return turnNumber;
 	}
 	if (event.type === "message_end" && event.message.role === "assistant") {
-		debug(
+		log.debug(
 			"Agent completed message",
-			agentId,
 			describeAssistantMessage(event.message),
 		);
 		return turnNumber;
@@ -34,25 +33,20 @@ export const logAgentEvent = (
 	if (event.type === "turn_start") {
 		turnNumber += 1;
 	}
-	debug(
-		"Agent event",
-		agentId,
-		event.type,
-		describeAgentEvent(event, turnNumber),
-	);
+	log.debug("Agent event", event.type, describeAgentEvent(event, turnNumber));
 	return turnNumber;
 };
 
 export const logAgentResult = (
-	agentId: string,
+	log: ScopedLogger,
 	session: PiAgentSession,
 ): void => {
-	debug("Agent usage", agentId, collectAgentUsage(session));
+	log.debug("Agent usage", collectAgentUsage(session));
 };
 
 export const logAgentDiagnostics = (
-	agentId: string,
+	log: ScopedLogger,
 	diagnostics: AgentDiagnostics,
 ): void => {
-	debug("Agent diagnostics", agentId, diagnostics);
+	log.debug("Agent diagnostics", diagnostics);
 };

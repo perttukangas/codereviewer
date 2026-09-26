@@ -1,5 +1,5 @@
 import type { AgentRuntimeEvent, RuntimeSession } from "../runtime/types.js";
-import { debug, error, info } from "../shared/logger.js";
+import { createLogger } from "../shared/logger.js";
 import type {
 	AgentGuardrails,
 	GuardrailDimension,
@@ -54,6 +54,7 @@ export const createGuardrails = ({
 	config,
 	onOutcome,
 }: GuardrailsOptions): AgentGuardrailsHandle => {
+	const log = createLogger({ agentId });
 	const outcomes: GuardrailOutcome[] = [];
 	const warned = new Set<GuardrailDimension>();
 	let terminated = false;
@@ -81,19 +82,13 @@ export const createGuardrails = ({
 		warned.add(dimension);
 
 		const message = softWarningMessage(dimension, limit, observed);
-		info(
-			"Guardrail soft limit reached",
-			agentId,
-			dimension,
-			`${observed}/${limit}`,
-		);
+		log.info("Guardrail soft limit reached", dimension, `${observed}/${limit}`);
 
 		if (session.isStreaming) {
 			void session.steer(message);
 		} else {
-			debug(
+			log.debug(
 				"Guardrail soft warning not delivered (session idle)",
-				agentId,
 				dimension,
 			);
 		}
@@ -116,9 +111,8 @@ export const createGuardrails = ({
 			terminated: true,
 		};
 		record(outcome);
-		error(
+		log.error(
 			"Guardrail hard limit reached, aborting",
-			agentId,
 			dimension,
 			`${observed}/${limit}`,
 		);

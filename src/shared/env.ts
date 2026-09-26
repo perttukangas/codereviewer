@@ -7,9 +7,9 @@ export const env = cleanEnv(process.env, {
 		desc: "The log level for the application.",
 	}),
 
-	LOG_FILE: str({
-		default: "/tmp/codereviewer.log",
-		desc: "The path to the log file. An empty value disables file logging.",
+	LOG_DIR: str({
+		default: "/tmp/codereviewer",
+		desc: "The directory for log files. Holds combined.log and one file per agent. An empty value disables file logging.",
 	}),
 
 	MODEL_API: str({

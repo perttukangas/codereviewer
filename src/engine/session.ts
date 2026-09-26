@@ -1,5 +1,5 @@
 import type { AgentRuntime } from "../runtime/types.js";
-import { info, startTimer, stopTimer } from "../shared/logger.js";
+import { createLogger } from "../shared/logger.js";
 import { createAgent } from "./agent.js";
 import type { AgentToolDefinition } from "./tools.js";
 import type {
@@ -22,19 +22,20 @@ export const runGuardedSession = async <TOutput>(
 	options: RunGuardedSessionOptions<TOutput>,
 ): Promise<AgentResponse<TOutput>> => {
 	const { agent, runtime, config, customTools, output, prompt } = options;
+	const log = createLogger({ agentId: agent.id });
 
 	let session: GuardedAgentSession<TOutput> | undefined;
 	try {
-		info("Creating guarded agent session", agent.id);
+		log.info("Creating guarded agent session");
 		session = await createAgent<TOutput>(agent, runtime, {
 			config,
 			customTools,
 			output,
 		});
-		startTimer(agent.id, "Starting agent");
+		log.startTimer(agent.id, "Starting agent");
 		return await session.prompt(prompt);
 	} finally {
 		session?.dispose();
-		stopTimer(agent.id, "Completed agent");
+		log.stopTimer(agent.id, "Completed agent");
 	}
 };
