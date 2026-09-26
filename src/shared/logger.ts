@@ -25,7 +25,7 @@ const parseLogLevel = (level: string): LogLevel => {
 const formatMessage = (level: LogLevel, messages: unknown[]): string => {
 	const text = messages
 		.map((message) =>
-			typeof message === "string" ? message : inspect(message),
+			typeof message === "string" ? message : inspect(message, { depth: null }),
 		)
 		.join(" ");
 	return `[${new Date().toISOString()}] [${levelNames[level]}] ${text}`;

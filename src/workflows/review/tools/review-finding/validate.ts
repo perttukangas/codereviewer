@@ -1,12 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type {
-	ReviewCodeChange,
-	ReviewFinding,
-	ReviewSuggestedChange,
-} from "../../types.js";
-import type { ReviewCodeChangeInput, ReviewFindingInput } from "./schema.js";
+import type { ReviewFinding } from "../../types.js";
+import type { ReviewFindingInput } from "./schema.js";
 
 export const validateFinding = async (
 	finding: ReviewFindingInput,
@@ -16,26 +12,19 @@ export const validateFinding = async (
 ): Promise<Omit<ReviewFinding, "id">> => {
 	validateUniqueTitle(findings, finding.title, excludeId);
 
-	const codeChange = finding.suggestedChange.codeChange
-		? await normalizeCodeChange(finding.suggestedChange.codeChange, repoDir)
-		: undefined;
+	const codeChange = await normalizeCodeChange(finding, repoDir);
 
-	const suggestedChange: ReviewSuggestedChange = {
-		...finding.suggestedChange,
-		filePaths: await normalizeFilePaths(
-			finding.suggestedChange.filePaths,
-			codeChange?.filePath,
-			repoDir,
-		),
-		codeChange,
-	};
+	const relatedFiles = await normalizeFilePaths(
+		finding.relatedFiles,
+		codeChange.codeChangeFilePath,
+		repoDir,
+	);
 
-	const normalizedFinding: Omit<ReviewFinding, "id"> = {
+	return {
 		...finding,
-		suggestedChange,
+		relatedFiles,
+		...codeChange,
 	};
-
-	return normalizedFinding;
 };
 
 const normalizeFilePaths = async (
@@ -55,26 +44,44 @@ const normalizeFilePaths = async (
 };
 
 const normalizeCodeChange = async (
-	suggestedCodeChange: ReviewCodeChangeInput,
+	finding: ReviewFindingInput,
 	repoDir: string,
-): Promise<ReviewCodeChange> => {
+): Promise<Partial<ReviewFinding>> => {
+	const { codeChangeFilePath, codeChangeOldText, codeChangeNewText } = finding;
+	const provided = [
+		codeChangeFilePath,
+		codeChangeOldText,
+		codeChangeNewText,
+	].filter((value) => value !== undefined).length;
+
+	if (provided === 0) {
+		return {};
+	}
+
+	if (provided !== 3) {
+		throw new Error(
+			"Provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together, or omit all three.",
+		);
+	}
+
 	const filePath = await readRepositoryFile(
-		suggestedCodeChange.filePath,
+		codeChangeFilePath as string,
 		repoDir,
 	);
 	const matchIndex = findUniqueMatch(
 		filePath.content,
-		suggestedCodeChange.oldText,
+		codeChangeOldText as string,
 	);
 
 	return {
-		...suggestedCodeChange,
-		filePath: filePath.relativePath,
-		startLine: getLineNumber(filePath.content, matchIndex),
-		endLine: getEndLineNumber(
+		codeChangeFilePath: filePath.relativePath,
+		codeChangeOldText,
+		codeChangeNewText,
+		codeChangeStartLine: getLineNumber(filePath.content, matchIndex),
+		codeChangeEndLine: getEndLineNumber(
 			filePath.content,
 			matchIndex,
-			suggestedCodeChange.oldText,
+			codeChangeOldText as string,
 		),
 	};
 };
@@ -99,7 +106,7 @@ const findUniqueMatch = (content: string, oldText: string): number => {
 	const firstMatch = content.indexOf(oldText);
 	if (firstMatch === -1 || content.indexOf(oldText, firstMatch + 1) !== -1) {
 		throw new Error(
-			"suggestedChange.codeChange.oldText must occur exactly once in the current file.",
+			"codeChangeOldText must occur exactly once in codeChangeFilePath.",
 		);
 	}
 

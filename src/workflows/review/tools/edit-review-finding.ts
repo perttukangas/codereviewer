@@ -8,6 +8,51 @@ import {
 	validateFinding,
 } from "./review-finding/index.js";
 
+type CodeChangeFields = Pick<
+	ReviewFinding,
+	"codeChangeFilePath" | "codeChangeOldText" | "codeChangeNewText"
+>;
+
+const resolveCodeChange = (
+	changes: Partial<CodeChangeFields>,
+	base: ReviewFinding,
+): Partial<CodeChangeFields> => {
+	const provided = [
+		changes.codeChangeFilePath,
+		changes.codeChangeOldText,
+		changes.codeChangeNewText,
+	].filter((value) => value !== undefined).length;
+
+	if (provided === 0) {
+		return {
+			codeChangeFilePath: base.codeChangeFilePath,
+			codeChangeOldText: base.codeChangeOldText,
+			codeChangeNewText: base.codeChangeNewText,
+		};
+	}
+
+	if (provided !== 3) {
+		throw new Error(
+			"Provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together, or omit all three. To clear the concrete edit, provide all three as empty strings.",
+		);
+	}
+
+	const allEmpty =
+		(changes.codeChangeFilePath ?? "").trim() === "" &&
+		(changes.codeChangeOldText ?? "").trim() === "" &&
+		(changes.codeChangeNewText ?? "").trim() === "";
+
+	if (allEmpty) {
+		return {};
+	}
+
+	return {
+		codeChangeFilePath: changes.codeChangeFilePath,
+		codeChangeOldText: changes.codeChangeOldText,
+		codeChangeNewText: changes.codeChangeNewText,
+	};
+};
+
 export const createEditReviewFindingTool = (
 	repoDir: string,
 	findings: ReviewFinding[],
@@ -16,13 +61,12 @@ export const createEditReviewFindingTool = (
 		name: "edit_review_finding",
 		label: "Edit Review Finding",
 		description:
-			"Correct an existing review finding that is factually wrong or unsupported, or mark it invalid when it cannot be corrected by editing.",
+			"Edit an existing review finding that is factually wrong or unsupported, or mark it invalid when it cannot be corrected by editing.",
 		promptSnippet:
-			"If required correct or invalidate an incorrect review finding",
+			"Edit an existing review finding that is factually wrong or unsupported.",
 		promptGuidelines: [
-			"Use edit_review_finding to correct a finding or mark it invalid.",
-			"Provide only the fields that need correction. Omitted fields keep their current values.",
-			"To replace the suggested change, provide suggestedChange. Omit it to keep the existing one.",
+			"When using edit_review_finding provide only the fields that need correction. Omitted fields keep their current values.",
+			"To edit code changes, provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together. To clear it, provide all three as empty strings.",
 			"Mark a finding invalid with a non-empty invalidReason only when it cannot be corrected by editing. Do not combine invalidReason with field changes.",
 			"A finding already marked invalid cannot be edited. Clear invalidReason with an empty string before editing its fields.",
 			"Use the finding id from the findings under verification. Do not invent identifiers.",
@@ -104,13 +148,17 @@ export const createEditReviewFindingTool = (
 				};
 			}
 
+			const codeChange = resolveCodeChange(changes, base);
+
 			const merged: ReviewFindingInput = {
 				title: changes.title ?? base.title,
 				severity: changes.severity ?? base.severity,
 				confidence: changes.confidence ?? base.confidence,
 				problem: changes.problem ?? base.problem,
-				rationale: changes.rationale ?? base.rationale,
 				suggestedChange: changes.suggestedChange ?? base.suggestedChange,
+				relatedFiles: changes.relatedFiles ?? base.relatedFiles,
+				rationale: changes.rationale ?? base.rationale,
+				...codeChange,
 			};
 
 			const updated: ReviewFinding = {

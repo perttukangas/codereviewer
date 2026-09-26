@@ -73,10 +73,10 @@ const findingFilePaths = (findings: ReviewFinding[]): string[] => {
 	const paths = new Set<string>();
 
 	for (const finding of findings) {
-		for (const filePath of finding.suggestedChange?.filePaths ?? []) {
+		for (const filePath of finding.relatedFiles ?? []) {
 			paths.add(filePath);
 		}
-		const codeChangeFilePath = finding.suggestedChange?.codeChange?.filePath;
+		const codeChangeFilePath = finding.codeChangeFilePath;
 		if (codeChangeFilePath) {
 			paths.add(codeChangeFilePath);
 		}

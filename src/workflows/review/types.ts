@@ -6,27 +6,19 @@ import type {
 
 export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
-export type ReviewCodeChange = {
-	filePath: string;
-	oldText: string;
-	newText: string;
-	startLine: number;
-	endLine: number;
-};
-
-export type ReviewSuggestedChange = {
-	filePaths: string[];
-	explanation: string;
-	codeChange?: ReviewCodeChange;
-};
-
 export type ReviewFinding = {
 	id: string;
 	title: string;
 	severity: ReviewSeverity;
 	confidence: number;
 	problem: string;
-	suggestedChange: ReviewSuggestedChange;
+	suggestedChange: string;
+	relatedFiles: string[];
+	codeChangeFilePath?: string;
+	codeChangeOldText?: string;
+	codeChangeNewText?: string;
+	codeChangeStartLine?: number;
+	codeChangeEndLine?: number;
 	rationale: string;
 	invalidReason?: string;
 	mergedFrom?: string[];

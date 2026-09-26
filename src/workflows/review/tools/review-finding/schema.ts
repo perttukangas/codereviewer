@@ -1,10 +1,5 @@
 import { Type } from "typebox";
-import type {
-	ReviewCodeChange,
-	ReviewFinding,
-	ReviewSeverity,
-	ReviewSuggestedChange,
-} from "../../types.js";
+import type { ReviewFinding, ReviewSeverity } from "../../types.js";
 
 export const severityValues = [
 	"CRITICAL",
@@ -17,22 +12,10 @@ export const severityValues = [
 export const severityRank = (severity: ReviewSeverity): number =>
 	severityValues.indexOf(severity);
 
-export type ReviewCodeChangeInput = Omit<
-	ReviewCodeChange,
-	"startLine" | "endLine"
->;
-export type ReviewSuggestedChangeInput = Omit<
-	ReviewSuggestedChange,
-	"codeChange"
-> & {
-	codeChange?: ReviewCodeChangeInput;
-};
 export type ReviewFindingInput = Omit<
 	ReviewFinding,
-	"id" | "suggestedChange"
-> & {
-	suggestedChange: ReviewSuggestedChangeInput;
-};
+	"id" | "codeChangeStartLine" | "codeChangeEndLine"
+>;
 
 export const nextId = (items: { id: string }[], prefix: string): string => {
 	const idPrefix = `${prefix}-`;
@@ -50,43 +33,10 @@ export const nextId = (items: { id: string }[], prefix: string): string => {
 export const reviewFindingGuidelines = [
 	"Set severity by impact. Set confidence from 0 to 1 by evidence strength.",
 	"Severity rubric. CRITICAL blocks release or immediate merge. HIGH should be fixed before release or in the current change window. MEDIUM is important but not release-blocking alone. LOW is minor but actionable. INFO is an improvement note with minimal risk.",
-	"Provide a code change for small, localized issues when you can suggest a concrete fix.",
-	"List every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests.",
+	"List every repository-relative file relevant to understanding or fixing the finding in relatedFiles, including callers, definitions, configuration, and tests.",
+	"Use code change for small, localized fixes when you can suggest a concrete code change, even if you are not entirely confident it is the intended solution.",
+	"Use suggested change to describe the fix. Do not include code.",
 ];
-
-export const reviewCodeChangeSchema = Type.Object({
-	filePath: Type.String({
-		minLength: 1,
-		description: "Repository-relative path of the file to change.",
-	}),
-	oldText: Type.String({
-		minLength: 1,
-		description: "Exact text that must occur once in the current file.",
-	}),
-	newText: Type.String({
-		description: "Text that replaces oldText. Use an empty string to delete.",
-	}),
-});
-
-export const reviewSuggestedChangeSchema = Type.Object({
-	filePaths: Type.Array(
-		Type.String({
-			minLength: 1,
-			description: "Repository-relative path of the file.",
-		}),
-		{
-			minItems: 1,
-			description:
-				"Every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests.",
-		},
-	),
-	explanation: Type.String({
-		minLength: 1,
-		description:
-			"Describe the suggested change. For broad or multi-step changes, describe the full approach.",
-	}),
-	codeChange: Type.Optional(reviewCodeChangeSchema),
-});
 
 export const reviewFindingSchema = Type.Object({
 	title: Type.String({
@@ -106,10 +56,43 @@ export const reviewFindingSchema = Type.Object({
 		minLength: 1,
 		description: "What is wrong, including the failure or risk.",
 	}),
-	suggestedChange: reviewSuggestedChangeSchema,
+	suggestedChange: Type.String({
+		minLength: 1,
+		description: "Describe the fix. Do not include code.",
+	}),
+	relatedFiles: Type.Array(
+		Type.String({
+			minLength: 1,
+			description:
+				"Repository-relative path of a file relevant to understanding or fixing the finding.",
+		}),
+		{
+			minItems: 1,
+			description:
+				"Every repository-relative file relevant to understanding or fixing the finding, including callers, definitions, configuration, and tests.",
+		},
+	),
+	codeChangeFilePath: Type.Optional(
+		Type.String({
+			minLength: 1,
+			description: "Repository-relative path of the file to change.",
+		}),
+	),
+	codeChangeOldText: Type.Optional(
+		Type.String({
+			minLength: 1,
+			description: "Exact text that must occur once in the current file.",
+		}),
+	),
+	codeChangeNewText: Type.Optional(
+		Type.String({
+			description:
+				"Text that replaces the exact codeChangeOldText. Use an empty string for deletion.",
+		}),
+	),
 	rationale: Type.String({
 		minLength: 1,
 		description:
-			"Why the suggested change is appropriate and what impact it addresses.",
+			"Why the suggested change and code change are appropriate and what impact they address.",
 	}),
 });
