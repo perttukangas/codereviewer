@@ -68,21 +68,33 @@ const normalizeCodeChange = async (
 		codeChangeFilePath as string,
 		repoDir,
 	);
+	const oldText = codeChangeOldText as string;
+	const newText = codeChangeNewText as string;
+
+	if (oldText.length === 0) {
+		throw new Error(
+			`codeChangeOldText must not be empty in ${filePath.relativePath}.`,
+		);
+	}
+
 	const matchIndex = findUniqueMatch(
 		filePath.content,
-		codeChangeOldText as string,
+		oldText,
+		filePath.relativePath,
 	);
+
+	if (newText === oldText) {
+		throw new Error(
+			`No change made in ${filePath.relativePath}. codeChangeNewText is identical to codeChangeOldText. The replacement must produce different content.`,
+		);
+	}
 
 	return {
 		codeChangeFilePath: filePath.relativePath,
 		codeChangeOldText,
 		codeChangeNewText,
 		codeChangeStartLine: getLineNumber(filePath.content, matchIndex),
-		codeChangeEndLine: getEndLineNumber(
-			filePath.content,
-			matchIndex,
-			codeChangeOldText as string,
-		),
+		codeChangeEndLine: getEndLineNumber(filePath.content, matchIndex, oldText),
 	};
 };
 
@@ -102,16 +114,59 @@ const readRepositoryFile = async (
 	}
 };
 
-const findUniqueMatch = (content: string, oldText: string): number => {
+const findUniqueMatch = (
+	content: string,
+	oldText: string,
+	relativePath: string,
+): number => {
 	const firstMatch = content.indexOf(oldText);
-	if (firstMatch === -1 || content.indexOf(oldText, firstMatch + 1) !== -1) {
+
+	if (firstMatch === -1) {
+		throw notFoundError(content, oldText, relativePath);
+	}
+
+	const occurrences = countOccurrences(content, oldText);
+	if (occurrences > 1) {
 		throw new Error(
-			"codeChangeOldText must occur exactly once in codeChangeFilePath.",
+			`Found ${occurrences} occurrences of codeChangeOldText in ${relativePath}. The text must be unique. Add surrounding context to make it unique.`,
 		);
 	}
 
 	return firstMatch;
 };
+
+const countOccurrences = (content: string, oldText: string): number =>
+	content.split(oldText).length - 1;
+
+const notFoundError = (
+	content: string,
+	oldText: string,
+	relativePath: string,
+): Error => {
+	const message = `Could not find codeChangeOldText in ${relativePath}. The text must match the file exactly, including all whitespace and newlines. Copy it verbatim from the file.`;
+
+	if (hasLooseMatch(content, oldText)) {
+		return new Error(
+			`${message} A similar match exists but differs in whitespace or characters. Copy the exact text from the file.`,
+		);
+	}
+
+	return new Error(message);
+};
+
+const hasLooseMatch = (content: string, oldText: string): boolean =>
+	normalizeForLooseMatch(content).includes(normalizeForLooseMatch(oldText));
+
+const normalizeForLooseMatch = (text: string): string =>
+	text
+		.normalize("NFKC")
+		.split("\n")
+		.map((line) => line.trimEnd())
+		.join("\n")
+		.replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+		.replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+		.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-")
+		.replace(/[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g, " ");
 
 const getLineNumber = (content: string, index: number): number =>
 	content.slice(0, index).split("\n").length;

@@ -13,7 +13,7 @@ export const toGuardrailError = (
 ): WorkflowGuardrailError => {
 	const dimension = describeDimension(outcome.dimension);
 	const unit = describeUnit(outcome.dimension);
-	const tool = outcome.toolName ? ` "${outcome.toolName}"` : "";
+	const tool = outcome.toolName ? ` ${outcome.toolName}` : "";
 
 	const guardrailError: WorkflowGuardrailError = {
 		id,
