@@ -1,4 +1,7 @@
-import { describeDimension, describeUnit } from "../../../engine/guardrails.js";
+import {
+	describeDimension,
+	describeUnit,
+} from "../../../engine/guardrails/index.js";
 import type { GuardrailOutcome } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { ReviewError } from "../types.js";
