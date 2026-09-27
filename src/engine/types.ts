@@ -65,7 +65,15 @@ export type WorkflowGuardrailError = {
 	message: string;
 };
 
-export type WorkflowError = WorkflowGuardrailError;
+export type WorkflowUnhandledError = {
+	id: string;
+	kind: "unhandled_exception";
+	name: string;
+	message: string;
+	stack?: string;
+};
+
+export type WorkflowError = WorkflowGuardrailError | WorkflowUnhandledError;
 
 export type AgentTelemetry = {
 	durationMs: number;

@@ -1,8 +1,8 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
+import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
 import type { WorkflowContext } from "../../types.js";
-import { toGuardrailError } from "../shared/errors.js";
 import { formatReviewPrompt } from "../shared/prompt.js";
 import { nextId } from "../tools/review-finding/index.js";
 import { createReviewFindingTool } from "../tools/submit-review-finding.js";

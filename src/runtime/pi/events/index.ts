@@ -18,6 +18,7 @@ export const logAgentEvent = (
 	log: ScopedLogger,
 	event: AgentSessionEvent,
 	turnNumber: number,
+	toolInputs: Map<string, unknown>,
 ): number => {
 	if (event.type === "message_update" && event.message.role === "assistant") {
 		return turnNumber;
@@ -39,9 +40,24 @@ export const logAgentEvent = (
 		turnNumber += 1;
 	}
 
+	if (event.type === "tool_execution_start") {
+		toolInputs.set(event.toolCallId, event.args);
+	}
+
 	const described = describeAgentEvent(event, turnNumber);
 	if (event.type === "agent_end" && "error" in described) {
 		log.error("Agent ended with error", described);
+	} else if (event.type === "tool_execution_end") {
+		const input = toolInputs.get(event.toolCallId);
+		toolInputs.delete(event.toolCallId);
+		if (event.isError) {
+			log.error("Tool call failed", {
+				...described,
+				...(input === undefined ? {} : { input }),
+			});
+		} else {
+			log.debug("Agent event", event.type, described);
+		}
 	} else {
 		log.debug("Agent event", event.type, described);
 	}
@@ -52,7 +68,7 @@ export const logAgentResult = (
 	log: ScopedLogger,
 	session: PiAgentSession,
 ): void => {
-	log.debug("Agent usage", collectAgentUsage(session));
+	log.info("Agent usage", collectAgentUsage(session));
 };
 
 export const logAgentDiagnostics = (

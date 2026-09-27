@@ -120,8 +120,9 @@ export const createPiRuntime = (): AgentRuntime => ({
 		});
 
 		let turnNumber = 0;
+		const toolInputs = new Map<string, unknown>();
 		const unsubscribe = session.subscribe((event) => {
-			turnNumber = logAgentEvent(log, event, turnNumber);
+			turnNumber = logAgentEvent(log, event, turnNumber, toolInputs);
 		});
 
 		return {

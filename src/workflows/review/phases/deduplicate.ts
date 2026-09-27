@@ -1,10 +1,10 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
+import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import { env } from "../../../shared/env.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
-import { toGuardrailError } from "../shared/errors.js";
 import { formatDeduplicationPrompt } from "../shared/prompt.js";
 import { createMergeReviewFindingsTool } from "../tools/merge-review-findings.js";
 import { nextId } from "../tools/review-finding/index.js";

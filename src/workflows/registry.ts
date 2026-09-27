@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./error-handling.js";
 import { reviewWorkflow } from "./review/workflow.js";
 import type { Workflow } from "./types.js";
 
@@ -7,7 +8,7 @@ const register = (workflow: Workflow): void => {
 	workflows.set(workflow.id, workflow);
 };
 
-register(reviewWorkflow);
+register(withErrorHandling(reviewWorkflow));
 
 export const getWorkflow = (id: string): Workflow => {
 	const workflow = workflows.get(id);

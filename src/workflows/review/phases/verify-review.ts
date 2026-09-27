@@ -1,10 +1,10 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
+import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { createVerifierAgent } from "../agents/verifier.js";
-import { toGuardrailError } from "../shared/errors.js";
 import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId } from "../tools/review-finding/index.js";
