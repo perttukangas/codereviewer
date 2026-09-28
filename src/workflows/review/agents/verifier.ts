@@ -10,7 +10,7 @@ const baseVerifierAgent: Agent = {
 	],
 	constraints: [
 		"Independently confirm or refute each finding. Do not trust the reviewer's claims.",
-		"Re-derive severity and confidence from the rubric. Raise severity when the impact meets a higher definition.",
+		"Re-derive severity and confidence from the rubric. Raise or lower severity when the impact meets a different definition, and raise or lower confidence when the evidence supports it.",
 		"Correct a finding when it is wrong or unsupported. Mark it invalid only when it cannot be corrected by editing.",
 		"Do not edit for wording or style.",
 	],
