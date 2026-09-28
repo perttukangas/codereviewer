@@ -16,8 +16,7 @@ export const createReviewFindingTool = (
 	return defineTool({
 		name: "submit_review_finding",
 		label: "Submit Review Finding",
-		description:
-			"Submit one evidence-based code review finding with precise file paths and specific fix guidance.",
+		description: "Submit one code review finding.",
 		promptSnippet: "Submit structured review findings",
 		promptGuidelines: [
 			"Use submit_review_finding once for each distinct finding. Call it repeatedly for multiple findings.",

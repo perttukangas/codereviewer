@@ -60,14 +60,12 @@ export const createEditReviewFindingTool = (
 	return defineTool({
 		name: "edit_review_finding",
 		label: "Edit Review Finding",
-		description:
-			"Edit an existing review finding that is factually wrong or unsupported, or mark it invalid when it cannot be corrected by editing.",
-		promptSnippet:
-			"Edit an existing review finding that is factually wrong or unsupported.",
+		description: "Edit an existing review finding by id, or mark it invalid.",
+		promptSnippet: "Edit an existing review finding by id",
 		promptGuidelines: [
 			"When using edit_review_finding provide only the fields that need correction. Omitted fields keep their current values.",
 			"To edit code changes, provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together. To clear it, provide all three as empty strings.",
-			"Mark a finding invalid with a non-empty invalidReason only when it cannot be corrected by editing. Do not combine invalidReason with field changes.",
+			"Mark a finding invalid by providing a non-empty invalidReason. Do not combine invalidReason with field changes.",
 			"A finding already marked invalid cannot be edited. Clear invalidReason with an empty string before editing its fields.",
 			"Use the finding id from the findings under verification. Do not invent identifiers.",
 			...reviewFindingGuidelines,
@@ -79,7 +77,7 @@ export const createEditReviewFindingTool = (
 			invalidReason: Type.Optional(
 				Type.String({
 					description:
-						"Reason the finding is invalid and cannot be corrected by editing. Provide a non-empty reason to mark the finding invalid. Provide an empty string to clear an existing invalidReason. Do not combine with field changes.",
+						"Reason the finding is invalid. Provide a non-empty reason to mark the finding invalid. Provide an empty string to clear an existing invalidReason. Do not combine with field changes.",
 				}),
 			),
 			...Type.Partial(reviewFindingSchema).properties,
@@ -102,9 +100,7 @@ export const createEditReviewFindingTool = (
 				invalidReason !== undefined && invalidReason.trim() === "";
 
 			if (markingInvalid && hasOtherChanges) {
-				throw new Error(
-					"Use either invalidReason or field changes, not both. If the finding can be corrected, edit it instead of marking it invalid.",
-				);
+				throw new Error("Use either invalidReason or field changes, not both.");
 			}
 
 			if (

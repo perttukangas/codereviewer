@@ -11,9 +11,15 @@ const verificationCompletion =
 const deduplicationCompletion =
 	'When you are done, reply with exactly "Deduplication complete". Do not add a summary or any other text.';
 
+export const reviewFindingRubric = [
+	"Severity rubric. CRITICAL blocks release or immediate merge. HIGH should be fixed before release or in the current change window. MEDIUM is important but not release-blocking alone. LOW is minor but actionable. INFO is an improvement note with minimal risk.",
+	"Confidence rubric. 1.0 is directly demonstrated by the code or diff with no assumptions. 0.8 is strong evidence with minor assumptions. 0.5 is plausible but unverified. 0.2 is speculative.",
+];
+
 export const reviewAgentConstraints = [
 	"Report only issues caused by the diff. Confirm impact through the diff or read-only investigation.",
 	"Do not report pre-existing issues, unrelated issues, speculative risks, or issues that need assumptions beyond the diff and read-only evidence.",
+	...reviewFindingRubric,
 ];
 
 export const formatReviewPrompt = (agent: Agent, diff?: string): string =>

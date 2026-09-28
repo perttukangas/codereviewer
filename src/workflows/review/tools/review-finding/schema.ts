@@ -32,8 +32,6 @@ export const nextId = (items: { id: string }[], prefix: string): string => {
 
 export const reviewFindingGuidelines = [
 	"Set severity by impact. Set confidence by how likely the finding is a true positive.",
-	"Severity rubric. CRITICAL blocks release or immediate merge. HIGH should be fixed before release or in the current change window. MEDIUM is important but not release-blocking alone. LOW is minor but actionable. INFO is an improvement note with minimal risk.",
-	"Confidence rubric. 1.0 is directly demonstrated by the code or diff with no assumptions. 0.8 is strong evidence with minor assumptions. 0.5 is plausible but unverified. 0.2 is speculative.",
 	"List every repository-relative file relevant to understanding or fixing the finding in relatedFiles, including callers, definitions, configuration, and tests.",
 	"Use code change for small, localized fixes when you can suggest a concrete code change, even if you are not entirely confident it is the intended solution.",
 	"When you set code change, copy codeChangeOldText verbatim from the current file, including all whitespace and newlines, and include enough surrounding context so the text occurs exactly once.",
@@ -46,13 +44,13 @@ export const reviewFindingSchema = Type.Object({
 		description: "Short, specific title describing the finding.",
 	}),
 	severity: Type.Enum(severityValues, {
-		description: "Impact level. Use the shared severity rubric.",
+		description: "Impact level of the finding.",
 	}),
 	confidence: Type.Number({
 		minimum: 0,
 		maximum: 1,
 		description:
-			"Probability from 0 to 1 that the finding is a true positive, meaning the issue is real and correctly described. Use 1 for directly demonstrated issues and lower values when assumptions remain.",
+			"Probability from 0 to 1 that the finding is a true positive, meaning the issue is real and correctly described.",
 	}),
 	problem: Type.String({
 		minLength: 1,

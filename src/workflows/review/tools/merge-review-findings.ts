@@ -66,7 +66,7 @@ export const createMergeReviewFindingsTool = (
 		promptGuidelines: [
 			"Use merge_review_findings once for each group of findings that describe the same underlying issue.",
 			"Provide the ids of every finding in the group. At least two distinct ids are required.",
-			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence. When the merged findings come from different agents, merged confidence may exceed the highest source confidence to reflect independent corroboration.",
+			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence.",
 			...reviewFindingGuidelines,
 		],
 		parameters: Type.Object({
