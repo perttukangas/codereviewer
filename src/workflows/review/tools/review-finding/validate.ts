@@ -122,7 +122,9 @@ const findUniqueMatch = (
 	const firstMatch = content.indexOf(oldText);
 
 	if (firstMatch === -1) {
-		throw notFoundError(content, oldText, relativePath);
+		throw new Error(
+			`Could not find codeChangeOldText in ${relativePath}. The text must match the file exactly, including all whitespace and newlines. Copy it verbatim from the file.`,
+		);
 	}
 
 	const occurrences = countOccurrences(content, oldText);
@@ -137,36 +139,6 @@ const findUniqueMatch = (
 
 const countOccurrences = (content: string, oldText: string): number =>
 	content.split(oldText).length - 1;
-
-const notFoundError = (
-	content: string,
-	oldText: string,
-	relativePath: string,
-): Error => {
-	const message = `Could not find codeChangeOldText in ${relativePath}. The text must match the file exactly, including all whitespace and newlines. Copy it verbatim from the file.`;
-
-	if (hasLooseMatch(content, oldText)) {
-		return new Error(
-			`${message} A similar match exists but differs in whitespace or characters. Copy the exact text from the file.`,
-		);
-	}
-
-	return new Error(message);
-};
-
-const hasLooseMatch = (content: string, oldText: string): boolean =>
-	normalizeForLooseMatch(content).includes(normalizeForLooseMatch(oldText));
-
-const normalizeForLooseMatch = (text: string): string =>
-	text
-		.normalize("NFKC")
-		.split("\n")
-		.map((line) => line.trimEnd())
-		.join("\n")
-		.replace(/[\u2018\u2019\u201A\u201B]/g, "'")
-		.replace(/[\u201C\u201D\u201E\u201F]/g, '"')
-		.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-")
-		.replace(/[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g, " ");
 
 const getLineNumber = (content: string, index: number): number =>
 	content.slice(0, index).split("\n").length;
