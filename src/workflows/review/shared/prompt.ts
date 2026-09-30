@@ -1,6 +1,7 @@
 import { formatPrompt, toTitle } from "../../../engine/prompt.js";
 import type { Agent } from "../../../engine/types.js";
 import type { ReviewFinding } from "../types.js";
+import { orderFindingsForPrompt } from "./findings-order.js";
 
 const reviewCompletion =
 	'When you are done, reply with exactly "Review complete". Do not add a summary or any other text.';
@@ -61,7 +62,7 @@ export const formatVerificationPrompt = (
 		blocks: [
 			{
 				heading: "Findings Under Verification",
-				body: JSON.stringify(findings, null, 2),
+				body: JSON.stringify(orderFindingsForPrompt(findings), null, 2),
 			},
 			...(diff
 				? [{ heading: "Git Diff Used To Produce Findings", body: diff }]
@@ -84,7 +85,7 @@ export const formatDeduplicationPrompt = (
 		blocks: [
 			{
 				heading: "Findings To Deduplicate",
-				body: JSON.stringify(findings, null, 2),
+				body: JSON.stringify(orderFindingsForPrompt(findings), null, 2),
 			},
 		],
 	});
