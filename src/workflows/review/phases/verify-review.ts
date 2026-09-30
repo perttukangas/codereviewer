@@ -7,11 +7,7 @@ import type { WorkflowContext } from "../../types.js";
 import { createVerifierAgent } from "../agents/verifier.js";
 import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
-import {
-	nextId,
-	severityRank,
-	sortFindingsBySeverity,
-} from "../tools/review-finding/index.js";
+import { nextId, severityRank } from "../tools/review-finding/index.js";
 import type { AgentReview, ReviewFinding, ReviewRunState } from "../types.js";
 
 const DIFF_HEADER_PREFIX = "diff --git ";
@@ -148,8 +144,6 @@ export const verifyReview = async (
 		repositoryDir,
 		review.findings,
 	);
-
-	sortFindingsBySeverity(review.findings);
 
 	const scopedDiff = selectDiffFiles(
 		diff,

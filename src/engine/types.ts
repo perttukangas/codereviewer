@@ -4,7 +4,7 @@ export type Agent = {
 	id: string;
 	/**
 	 * Base id used to resolve configuration. Defaults to `id`. Set this when an
-	 * agent runs under a scoped runtime id (for example `code-quality:verifier`)
+	 * agent runs under a scoped runtime id (for example `maintainability:verifier`)
 	 * but should share the configuration of its base agent (`verifier`).
 	 */
 	configId?: string;
