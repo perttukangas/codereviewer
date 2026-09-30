@@ -146,7 +146,9 @@ export const createMergeReviewFindingsTool = (
 			];
 
 			const remaining = allFindings().filter(
-				(finding) => !uniqueIds.includes(finding.id),
+				(finding) =>
+					finding.invalidReason === undefined &&
+					!uniqueIds.includes(finding.id),
 			);
 
 			const merged: ReviewFinding = {
