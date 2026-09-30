@@ -14,7 +14,7 @@ export const severityRank = (severity: ReviewSeverity): number =>
 
 export type ReviewFindingInput = Omit<
 	ReviewFinding,
-	"id" | "codeChangeStartLine" | "codeChangeEndLine"
+	"id" | "codeChangeStartLine" | "codeChangeEndLine" | "score"
 >;
 
 export const nextId = (items: { id: string }[], prefix: string): string => {

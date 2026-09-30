@@ -20,6 +20,7 @@ export type ReviewFinding = {
 	invalidReason?: string;
 	mergedFrom?: string[];
 	mergedFindingIds?: string[];
+	score?: number;
 };
 
 export type ReviewError = WorkflowError;

@@ -8,6 +8,7 @@ import type { Workflow, WorkflowContext, WorkflowResult } from "../types.js";
 import { reviewAgents } from "./agents/index.js";
 import { deduplicate } from "./phases/deduplicate.js";
 import { reviewAgent } from "./phases/review-agent.js";
+import { scoreFindings } from "./phases/score.js";
 import { verifyReview } from "./phases/verify-review.js";
 import { getReviewEnv } from "./shared/env.js";
 import { validateReviewInputs } from "./shared/validate-inputs.js";
@@ -52,6 +53,7 @@ export const run = async (
 
 	const report: ReviewReport = Object.fromEntries(results);
 	await deduplicate(context, report, runState);
+	scoreFindings(report);
 
 	return {
 		output: report,

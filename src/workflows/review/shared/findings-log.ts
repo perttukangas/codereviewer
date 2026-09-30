@@ -18,6 +18,10 @@ const summarizeFinding = (finding: ReviewFinding): string => {
 		parts.push(`merged from ${finding.mergedFrom.join(", ")}`);
 	}
 
+	if (finding.score !== undefined) {
+		parts.push(`score ${finding.score}`);
+	}
+
 	return parts.join(" | ");
 };
 
