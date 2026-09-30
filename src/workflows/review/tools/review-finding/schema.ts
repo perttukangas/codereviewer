@@ -33,11 +33,17 @@ export const nextId = (items: { id: string }[], prefix: string): string => {
 export const relatedFilesGuideline =
 	"List every repository-relative file relevant to understanding or fixing the finding in relatedFiles, including callers, definitions, configuration, and tests.";
 
+export const codeChangeGuideline =
+	"When you set code change, copy codeChangeOldText verbatim from the current file, including all whitespace and newlines, and include enough surrounding context so the text occurs exactly once.";
+
+export const mergeCodeChangeGuideline =
+	"When you set code change, copy codeChangeFilePath, codeChangeOldText, and codeChangeNewText exactly from one of the findings being merged. Do not modify them. Omit all three when no source finding's code change can be used as is.";
+
 export const reviewFindingGuidelines = [
 	"Set severity by impact. Set confidence by how likely the finding is a true positive.",
 	relatedFilesGuideline,
 	"Use code change for small, localized fixes when you can suggest a concrete code change, even if you are not entirely confident it is the intended solution.",
-	"When you set code change, copy codeChangeOldText verbatim from the current file, including all whitespace and newlines, and include enough surrounding context so the text occurs exactly once.",
+	codeChangeGuideline,
 	"Use suggested change to describe the fix. Do not include code.",
 ];
 

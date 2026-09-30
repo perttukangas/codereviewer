@@ -37,10 +37,10 @@ export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 			{ heading: "Approach", items: reviewApproach },
 			{ heading: "Scope", items: agent.scope ?? [] },
 			{ heading: "Constraints", items: agent.constraints ?? [] },
+			{ heading: "Completion", items: [reviewCompletion] },
 		],
 		blocks: [
 			...(diff ? [{ heading: "Git Diff Under Review", body: diff }] : []),
-			{ heading: "Completion", body: reviewCompletion },
 		],
 	});
 
@@ -56,6 +56,7 @@ export const formatVerificationPrompt = (
 		sections: [
 			{ heading: "Scope", items: verifier.scope ?? [] },
 			{ heading: "Constraints", items: verifier.constraints ?? [] },
+			{ heading: "Completion", items: [verificationCompletion] },
 		],
 		blocks: [
 			{
@@ -65,7 +66,6 @@ export const formatVerificationPrompt = (
 			...(diff
 				? [{ heading: "Git Diff Used To Produce Findings", body: diff }]
 				: []),
-			{ heading: "Completion", body: verificationCompletion },
 		],
 	});
 
@@ -79,12 +79,12 @@ export const formatDeduplicationPrompt = (
 		sections: [
 			{ heading: "Scope", items: deduplicator.scope ?? [] },
 			{ heading: "Constraints", items: deduplicator.constraints ?? [] },
+			{ heading: "Completion", items: [deduplicationCompletion] },
 		],
 		blocks: [
 			{
 				heading: "Findings To Deduplicate",
 				body: JSON.stringify(findings, null, 2),
 			},
-			{ heading: "Completion", body: deduplicationCompletion },
 		],
 	});

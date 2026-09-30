@@ -1,4 +1,6 @@
 export {
+	codeChangeGuideline,
+	mergeCodeChangeGuideline,
 	nextId,
 	type ReviewFindingInput,
 	relatedFilesGuideline,

@@ -3,6 +3,8 @@ import { defineTool } from "../../../engine/tools.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "../types.js";
 import {
+	codeChangeGuideline,
+	mergeCodeChangeGuideline,
 	nextId,
 	relatedFilesGuideline,
 	reviewFindingGuidelines,
@@ -69,8 +71,11 @@ export const createMergeReviewFindingsTool = (
 			"Provide the ids of every finding in the group. At least two distinct ids are required.",
 			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence.",
 			"Do not provide relatedFiles. The merged finding inherits the union of the source findings' related files.",
+			mergeCodeChangeGuideline,
 			...reviewFindingGuidelines.filter(
-				(guideline) => guideline !== relatedFilesGuideline,
+				(guideline) =>
+					guideline !== relatedFilesGuideline &&
+					guideline !== codeChangeGuideline,
 			),
 		],
 		parameters: Type.Object({
@@ -172,6 +177,8 @@ export const createMergeReviewFindingsTool = (
 					{ ...mergedFields, relatedFiles },
 					repoDir,
 					remaining,
+					undefined,
+					sources.map((source) => source.finding),
 				)),
 				mergedFrom,
 				mergedFindingIds,

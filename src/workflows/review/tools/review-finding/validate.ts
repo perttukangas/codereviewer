@@ -9,10 +9,15 @@ export const validateFinding = async (
 	repoDir: string,
 	findings: ReviewFinding[],
 	excludeId?: string,
+	codeChangeSources?: ReviewFinding[],
 ): Promise<Omit<ReviewFinding, "id">> => {
 	validateUniqueTitle(findings, finding.title, excludeId);
 
-	const codeChange = await normalizeCodeChange(finding, repoDir);
+	const codeChange = await normalizeCodeChange(
+		finding,
+		repoDir,
+		codeChangeSources,
+	);
 
 	const relatedFiles = await normalizeFilePaths(
 		finding.relatedFiles,
@@ -46,6 +51,7 @@ const normalizeFilePaths = async (
 const normalizeCodeChange = async (
 	finding: ReviewFindingInput,
 	repoDir: string,
+	codeChangeSources?: ReviewFinding[],
 ): Promise<Partial<ReviewFinding>> => {
 	const { codeChangeFilePath, codeChangeOldText, codeChangeNewText } = finding;
 	const provided = [
@@ -61,6 +67,17 @@ const normalizeCodeChange = async (
 	if (provided !== 3) {
 		throw new Error(
 			"Provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together, or omit all three.",
+		);
+	}
+
+	if (codeChangeSources) {
+		validateCodeChangeSource(
+			{
+				codeChangeFilePath: codeChangeFilePath as string,
+				codeChangeOldText: codeChangeOldText as string,
+				codeChangeNewText: codeChangeNewText as string,
+			},
+			codeChangeSources,
 		);
 	}
 
@@ -96,6 +113,37 @@ const normalizeCodeChange = async (
 		codeChangeStartLine: getLineNumber(filePath.content, matchIndex),
 		codeChangeEndLine: getEndLineNumber(filePath.content, matchIndex, oldText),
 	};
+};
+
+const validateCodeChangeSource = (
+	codeChange: Required<
+		Pick<
+			ReviewFinding,
+			"codeChangeFilePath" | "codeChangeOldText" | "codeChangeNewText"
+		>
+	>,
+	sources: ReviewFinding[],
+): void => {
+	const matches = sources.some(
+		(source) =>
+			source.codeChangeFilePath === codeChange.codeChangeFilePath &&
+			source.codeChangeOldText === codeChange.codeChangeOldText &&
+			source.codeChangeNewText === codeChange.codeChangeNewText,
+	);
+
+	if (matches) {
+		return;
+	}
+
+	const available = sources
+		.filter((source) => source.codeChangeFilePath !== undefined)
+		.map((source) => source.id);
+
+	throw new Error(
+		available.length > 0
+			? `codeChange must exactly match the code change of one of the merged findings, or be omitted. Findings with a code change: ${available.join(", ")}.`
+			: "codeChange must exactly match the code change of one of the merged findings, or be omitted. None of the merged findings has a code change.",
+	);
 };
 
 const readRepositoryFile = async (

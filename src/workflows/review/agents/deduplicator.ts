@@ -12,7 +12,7 @@ export const DeduplicatorAgent: Agent = {
 		"Merge only findings that are genuinely the same issue. Do not merge findings that merely share a file or topic.",
 		"Author the merged finding yourself. Combine the evidence from every source into one title, problem, rationale, and suggested change.",
 		"When merged findings come from different agents, merged confidence may exceed the highest source confidence to reflect independent corroboration.",
-		"Omit the code change when the merged findings propose different concrete edits that cannot be combined into one localized change, or when a source edit no longer matches the merged problem. Keep the suggested change prose describing the fix.",
+		"When you set a code change, copy it exactly from one of the findings being merged. Do not modify it. Omit the code change when no source finding's code change can be used as is. Keep the suggested change prose describing the fix.",
 		...reviewFindingRubric,
 	],
 };
