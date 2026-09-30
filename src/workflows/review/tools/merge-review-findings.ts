@@ -197,7 +197,12 @@ export const createMergeReviewFindingsTool = (
 			dedupReview.findings.push(merged);
 
 			return {
-				content: [{ type: "text", text: "Review findings merged." }],
+				content: [
+					{
+						type: "text",
+						text: `Review findings merged into ${merged.id}. Merged ids: ${uniqueIds.join(", ")}. title="${merged.title}".`,
+					},
+				],
 				details: merged,
 			};
 		},

@@ -118,7 +118,12 @@ export const createEditReviewFindingTool = (
 				findings[index] = updated;
 
 				return {
-					content: [{ type: "text", text: "Review finding marked invalid." }],
+					content: [
+						{
+							type: "text",
+							text: `Review finding ${updated.id} marked invalid.`,
+						},
+					],
 					details: updated,
 				};
 			}
@@ -136,8 +141,8 @@ export const createEditReviewFindingTool = (
 						{
 							type: "text",
 							text: clearing
-								? "Review finding invalidReason cleared."
-								: "Review finding unchanged.",
+								? `Review finding ${base.id} invalidReason cleared.`
+								: `Review finding ${base.id} unchanged.`,
 						},
 					],
 					details: base,
@@ -164,7 +169,12 @@ export const createEditReviewFindingTool = (
 			findings[index] = updated;
 
 			return {
-				content: [{ type: "text", text: "Review finding updated." }],
+				content: [
+					{
+						type: "text",
+						text: `Review finding ${updated.id} updated. title="${updated.title}", severity=${updated.severity}.`,
+					},
+				],
 				details: updated,
 			};
 		},

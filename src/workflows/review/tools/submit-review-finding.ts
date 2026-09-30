@@ -32,7 +32,12 @@ export const createReviewFindingTool = (
 			findings.push(finding);
 
 			return {
-				content: [{ type: "text", text: "Review finding submitted." }],
+				content: [
+					{
+						type: "text",
+						text: `Review finding submitted. id=${finding.id}, title="${finding.title}", severity=${finding.severity}.`,
+					},
+				],
 				details: finding,
 			};
 		},
