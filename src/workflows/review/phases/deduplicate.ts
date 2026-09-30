@@ -7,7 +7,10 @@ import type { WorkflowContext } from "../../types.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import { formatDeduplicationPrompt } from "../shared/prompt.js";
 import { createMergeReviewFindingsTool } from "../tools/merge-review-findings.js";
-import { nextId } from "../tools/review-finding/index.js";
+import {
+	nextId,
+	sortFindingsBySeverity,
+} from "../tools/review-finding/index.js";
 import type { AgentReview, ReviewReport, ReviewRunState } from "../types.js";
 
 export const deduplicate = async (
@@ -29,6 +32,8 @@ export const deduplicate = async (
 		log.info("Skipping deduplication, fewer than two eligible findings");
 		return;
 	}
+
+	sortFindingsBySeverity(eligible);
 
 	const dedupReview: AgentReview = { findings: [] };
 	const mergeTool = createMergeReviewFindingsTool(

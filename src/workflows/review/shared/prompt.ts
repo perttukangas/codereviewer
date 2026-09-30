@@ -22,11 +22,19 @@ export const reviewAgentConstraints = [
 	...reviewFindingRubric,
 ];
 
+export const reviewApproach = [
+	"Scan the entire diff before investigating individual changes.",
+	"Identify the changes most likely to matter for your role and scope.",
+	"Investigate those changes first.",
+	"Do not let prioritization cause you to ignore lower-impact changes or valid findings.",
+];
+
 export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 	formatPrompt({
 		title: `${toTitle(agent.id)} Reviewer`,
 		intro: agent.role,
 		sections: [
+			{ heading: "Approach", items: reviewApproach },
 			{ heading: "Scope", items: agent.scope ?? [] },
 			{ heading: "Constraints", items: agent.constraints ?? [] },
 		],

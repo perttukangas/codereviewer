@@ -7,7 +7,11 @@ import type { WorkflowContext } from "../../types.js";
 import { createVerifierAgent } from "../agents/verifier.js";
 import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
-import { nextId } from "../tools/review-finding/index.js";
+import {
+	nextId,
+	severityRank,
+	sortFindingsBySeverity,
+} from "../tools/review-finding/index.js";
 import type { AgentReview, ReviewFinding, ReviewRunState } from "../types.js";
 
 const DIFF_HEADER_PREFIX = "diff --git ";
@@ -58,13 +62,47 @@ const parseDiff = (diff: string): DiffFile[] => {
 	return files;
 };
 
-const selectDiffFiles = (diff: string, paths: string[]): string => {
+const findingSeverityByPath = (
+	findings: ReviewFinding[],
+): Map<string, number> => {
+	const ranks = new Map<string, number>();
+
+	for (const finding of findings) {
+		const rank = severityRank(finding.severity);
+		const paths = [
+			...(finding.relatedFiles ?? []),
+			...(finding.codeChangeFilePath ? [finding.codeChangeFilePath] : []),
+		];
+
+		for (const path of paths) {
+			const current = ranks.get(path);
+			if (current === undefined || rank < current) {
+				ranks.set(path, rank);
+			}
+		}
+	}
+
+	return ranks;
+};
+
+const selectDiffFiles = (
+	diff: string,
+	paths: string[],
+	findings: ReviewFinding[],
+): string => {
 	if (paths.length === 0) {
 		return diff;
 	}
 
 	const wanted = new Set(paths);
-	const selected = parseDiff(diff).filter((file) => wanted.has(file.path));
+	const ranks = findingSeverityByPath(findings);
+	const selected = parseDiff(diff)
+		.filter((file) => wanted.has(file.path))
+		.sort(
+			(a, b) =>
+				(ranks.get(a.path) ?? Number.MAX_SAFE_INTEGER) -
+				(ranks.get(b.path) ?? Number.MAX_SAFE_INTEGER),
+		);
 
 	return selected.map((file) => file.content).join("\n");
 };
@@ -111,7 +149,13 @@ export const verifyReview = async (
 		review.findings,
 	);
 
-	const scopedDiff = selectDiffFiles(diff, findingFilePaths(review.findings));
+	sortFindingsBySeverity(review.findings);
+
+	const scopedDiff = selectDiffFiles(
+		diff,
+		findingFilePaths(review.findings),
+		review.findings,
+	);
 
 	const response = await runGuardedSession({
 		agent: verifier,

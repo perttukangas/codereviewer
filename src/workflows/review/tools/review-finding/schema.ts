@@ -12,6 +12,11 @@ export const severityValues = [
 export const severityRank = (severity: ReviewSeverity): number =>
 	severityValues.indexOf(severity);
 
+export const sortFindingsBySeverity = (
+	findings: ReviewFinding[],
+): ReviewFinding[] =>
+	findings.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+
 export type ReviewFindingInput = Omit<
 	ReviewFinding,
 	"id" | "codeChangeStartLine" | "codeChangeEndLine"
