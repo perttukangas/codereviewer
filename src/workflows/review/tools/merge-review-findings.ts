@@ -4,6 +4,7 @@ import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "../types.js";
 import {
 	nextId,
+	relatedFilesGuideline,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	severityRank,
@@ -67,7 +68,10 @@ export const createMergeReviewFindingsTool = (
 			"Use merge_review_findings once for each group of findings that describe the same underlying issue.",
 			"Provide the ids of every finding in the group. At least two distinct ids are required.",
 			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence.",
-			...reviewFindingGuidelines,
+			"Do not provide relatedFiles. The merged finding inherits the union of the source findings' related files.",
+			...reviewFindingGuidelines.filter(
+				(guideline) => guideline !== relatedFilesGuideline,
+			),
 		],
 		parameters: Type.Object({
 			findingIds: Type.Array(
@@ -81,7 +85,7 @@ export const createMergeReviewFindingsTool = (
 						"Two or more distinct finding ids that describe the same issue.",
 				},
 			),
-			...reviewFindingSchema.properties,
+			...Type.Omit(reviewFindingSchema, ["relatedFiles"]).properties,
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params) {
@@ -100,6 +104,17 @@ export const createMergeReviewFindingsTool = (
 				}
 				return source;
 			});
+
+			const relatedFiles = [
+				...new Set(
+					sources.flatMap((source) => [
+						...source.finding.relatedFiles,
+						...(source.finding.codeChangeFilePath
+							? [source.finding.codeChangeFilePath]
+							: []),
+					]),
+				),
+			];
 
 			const severities = sources.map((source) =>
 				severityRank(source.finding.severity),
@@ -153,7 +168,11 @@ export const createMergeReviewFindingsTool = (
 
 			const merged: ReviewFinding = {
 				id: nextId(dedupReview.findings, DeduplicatorAgent.id),
-				...(await validateFinding(mergedFields, repoDir, remaining)),
+				...(await validateFinding(
+					{ ...mergedFields, relatedFiles },
+					repoDir,
+					remaining,
+				)),
 				mergedFrom,
 				mergedFindingIds,
 			};

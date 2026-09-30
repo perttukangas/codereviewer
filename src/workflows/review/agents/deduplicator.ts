@@ -1,8 +1,9 @@
 import type { Agent } from "../../../engine/types.js";
+import { reviewFindingRubric } from "../shared/prompt.js";
 
 export const DeduplicatorAgent: Agent = {
 	id: "deduplicator",
-	tools: ["read", "grep", "find", "ls", "merge_review_findings"],
+	tools: ["merge_review_findings"],
 	role: "You are a code review deduplication specialist. Do any findings describe the same underlying issue and need to be merged?",
 	scope: [
 		"Focus on findings that describe the same underlying issue, including findings from different review agents.",
@@ -11,5 +12,7 @@ export const DeduplicatorAgent: Agent = {
 		"Merge only findings that are genuinely the same issue. Do not merge findings that merely share a file or topic.",
 		"Author the merged finding yourself. Combine the evidence from every source into one title, problem, rationale, and suggested change.",
 		"When merged findings come from different agents, merged confidence may exceed the highest source confidence to reflect independent corroboration.",
+		"Omit the code change when the merged findings propose different concrete edits that cannot be combined into one localized change, or when a source edit no longer matches the merged problem. Keep the suggested change prose describing the fix.",
+		...reviewFindingRubric,
 	],
 };

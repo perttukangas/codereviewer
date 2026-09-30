@@ -30,9 +30,12 @@ export const nextId = (items: { id: string }[], prefix: string): string => {
 	return `${idPrefix}${highest + 1}`;
 };
 
+export const relatedFilesGuideline =
+	"List every repository-relative file relevant to understanding or fixing the finding in relatedFiles, including callers, definitions, configuration, and tests.";
+
 export const reviewFindingGuidelines = [
 	"Set severity by impact. Set confidence by how likely the finding is a true positive.",
-	"List every repository-relative file relevant to understanding or fixing the finding in relatedFiles, including callers, definitions, configuration, and tests.",
+	relatedFilesGuideline,
 	"Use code change for small, localized fixes when you can suggest a concrete code change, even if you are not entirely confident it is the intended solution.",
 	"When you set code change, copy codeChangeOldText verbatim from the current file, including all whitespace and newlines, and include enough surrounding context so the text occurs exactly once.",
 	"Use suggested change to describe the fix. Do not include code.",

@@ -1,6 +1,7 @@
 export {
 	nextId,
 	type ReviewFindingInput,
+	relatedFilesGuideline,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	severityRank,
