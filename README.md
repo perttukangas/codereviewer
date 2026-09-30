@@ -2,19 +2,6 @@
 
 LLM based code reviewer for merge requests.
 
-## Usage
-
-```
-codereviewer [command]
-```
-
-Commands are thin CLI entry points that map to a workflow. The default command is
-`review`.
-
-- `review` — run the code review workflow
-
-Run `codereviewer --help` to list the available commands and registered workflows.
-
 ## Environment variables
 
 Defined in file [shared/env.ts](./src/shared/env.ts). Per agent overrides are
@@ -36,9 +23,3 @@ src/
   integrations/   external systems (ports plus adapters)
   shared/         cross-cutting infrastructure (env, logger)
 ```
-
-## Adding a workflow
-
-1. Create `src/workflows/<id>/` with a `workflow.ts` exporting a `Workflow`.
-2. Register it in `src/workflows/registry.ts`.
-3. Add a matching command in `src/cli/commands/` and map it in `src/cli/index.ts`.

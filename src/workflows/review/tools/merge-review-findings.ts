@@ -16,7 +16,6 @@ import {
 type FindingSource = {
 	agentId: string;
 	findings: ReviewFinding[];
-	index: number;
 	finding: ReviewFinding;
 };
 
@@ -27,33 +26,32 @@ export const createMergeReviewFindingsTool = (
 ) => {
 	const findSource = (id: string): FindingSource | undefined => {
 		for (const [agentId, review] of Object.entries(report)) {
-			const index = review.findings.findIndex(
+			const finding = review.findings.find(
 				(finding) => finding.id === id && finding.invalidReason === undefined,
 			);
-			if (index !== -1) {
-				return {
-					agentId,
-					findings: review.findings,
-					index,
-					finding: review.findings[index],
-				};
+			if (finding) {
+				return { agentId, findings: review.findings, finding };
 			}
 		}
 
-		const index = dedupReview.findings.findIndex(
+		const finding = dedupReview.findings.find(
 			(finding) => finding.id === id && finding.invalidReason === undefined,
 		);
-		if (index !== -1) {
+		if (finding) {
 			return {
 				agentId: DeduplicatorAgent.id,
 				findings: dedupReview.findings,
-				index,
-				finding: dedupReview.findings[index],
+				finding,
 			};
 		}
 
 		return undefined;
 	};
+
+	const findMergedInto = (id: string): ReviewFinding | undefined =>
+		dedupReview.findings.find((finding) =>
+			finding.mergedFindingIds?.includes(id),
+		);
 
 	const allFindings = (): ReviewFinding[] => [
 		...Object.values(report).flatMap((review) => review.findings),
@@ -103,6 +101,12 @@ export const createMergeReviewFindingsTool = (
 			}
 
 			const sources = uniqueIds.map((id) => {
+				const alreadyMerged = findMergedInto(id);
+				if (alreadyMerged) {
+					throw new Error(
+						`Finding ${id} was already merged into ${alreadyMerged.id}.`,
+					);
+				}
 				const source = findSource(id);
 				if (!source) {
 					throw new Error(`Unknown review finding id: ${id}`);
@@ -185,7 +189,10 @@ export const createMergeReviewFindingsTool = (
 			};
 
 			for (const source of sources) {
-				source.findings.splice(source.index, 1);
+				const index = source.findings.indexOf(source.finding);
+				if (index !== -1) {
+					source.findings.splice(index, 1);
+				}
 			}
 			dedupReview.findings.push(merged);
 
