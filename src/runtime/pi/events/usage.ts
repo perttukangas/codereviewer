@@ -46,3 +46,25 @@ export const collectAgentUsage = (session: PiAgentSession): AgentUsage => {
 		tools,
 	};
 };
+
+export const summarizeAgentUsage = (usage: AgentUsage): string => {
+	const parts = [
+		`input ${usage.inputTokens}`,
+		`output ${usage.outputTokens}`,
+		`cache read ${usage.cacheReadTokens}`,
+		`cache write ${usage.cacheWriteTokens}`,
+		`total ${usage.totalTokens}`,
+		`reported ${usage.reportedTotalTokens}`,
+		`tool calls ${usage.toolCalls}`,
+	];
+
+	const tools = Object.entries(usage.tools)
+		.map(([name, count]) => `${name}=${count}`)
+		.join(", ");
+
+	if (tools.length > 0) {
+		parts.push(tools);
+	}
+
+	return parts.join(" | ");
+};

@@ -5,6 +5,7 @@ import type { Agent } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { createVerifierAgent } from "../agents/verifier.js";
+import { logFindingsSnapshot } from "../shared/findings-log.js";
 import { formatVerificationPrompt } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId, severityRank } from "../tools/review-finding/index.js";
@@ -166,6 +167,8 @@ export const verifyReview = async (
 	});
 
 	run.telemetry.record(verifier.id, response.durationMs, response.usage);
+
+	logFindingsSnapshot(log, "Verified findings", review.findings);
 
 	for (const outcome of response.guardrails.filter(
 		(guardrail) => guardrail.terminated,

@@ -5,7 +5,7 @@ import type {
 
 import type { ScopedLogger } from "../../../shared/logger.js";
 import { describeAgentEvent, describeAssistantMessage } from "./describe.js";
-import { collectAgentUsage } from "./usage.js";
+import { collectAgentUsage, summarizeAgentUsage } from "./usage.js";
 
 export type { AgentUsage } from "../../types.js";
 
@@ -68,7 +68,9 @@ export const logAgentResult = (
 	log: ScopedLogger,
 	session: PiAgentSession,
 ): void => {
-	log.info("Agent usage", collectAgentUsage(session));
+	const usage = collectAgentUsage(session);
+	log.info("Agent usage", summarizeAgentUsage(usage));
+	log.debug("Agent usage details", usage);
 };
 
 export const logAgentDiagnostics = (

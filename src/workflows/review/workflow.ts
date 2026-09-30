@@ -11,7 +11,6 @@ import { reviewAgent } from "./phases/review-agent.js";
 import { verifyReview } from "./phases/verify-review.js";
 import { getReviewEnv } from "./shared/env.js";
 import { validateReviewInputs } from "./shared/validate-inputs.js";
-import { severityValues } from "./tools/review-finding/index.js";
 import type { AgentReview, ReviewReport, ReviewRunState } from "./types.js";
 
 export const run = async (
@@ -69,20 +68,9 @@ const runAgentPipeline = async (
 	runState: ReviewRunState,
 ): Promise<[string, AgentReview]> => {
 	const review: AgentReview = { findings: [] };
-	const log = createLogger({ agentId: agent.id });
 
 	await reviewAgent(context, agent, repositoryDir, diff, review, runState);
 	await verifyReview(context, agent, review, repositoryDir, diff, runState);
-
-	log.info(
-		`Agent reported ${review.findings.length} findings`,
-		severityValues
-			.map(
-				(severity) =>
-					`${severity}=${review.findings.filter((finding) => finding.severity === severity).length}`,
-			)
-			.join(", "),
-	);
 
 	return [agent.id, review];
 };
