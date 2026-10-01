@@ -1,0 +1,40 @@
+{
+  "id": "T04",
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "difficulty": "easier",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [],
+    "purposes": [
+      {
+        "id": "T04-F01",
+        "mainAgent": "correctness",
+        "severity": "HIGH",
+        "confidence": 0.8,
+        "title": "TODO"
+      },
+      {
+        "id": "T04-F02",
+        "mainAgent": "performance",
+        "severity": "HIGH",
+        "confidence": 0.8,
+        "title": "TODO"
+      },
+      {
+        "id": "T04-F03",
+        "mainAgent": "reliability",
+        "severity": "HIGH",
+        "confidence": 0.8,
+        "title": "TODO"
+      },
+      {
+        "id": "T04-F04",
+        "mainAgent": "security",
+        "severity": "HIGH",
+        "confidence": 0.8,
+        "title": "TODO"
+      }
+    ]
+  }
+}

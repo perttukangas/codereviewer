@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+submodule_dir="$project_dir/test/fixtures/repositories/fullstack-harjoitustyo"
+work_root="$project_dir/tmp/fixture-work"
+results_root="$project_dir/test/fixtures/results"
+diffs_root="$project_dir/test/fixtures/diffs"
+
+if [[ ! -f "$project_dir/.env" ]]; then
+	echo "Missing environment file: $project_dir/.env" >&2
+	exit 1
+fi
+
+set -a
+source "$project_dir/.env"
+set +a
+
+: "${MODEL_BASE_URL:?Set MODEL_BASE_URL to the model API base URL}"
+: "${MODEL_API_KEY:?Set MODEL_API_KEY to the model API key}"
+: "${DEFAULT_MODEL_NAME:?Set DEFAULT_MODEL_NAME to the model name}"
+
+echo "Building the CLI"
+npm --prefix "$project_dir" run build
+
+if [[ $# -gt 0 ]]; then
+	test_ids=("$@")
+else
+	mapfile -t test_ids < <(
+		find "$diffs_root" -mindepth 2 -maxdepth 2 -type d -name 'T*' -printf '%f\n' | sort
+	)
+fi
+
+if [[ ${#test_ids[@]} -eq 0 ]]; then
+	echo "No tests found under $diffs_root" >&2
+	exit 1
+fi
+
+for test_id in "${test_ids[@]}"; do
+	manifest=$(find "$diffs_root" -mindepth 3 -maxdepth 3 -path "*/$test_id/manifest.json" | head -n 1)
+	if [[ -z "$manifest" ]]; then
+		echo "No manifest for $test_id, skipping." >&2
+		continue
+	fi
+
+	fixture_dir=$(dirname "$manifest")
+	diff_path="$fixture_dir/review.diff"
+	if [[ ! -f "$diff_path" ]]; then
+		echo "No diff for $test_id, skipping." >&2
+		continue
+	fi
+
+	scratch_dir="$work_root/$test_id"
+	rm -rf "$scratch_dir"
+	mkdir -p "$work_root"
+
+	git clone --quiet "$submodule_dir" "$scratch_dir"
+	revision=$(git -C "$submodule_dir" rev-parse HEAD)
+	git -C "$scratch_dir" checkout --quiet "$revision"
+	git -C "$scratch_dir" apply --ignore-space-change --ignore-whitespace "$diff_path"
+
+	result_dir="$results_root/$test_id"
+	mkdir -p "$result_dir"
+
+	echo "Running review for $test_id"
+	REPO_DIR="$scratch_dir" \
+		GIT_DIFF_PATH="$diff_path" \
+		LOG_DIR="${LOG_DIR:-/tmp/codereviewer}" \
+		node "$project_dir/dist/index.js" review --output "$result_dir/report.json"
+
+	rm -rf "$scratch_dir"
+done
+
+echo "Done. Reports written to $results_root"

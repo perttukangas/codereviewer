@@ -1,0 +1,40 @@
+{
+  "id": "T11",
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "difficulty": "harder",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [],
+    "purposes": [
+      {
+        "id": "T11-F01",
+        "mainAgent": "correctness",
+        "severity": "MEDIUM",
+        "confidence": 0.5,
+        "title": "TODO"
+      },
+      {
+        "id": "T11-F02",
+        "mainAgent": "maintainability",
+        "severity": "MEDIUM",
+        "confidence": 0.5,
+        "title": "TODO"
+      },
+      {
+        "id": "T11-F03",
+        "mainAgent": "performance",
+        "severity": "MEDIUM",
+        "confidence": 0.5,
+        "title": "TODO"
+      },
+      {
+        "id": "T11-F04",
+        "mainAgent": "reliability",
+        "severity": "MEDIUM",
+        "confidence": 0.5,
+        "title": "TODO"
+      }
+    ]
+  }
+}

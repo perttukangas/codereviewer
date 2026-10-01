@@ -3,7 +3,7 @@ import { info } from "../shared/logger.js";
 import { listWorkflows } from "../workflows/registry.js";
 import type { WorkflowContext } from "../workflows/types.js";
 import { reviewCommand } from "./commands/review.js";
-import type { Command } from "./commands/types.js";
+import type { Command, CommandOptions } from "./commands/types.js";
 
 const defaultCommandId = "review";
 
@@ -19,10 +19,28 @@ const parseCommandId = (argv: string[]): string => {
 	return command;
 };
 
+const parseOptions = (argv: string[]): CommandOptions => {
+	const options: CommandOptions = {};
+
+	for (let index = 0; index < argv.length; index += 1) {
+		const arg = argv[index];
+		if (arg === "--output") {
+			const value = argv[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("--output requires a file path.");
+			}
+			options.output = value;
+			index += 1;
+		}
+	}
+
+	return options;
+};
+
 export const run = async (argv: string[]): Promise<void> => {
 	if (argv.includes("--help")) {
 		info(
-			`Usage: codereviewer [command]\n\nCommands: ${[...commands.keys()].join(", ")}\nWorkflows: ${listWorkflows().join(", ")}`,
+			`Usage: codereviewer [command] [--output <path>]\n\nCommands: ${[...commands.keys()].join(", ")}\nWorkflows: ${listWorkflows().join(", ")}`,
 		);
 		return;
 	}
@@ -36,5 +54,5 @@ export const run = async (argv: string[]): Promise<void> => {
 	}
 
 	const context: WorkflowContext = { runtime: createAgentRuntime() };
-	await command.run(context);
+	await command.run(context, parseOptions(argv));
 };
