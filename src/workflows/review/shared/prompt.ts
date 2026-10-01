@@ -1,7 +1,7 @@
 import { formatPrompt, toTitle } from "../../../engine/prompt.js";
 import type { Agent } from "../../../engine/types.js";
 import type { ReviewFinding } from "../types.js";
-import { orderFindingsForPrompt } from "./findings-order.js";
+import { orderFindingsForPrompt } from "./findings.js";
 
 const reviewCompletion =
 	'When you are done, reply with exactly "Review complete". Do not add a summary or any other text.';

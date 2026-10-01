@@ -1,5 +1,5 @@
 import { createLogger } from "../../../shared/logger.js";
-import { logFindingsSnapshot } from "../shared/findings-log.js";
+import { logFindingsSnapshot } from "../shared/findings.js";
 import type { ReviewFinding, ReviewReport, ReviewSeverity } from "../types.js";
 
 export const severityWeights: Record<ReviewSeverity, number> = {

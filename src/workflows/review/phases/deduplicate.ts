@@ -5,7 +5,7 @@ import { env } from "../../../shared/env.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { WorkflowContext } from "../../types.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
-import { logFindingsSnapshot } from "../shared/findings-log.js";
+import { logFindingsSnapshot } from "../shared/findings.js";
 import { formatDeduplicationPrompt } from "../shared/prompt.js";
 import { createMergeReviewFindingsTool } from "../tools/merge-review-findings.js";
 import { nextId } from "../tools/review-finding/index.js";
