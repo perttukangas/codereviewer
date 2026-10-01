@@ -12,28 +12,32 @@
         "mainAgent": "correctness",
         "severity": "MEDIUM",
         "confidence": 0.5,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 2.8
       },
       {
         "id": "T14-F02",
         "mainAgent": "performance",
         "severity": "MEDIUM",
         "confidence": 0.5,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 2
       },
       {
         "id": "T14-F03",
         "mainAgent": "reliability",
         "severity": "MEDIUM",
         "confidence": 0.5,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 2.4
       },
       {
         "id": "T14-F04",
         "mainAgent": "security",
         "severity": "MEDIUM",
         "confidence": 0.5,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 3
       }
     ]
   }

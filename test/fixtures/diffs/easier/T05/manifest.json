@@ -12,28 +12,32 @@
         "mainAgent": "maintainability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 4.48
       },
       {
         "id": "T05-F02",
         "mainAgent": "performance",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 5.6
       },
       {
         "id": "T05-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 6.72
       },
       {
         "id": "T05-F04",
         "mainAgent": "security",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "TODO",
+        "score": 8.4
       }
     ]
   }

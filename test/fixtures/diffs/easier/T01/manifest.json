@@ -5,35 +5,71 @@
   "difficulty": "easier",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/user/index.ts"
+    ],
     "purposes": [
       {
         "id": "T01-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO"
+        "confidence": 0.9,
+        "title": "removeMany throws NOT_FOUND when every post was removed and returns OK on partial failure",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          156,
+          156
+        ],
+        "score": 8.82
       },
       {
         "id": "T01-F02",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "Misleadingly named isOwner boolean holds the negation of the ownership check",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          169,
+          170
+        ],
+        "score": 2.56
       },
       {
         "id": "T01-F03",
         "mainAgent": "performance",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO"
+        "title": "getInfinite fetches every like per post instead of one filtered row",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          28,
+          31
+        ],
+        "score": 3.2
       },
       {
         "id": "T01-F04",
         "mainAgent": "reliability",
         "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO"
+        "confidence": 0.85,
+        "title": "authorized no longer catches jwt.verify errors so an invalid token throws",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          87,
+          88
+        ],
+        "score": 7.14
       }
     ]
   }

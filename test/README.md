@@ -79,6 +79,13 @@ Evaluation output lives in `test/fixtures/results/Txx/` and contains
 - `report.json` the review workflow output
 - `matches.json` the human-authored mapping from purpose id to reported finding id
 
+A `matches.json` value may reference either a source finding id (for example
+`correctness-1`) or a merged finding id (for example `deduplicator-1`). When the
+deduplicator merges findings, the source findings are removed from their agent
+arrays and the merged finding records them in `mergedFindingIds`. Evaluation
+follows these merges, so a match to a source id still resolves to the merged
+finding and credits the agents listed in `mergedFrom`.
+
 ## Manifest schema
 
 ```json
@@ -96,6 +103,7 @@ Evaluation output lives in `test/fixtures/results/Txx/` and contains
         "mainAgent": "correctness",
         "severity": "HIGH",
         "confidence": 0.8,
+        "score": 7.84,
         "title": "Short description of the intended issue",
         "expectedFiles": ["services/server/src/routes/v1/user/index.ts"],
         "expectedLines": [82, 90]
@@ -105,9 +113,16 @@ Evaluation output lives in `test/fixtures/results/Txx/` and contains
 }
 ```
 
-Required purpose fields are `id`, `mainAgent`, `severity`, and `confidence`.
-Optional fields are `title`, `expectedFiles`, and `expectedLines`. The optional
-fields help a human match reported findings to purposes.
+Required purpose fields are `id`, `mainAgent`, `severity`, `confidence`, and
+`score`. Optional fields are `title`, `expectedFiles`, and `expectedLines`. The
+optional fields help a human match reported findings to purposes.
+
+`score` is the expected base score for the finding, computed as
+`round2(severityWeight * confidence * agentWeight(mainAgent))` using the weights
+in `src/workflows/review/phases/score.ts`. It is the score before merge
+amplification, so it does not depend on how many agents detect the finding. Do
+not hand-write it. Run `npm run fixtures:scores:write` to compute and write it,
+and `npm run fixtures:scores` to verify it.
 
 ## ID registry
 
@@ -150,3 +165,22 @@ findings. That is twelve findings per agent and sixty findings in total.
 
 The scratch clone lives in `tmp/fixture-work/` and is removed after capture. The
 submodule is never modified.
+
+## Evaluation metrics
+
+`npm run evaluate:fixtures` writes `results/summary.md` and `results/summary.json`.
+For each purpose it reports recall, main-target recall, and the error between the
+declared and reported values.
+
+- `severityError` is the distance in severity ranks between the declared and
+  reported severity.
+- `confidenceError` is the absolute difference between the declared and reported
+  confidence.
+- `baseScoreError` is the primary score metric. It compares the declared `score`
+  against the base score recomputed from the reported finding
+  (`severity * confidence * agentWeight(mainAgent)`), so it is independent of how
+  many agents detected the finding.
+- `scoreError` compares the declared `score` against the reported final `score`.
+  The declared `score` is multiplied by the merge factor (the number of distinct
+  detecting agents, capped at 3) so the comparison accounts for merge
+  amplification.

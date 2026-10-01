@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { baseScore, mergedFactor, round2 } from "./fixture-score.ts";
 
 type Difficulty = "easier" | "medium" | "harder";
 
@@ -10,6 +11,7 @@ type Purpose = {
 	mainAgent: string;
 	severity: Severity;
 	confidence: number;
+	score: number;
 	title?: string;
 	expectedFiles?: string[];
 	expectedLines?: [number, number];
@@ -32,7 +34,10 @@ type ReviewFinding = {
 	title: string;
 	severity: Severity;
 	confidence: number;
+	score?: number;
 	invalidReason?: string;
+	mergedFrom?: string[];
+	mergedFindingIds?: string[];
 };
 
 type ReviewReport = Record<string, { findings: ReviewFinding[] }>;
@@ -112,6 +117,19 @@ const findFinding = (
 			return { agentId, finding };
 		}
 	}
+
+	// The deduplicator splices merged sources out of their agent arrays and
+	// stores the merged finding under its own key. Follow the merge so a match
+	// that references a source id still resolves.
+	for (const [agentId, review] of Object.entries(report)) {
+		const finding = review.findings.find((item) =>
+			item.mergedFindingIds?.includes(id),
+		);
+		if (finding) {
+			return { agentId, finding };
+		}
+	}
+
 	return undefined;
 };
 
@@ -123,6 +141,8 @@ type PurposeResult = {
 	detectingAgents: string[];
 	severityError?: number;
 	confidenceError?: number;
+	baseScoreError?: number;
+	scoreError?: number;
 };
 
 type TestResult = {
@@ -157,7 +177,11 @@ const evaluateTest = async (
 				Boolean(item),
 			);
 
-		const detectingAgents = [...new Set(resolved.map((item) => item.agentId))];
+		const detectingAgents = [
+			...new Set(
+				resolved.flatMap((item) => item.finding.mergedFrom ?? [item.agentId]),
+			),
+		];
 		const mainTargetDetected = detectingAgents.includes(purpose.mainAgent);
 		const primary = resolved[0]?.finding;
 
@@ -173,14 +197,38 @@ const evaluateTest = async (
 					)
 				: undefined,
 			confidenceError: primary
-				? Math.abs(purpose.confidence - primary.confidence)
+				? round2(Math.abs(purpose.confidence - primary.confidence))
 				: undefined,
+			baseScoreError: primary
+				? round2(
+						Math.abs(
+							purpose.score -
+								baseScore(
+									primary.severity,
+									primary.confidence,
+									purpose.mainAgent,
+								),
+						),
+					)
+				: undefined,
+			scoreError:
+				primary?.score !== undefined
+					? round2(
+							Math.abs(
+								purpose.score * mergedFactor(detectingAgents) -
+									primary.score,
+							),
+						)
+					: undefined,
 		};
 	});
 
 	const matchedFindingIds = new Set(
 		manifest.diff.purposes.flatMap((purpose) =>
-			toIdList(matches?.[purpose.id] ?? null),
+			toIdList(matches?.[purpose.id] ?? null).flatMap((id) => {
+				const resolved = findFinding(report, id);
+				return [id, ...(resolved?.finding.mergedFindingIds ?? [])];
+			}),
 		),
 	);
 	const falsePositives = allFindings(report).filter(
@@ -220,6 +268,12 @@ const buildSummary = (results: TestResult[]): string => {
 	const confidenceErrors = allPurposes
 		.map((purpose) => purpose.confidenceError)
 		.filter((value): value is number => value !== undefined);
+	const baseScoreErrors = allPurposes
+		.map((purpose) => purpose.baseScoreError)
+		.filter((value): value is number => value !== undefined);
+	const scoreErrors = allPurposes
+		.map((purpose) => purpose.scoreError)
+		.filter((value): value is number => value !== undefined);
 	const falsePositives = results.reduce(
 		(sum, result) => sum + result.falsePositives,
 		0,
@@ -235,6 +289,8 @@ const buildSummary = (results: TestResult[]): string => {
 	lines.push(`- False positives: ${falsePositives}`);
 	lines.push(`- Mean severity error: ${mean(severityErrors)}`);
 	lines.push(`- Mean confidence error: ${mean(confidenceErrors)}`);
+	lines.push(`- Mean base score error (primary): ${mean(baseScoreErrors)}`);
+	lines.push(`- Mean score error: ${mean(scoreErrors)}`);
 	lines.push("");
 
 	lines.push("## Recall by difficulty");

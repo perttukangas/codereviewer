@@ -1,0 +1,137 @@
+diff --git a/services/server/src/routes/v1/post/comment/database.ts b/services/server/src/routes/v1/post/comment/database.ts
+index cf0fe40..3c2239b 100644
+--- a/services/server/src/routes/v1/post/comment/database.ts
++++ b/services/server/src/routes/v1/post/comment/database.ts
+@@ -139,7 +139,7 @@ export const removeMany = async ({ ids, userId }: ProtectedRemoveManyInput) => {
+       id: {
+         in: ids,
+       },
+-      OR: [
++      AND: [
+         {
+           userId,
+         },
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..d12daf5 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -5,6 +5,7 @@ import {
+   ProtectedCreateInput,
+   ProtectedLikeUnlikeInput,
+   ProtectedRemoveManyInput,
++  ProtectedSearchInput,
+   RemoveInput,
+ } from '@shared/zod/post.js';
+ 
+@@ -74,6 +75,44 @@ export const getInfiniteCreator = async ({
+   });
+ };
+ 
++export const search = async ({ query, userId }: ProtectedSearchInput) => {
++  const posts = await prisma.post.findMany({
++    orderBy: { id: 'desc' },
++    select: {
++      id: true,
++      title: true,
++      content: true,
++      _count: {
++        select: { likes: true, comments: true },
++      },
++      userId: true,
++      likes: userId
++        ? {
++            select: {
++              userId: true,
++            },
++            where: {
++              userId,
++            },
++            take: 1,
++          }
++        : undefined,
++    },
++  });
++
++  return posts
++    .filter((post) => post.title.toLowerCase().includes(query.toLowerCase()))
++    .map((post: (typeof posts)[number]) => ({
++      id: post.id,
++      title: post.title,
++      content: post.content,
++      likes: post._count.likes,
++      comments: post._count.comments,
++      creator: post.userId === userId,
++      liked: post.likes?.length > 0,
++    }));
++};
++
+ export const like = async ({ id, userId }: ProtectedLikeUnlikeInput) => {
+   return await prisma.postLikes.create({
+     data: {
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..662b2f3 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -7,6 +7,7 @@ import {
+   likeUnlikeInput,
+   removeInput,
+   removeManyInput,
++  searchInput,
+ } from '@shared/zod/post.js';
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+@@ -28,6 +29,7 @@ import {
+   like,
+   remove,
+   removeMany,
++  search,
+   unlike,
+ } from './database.js';
+ 
+@@ -94,6 +96,16 @@ export const postRouter = router({
+         previousCursor,
+       };
+     }),
++  search: publicProcedure.input(searchInput).query(async (opts) => {
++    const { query } = opts.input;
++    const userId = opts.ctx.userId;
++
++    const posts = await search({ query, userId });
++
++    return {
++      posts,
++    };
++  }),
+   like: protectedProcedure.input(likeUnlikeInput).mutation(async (opts) => {
+     const { id } = opts.input;
+     const userId = opts.ctx.userId;
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 11a9421..7e0c607 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -37,7 +37,7 @@ export const userRouter = router({
+     }
+ 
+     const tokenContent: SessionSchema = { id: existingUser.id };
+-    const token = jwt.sign(tokenContent, AUTH_SECRET);
++    const token = jwt.sign(tokenContent, AUTH_SECRET, { expiresIn: '30d' });
+ 
+     opts.ctx.res.cookie(SESSION_TOKEN_COOKIE, token, {
+       secure: true,
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..488b9ed 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -15,6 +15,12 @@ export const infiniteInput = z.object({
+ export type InfiniteInput = z.infer<typeof infiniteInput> & ProtectedOptional;
+ export type InfiniteCreatorInput = z.infer<typeof infiniteInput> & Protected;
+ 
++export const searchInput = z.object({
++  query: z.string().min(1).max(100),
++});
++export type SearchInput = z.infer<typeof searchInput>;
++export type ProtectedSearchInput = SearchInput & ProtectedOptional;
++
+ export const likeUnlikeInput = z.object({ id: defaultId });
+ export type ProtectedLikeUnlikeInput = z.infer<typeof likeUnlikeInput> &
+   Protected;
