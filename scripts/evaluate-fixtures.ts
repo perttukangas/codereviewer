@@ -1,8 +1,12 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { baseScore, mergedFactor, round2 } from "./fixture-score.ts";
+import { baseScore, corroborationUnits, mergedFactor, round2 } from "./fixture-score.ts";
 
 type Difficulty = "easier" | "medium" | "harder";
+
+type Mode = "multi" | "single";
+
+const modes: Mode[] = ["multi", "single"];
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
@@ -35,6 +39,7 @@ type ReviewFinding = {
 	severity: Severity;
 	confidence: number;
 	score?: number;
+	scope?: string[];
 	invalidReason?: string;
 	mergedFrom?: string[];
 	mergedFindingIds?: string[];
@@ -42,8 +47,19 @@ type ReviewFinding = {
 
 type ReviewReport = Record<string, { findings: ReviewFinding[] }>;
 
+type AgentUsage = {
+	inputTokens: number;
+	outputTokens: number;
+	totalTokens: number;
+	toolCalls: number;
+};
+
 type WorkflowResult = {
 	output: ReviewReport;
+	telemetry?: {
+		durationMs: number;
+		usage: AgentUsage;
+	};
 };
 
 type MatchValue = string | string[] | null;
@@ -145,28 +161,29 @@ type PurposeResult = {
 	scoreError?: number;
 };
 
-type TestResult = {
-	id: string;
-	difficulty: Difficulty;
+type ModeResult = {
+	mode: Mode;
 	purposes: PurposeResult[];
 	additionalFindings: number;
 	missingMatches: boolean;
+	telemetry?: {
+		durationMs: number;
+		usage: AgentUsage;
+	};
 };
 
-const evaluateTest = async (
+type TestResult = {
+	id: string;
+	difficulty: Difficulty;
+	modes: ModeResult[];
+};
+
+const evaluateMode = (
 	manifest: Manifest,
-	dir: string,
-): Promise<TestResult | undefined> => {
-	const reportPath = join(resultsRoot, manifest.id, "report.json");
-	const matchesPath = join(resultsRoot, manifest.id, "matches.json");
-
-	const result = await readJson<WorkflowResult>(reportPath);
-	if (!result) {
-		console.warn(`Skipping ${manifest.id}, no report at ${reportPath}`);
-		return undefined;
-	}
-
-	const matches = await readJson<Matches>(matchesPath);
+	mode: Mode,
+	result: WorkflowResult,
+	matches: Matches | undefined,
+): ModeResult => {
 	const report = result.output;
 
 	const purposes: PurposeResult[] = manifest.diff.purposes.map((purpose) => {
@@ -182,8 +199,21 @@ const evaluateTest = async (
 				resolved.flatMap((item) => item.finding.mergedFrom ?? [item.agentId]),
 			),
 		];
-		const mainTargetDetected = detectingAgents.includes(purpose.mainAgent);
-		const primary = resolved[0]?.finding;
+		const mainTargetDetected =
+			mode === "single"
+				? resolved.some((item) =>
+						(item.finding.scope ?? []).includes(purpose.mainAgent),
+					)
+				: detectingAgents.includes(purpose.mainAgent);
+		const primaryEntry = resolved[0];
+		const primary = primaryEntry?.finding;
+		const primaryUnits = primaryEntry
+			? corroborationUnits(
+					primaryEntry.agentId,
+					primaryEntry.finding.scope,
+					primaryEntry.finding.mergedFrom,
+				)
+			: [];
 
 		return {
 			purposeId: purpose.id,
@@ -207,6 +237,7 @@ const evaluateTest = async (
 									primary.severity,
 									primary.confidence,
 									purpose.mainAgent,
+									primary.scope,
 								),
 						),
 					)
@@ -215,8 +246,7 @@ const evaluateTest = async (
 				primary?.score !== undefined
 					? round2(
 							Math.abs(
-								purpose.score * mergedFactor(detectingAgents) -
-									primary.score,
+								purpose.score * mergedFactor(primaryUnits) - primary.score,
 							),
 						)
 					: undefined,
@@ -238,11 +268,49 @@ const evaluateTest = async (
 	).length;
 
 	return {
-		id: manifest.id,
-		difficulty: manifest.difficulty,
+		mode,
 		purposes,
 		additionalFindings,
 		missingMatches: matches === undefined,
+		telemetry: result.telemetry
+			? {
+					durationMs: result.telemetry.durationMs,
+					usage: result.telemetry.usage,
+				}
+			: undefined,
+	};
+};
+
+const evaluateTest = async (
+	manifest: Manifest,
+	_dir: string,
+): Promise<TestResult | undefined> => {
+	const modeResults: ModeResult[] = [];
+
+	for (const mode of modes) {
+		const reportPath = join(resultsRoot, manifest.id, `report.${mode}.json`);
+		const matchesPath = join(resultsRoot, manifest.id, `matches.${mode}.json`);
+
+		const result = await readJson<WorkflowResult>(reportPath);
+		if (!result) {
+			console.warn(
+				`Skipping ${manifest.id} ${mode}, no report at ${reportPath}`,
+			);
+			continue;
+		}
+
+		const matches = await readJson<Matches>(matchesPath);
+		modeResults.push(evaluateMode(manifest, mode, result, matches));
+	}
+
+	if (modeResults.length === 0) {
+		return undefined;
+	}
+
+	return {
+		id: manifest.id,
+		difficulty: manifest.difficulty,
+		modes: modeResults,
 	};
 };
 
@@ -254,108 +322,149 @@ const mean = (values: number[]): string =>
 		? "n/a"
 		: (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2);
 
+const modeResults = (results: TestResult[], mode: Mode): ModeResult[] =>
+	results.flatMap((result) =>
+		result.modes.filter((item) => item.mode === mode),
+	);
+
+const modePurposes = (results: TestResult[], mode: Mode): PurposeResult[] =>
+	modeResults(results, mode).flatMap((result) => result.purposes);
+
+const defined = (values: (number | undefined)[]): number[] =>
+	values.filter((value): value is number => value !== undefined);
+
 const buildSummary = (results: TestResult[]): string => {
 	const lines: string[] = [];
 	lines.push("# Fixture evaluation summary");
 	lines.push("");
 
-	const allPurposes = results.flatMap((result) => result.purposes);
-	const detected = allPurposes.filter((purpose) => purpose.detected);
-	const mainDetected = allPurposes.filter((purpose) => purpose.mainTargetDetected);
-	const severityErrors = allPurposes
-		.map((purpose) => purpose.severityError)
-		.filter((value): value is number => value !== undefined);
-	const confidenceErrors = allPurposes
-		.map((purpose) => purpose.confidenceError)
-		.filter((value): value is number => value !== undefined);
-	const baseScoreErrors = allPurposes
-		.map((purpose) => purpose.baseScoreError)
-		.filter((value): value is number => value !== undefined);
-	const scoreErrors = allPurposes
-		.map((purpose) => purpose.scoreError)
-		.filter((value): value is number => value !== undefined);
-	const additionalFindings = results.reduce(
-		(sum, result) => sum + result.additionalFindings,
-		0,
-	);
-
 	lines.push("## Overall");
 	lines.push("");
-	lines.push(`- Tests evaluated: ${results.length}`);
-	lines.push(`- Recall: ${ratio(detected.length, allPurposes.length)}`);
 	lines.push(
-		`- Main-target recall: ${ratio(mainDetected.length, allPurposes.length)}`,
+		"| Mode | Tests | Recall | Main-target recall | Additional findings | Mean severity error | Mean confidence error | Mean base score error | Mean score error | Mean duration (ms) | Mean total tokens |",
 	);
-	lines.push(`- Additional findings: ${additionalFindings}`);
-	lines.push(`- Mean severity error: ${mean(severityErrors)}`);
-	lines.push(`- Mean confidence error: ${mean(confidenceErrors)}`);
-	lines.push(`- Mean base score error (primary): ${mean(baseScoreErrors)}`);
-	lines.push(`- Mean score error: ${mean(scoreErrors)}`);
+	lines.push(
+		"| ---- | ----- | ------ | ------------------ | ------------------- | ------------------- | --------------------- | --------------------- | ---------------- | ----------------- | ----------------- |",
+	);
+	for (const mode of modes) {
+		const modeTests = modeResults(results, mode);
+		const purposes = modePurposes(results, mode);
+		const detected = purposes.filter((purpose) => purpose.detected);
+		const mainDetected = purposes.filter(
+			(purpose) => purpose.mainTargetDetected,
+		);
+		const additionalFindings = modeTests.reduce(
+			(sum, result) => sum + result.additionalFindings,
+			0,
+		);
+		const durations = defined(
+			modeTests.map((result) => result.telemetry?.durationMs),
+		);
+		const tokens = defined(
+			modeTests.map((result) => result.telemetry?.usage.totalTokens),
+		);
+
+		lines.push(
+			`| ${mode} | ${modeTests.length} | ${ratio(detected.length, purposes.length)} | ${ratio(mainDetected.length, purposes.length)} | ${additionalFindings} | ${mean(defined(purposes.map((purpose) => purpose.severityError)))} | ${mean(defined(purposes.map((purpose) => purpose.confidenceError)))} | ${mean(defined(purposes.map((purpose) => purpose.baseScoreError)))} | ${mean(defined(purposes.map((purpose) => purpose.scoreError)))} | ${mean(durations)} | ${mean(tokens)} |`,
+		);
+	}
 	lines.push("");
 
 	lines.push("## Recall by difficulty");
 	lines.push("");
-	lines.push("| Difficulty | Recall | Main-target recall |");
-	lines.push("| ---------- | ------ | ------------------ |");
-	for (const difficulty of ["easier", "medium", "harder"] as const) {
-		const purposes = results
-			.filter((result) => result.difficulty === difficulty)
-			.flatMap((result) => result.purposes);
-		lines.push(
-			`| ${difficulty} | ${ratio(
-				purposes.filter((purpose) => purpose.detected).length,
-				purposes.length,
-			)} | ${ratio(
-				purposes.filter((purpose) => purpose.mainTargetDetected).length,
-				purposes.length,
-			)} |`,
-		);
+	lines.push("| Mode | Difficulty | Recall | Main-target recall |");
+	lines.push("| ---- | ---------- | ------ | ------------------ |");
+	for (const mode of modes) {
+		for (const difficulty of ["easier", "medium", "harder"] as const) {
+			const purposes = results
+				.filter((result) => result.difficulty === difficulty)
+				.flatMap((result) =>
+					result.modes
+						.filter((item) => item.mode === mode)
+						.flatMap((item) => item.purposes),
+				);
+			lines.push(
+				`| ${mode} | ${difficulty} | ${ratio(
+					purposes.filter((purpose) => purpose.detected).length,
+					purposes.length,
+				)} | ${ratio(
+					purposes.filter((purpose) => purpose.mainTargetDetected).length,
+					purposes.length,
+				)} |`,
+			);
+		}
 	}
 	lines.push("");
 
 	lines.push("## Recall by main agent");
 	lines.push("");
-	lines.push("| Agent | Recall | Main-target recall |");
-	lines.push("| ----- | ------ | ------------------ |");
-	const agents = [...new Set(allPurposes.map((purpose) => purpose.mainAgent))].sort();
-	for (const agent of agents) {
-		const purposes = allPurposes.filter(
-			(purpose) => purpose.mainAgent === agent,
-		);
-		lines.push(
-			`| ${agent} | ${ratio(
-				purposes.filter((purpose) => purpose.detected).length,
-				purposes.length,
-			)} | ${ratio(
-				purposes.filter((purpose) => purpose.mainTargetDetected).length,
-				purposes.length,
-			)} |`,
-		);
+	lines.push("| Mode | Agent | Recall | Main-target recall |");
+	lines.push("| ---- | ----- | ------ | ------------------ |");
+	for (const mode of modes) {
+		const purposes = modePurposes(results, mode);
+		const agents = [
+			...new Set(purposes.map((purpose) => purpose.mainAgent)),
+		].sort();
+		for (const agent of agents) {
+			const agentPurposes = purposes.filter(
+				(purpose) => purpose.mainAgent === agent,
+			);
+			lines.push(
+				`| ${mode} | ${agent} | ${ratio(
+					agentPurposes.filter((purpose) => purpose.detected).length,
+					agentPurposes.length,
+				)} | ${ratio(
+					agentPurposes.filter((purpose) => purpose.mainTargetDetected).length,
+					agentPurposes.length,
+				)} |`,
+			);
+		}
 	}
 	lines.push("");
 
 	lines.push("## Per test");
 	lines.push("");
-	lines.push("| Test | Difficulty | Recall | Additional findings |");
-	lines.push("| ---- | ---------- | ------ | ------------------- |");
+	lines.push("| Test | Difficulty | Mode | Recall | Additional findings |");
+	lines.push("| ---- | ---------- | ---- | ------ | ------------------- |");
 	for (const result of results) {
+		for (const modeResult of result.modes) {
+			lines.push(
+				`| ${result.id} | ${result.difficulty} | ${modeResult.mode} | ${ratio(
+					modeResult.purposes.filter((purpose) => purpose.detected).length,
+					modeResult.purposes.length,
+				)} | ${modeResult.additionalFindings} |`,
+			);
+		}
+	}
+	lines.push("");
+
+	lines.push("## Telemetry (multi vs single)");
+	lines.push("");
+	lines.push(
+		"| Test | Multi duration (ms) | Single duration (ms) | Multi tokens | Single tokens |",
+	);
+	lines.push(
+		"| ---- | ------------------- | -------------------- | ------------ | ------------- |",
+	);
+	for (const result of results) {
+		const multi = result.modes.find((item) => item.mode === "multi");
+		const single = result.modes.find((item) => item.mode === "single");
 		lines.push(
-			`| ${result.id} | ${result.difficulty} | ${ratio(
-				result.purposes.filter((purpose) => purpose.detected).length,
-				result.purposes.length,
-			)} | ${result.additionalFindings} |`,
+			`| ${result.id} | ${multi?.telemetry?.durationMs ?? "n/a"} | ${single?.telemetry?.durationMs ?? "n/a"} | ${multi?.telemetry?.usage.totalTokens ?? "n/a"} | ${single?.telemetry?.usage.totalTokens ?? "n/a"} |`,
 		);
 	}
 	lines.push("");
 
-	const missing = results.filter((result) => result.missingMatches);
+	const missing = results.flatMap((result) =>
+		result.modes
+			.filter((modeResult) => modeResult.missingMatches)
+			.map((modeResult) => `${result.id} (${modeResult.mode})`),
+	);
 	if (missing.length > 0) {
 		lines.push("## Missing matches.json");
 		lines.push("");
 		lines.push(
-			`The following tests have no matches.json and were counted as undetected: ${missing
-				.map((result) => result.id)
-				.join(", ")}`,
+			`The following test modes have no matches file and were counted as undetected: ${missing.join(", ")}`,
 		);
 		lines.push("");
 	}

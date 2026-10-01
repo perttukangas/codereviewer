@@ -6,6 +6,7 @@ export {
 	relatedFilesGuideline,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
+	reviewScopeValues,
 	severityRank,
 	severityValues,
 } from "./schema.js";

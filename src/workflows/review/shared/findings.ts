@@ -1,5 +1,8 @@
 import type { ScopedLogger } from "../../../shared/logger.js";
-import { severityRank, severityValues } from "../tools/review-finding/index.js";
+import {
+	severityRank,
+	severityValues,
+} from "../tools/review-finding/severity.js";
 import type { ReviewFinding } from "../types.js";
 
 export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
@@ -14,6 +17,9 @@ export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
 		rationale: finding.rationale,
 	};
 
+	if (finding.scope !== undefined) {
+		canonical.scope = finding.scope;
+	}
 	if (finding.codeChangeFilePath !== undefined) {
 		canonical.codeChangeFilePath = finding.codeChangeFilePath;
 	}
@@ -77,6 +83,10 @@ const summarizeFinding = (finding: ReviewFinding): string => {
 
 	if (finding.score !== undefined) {
 		parts.push(`score ${finding.score}`);
+	}
+
+	if (finding.scope !== undefined && finding.scope.length > 0) {
+		parts.push(`scope ${finding.scope.join(", ")}`);
 	}
 
 	return parts.join(" | ");

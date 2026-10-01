@@ -5,8 +5,9 @@ import type { Agent } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { Phase } from "../../pipeline.js";
 import type { WorkflowContext } from "../../types.js";
-import { reviewAgents } from "../agents/index.js";
+import { reviewAgents, singleReviewAgents } from "../agents/index.js";
 import { createVerifierAgent } from "../agents/verifier.js";
+import { getReviewEnv } from "../shared/env.js";
 import { logFindingsSnapshot } from "../shared/findings.js";
 import {
 	formatReviewPrompt,
@@ -14,7 +15,10 @@ import {
 } from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId, severityRank } from "../tools/review-finding/index.js";
-import { createReviewFindingTool } from "../tools/submit-review-finding.js";
+import {
+	createGeneralistReviewFindingTool,
+	createReviewFindingTool,
+} from "../tools/submit-review-finding.js";
 import type {
 	AgentReview,
 	ReviewFinding,
@@ -25,7 +29,11 @@ import type {
 export const reviewAgentsPhase: Phase<ReviewPipelineState> = {
 	id: "review-agents",
 	run: async (state) => {
-		const enabledAgents = reviewAgents.filter((agent) => {
+		const { REVIEW_MODE } = getReviewEnv();
+		const candidates: readonly Agent[] =
+			REVIEW_MODE === "single" ? singleReviewAgents : reviewAgents;
+
+		const enabledAgents = candidates.filter((agent) => {
 			if (getAgentConfig(agent).enabled) {
 				return true;
 			}
@@ -75,11 +83,10 @@ const reviewAgent = async (
 	run: ReviewRunState,
 ): Promise<void> => {
 	const log = createLogger({ agentId: agent.id });
-	const reviewFindingTool = createReviewFindingTool(
-		agent,
-		repositoryDir,
-		review.findings,
-	);
+	const reviewFindingTool =
+		agent.id === "generalist"
+			? createGeneralistReviewFindingTool(agent, repositoryDir, review.findings)
+			: createReviewFindingTool(agent, repositoryDir, review.findings);
 
 	const response = await runGuardedSession({
 		agent,

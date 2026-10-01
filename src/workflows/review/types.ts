@@ -2,8 +2,11 @@ import type { TelemetryCollector } from "../../engine/telemetry.js";
 import type { WorkflowError } from "../../engine/types.js";
 import type { ChangeSet } from "../../integrations/types.js";
 import type { WorkflowContext } from "../types.js";
+import type { reviewAgents } from "./agents/review-agents.js";
 
 export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+
+export type ReviewScope = (typeof reviewAgents)[number]["id"];
 
 export type ReviewFinding = {
 	id: string;
@@ -13,6 +16,7 @@ export type ReviewFinding = {
 	problem: string;
 	suggestedChange: string;
 	relatedFiles: string[];
+	scope?: ReviewScope[];
 	codeChangeFilePath?: string;
 	codeChangeOldText?: string;
 	codeChangeNewText?: string;

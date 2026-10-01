@@ -76,8 +76,10 @@ Each test folder contains
 
 Evaluation output lives in `test/fixtures/results/Txx/` and contains
 
-- `report.json` the review workflow output
-- `matches.json` the human-authored mapping from purpose id to reported finding id
+- `report.multi.json` the multi-agent review workflow output
+- `report.single.json` the single-agent review workflow output
+- `matches.multi.json` the human-authored mapping for the multi-agent run
+- `matches.single.json` the human-authored mapping for the single-agent run
 
 A `matches.json` value may reference either a source finding id (for example
 `correctness-1`) or a merged finding id (for example `deduplicator-1`). When the
@@ -85,6 +87,25 @@ deduplicator merges findings, the source findings are removed from their agent
 arrays and the merged finding records them in `mergedFindingIds`. Evaluation
 follows these merges, so a match to a source id still resolves to the merged
 finding and credits the agents listed in `mergedFrom`.
+
+## Review modes
+
+The review workflow runs in one of two modes, selected with the `REVIEW_MODE`
+environment variable.
+
+- `multi` (default) runs the five specialized review agents (correctness,
+  maintainability, performance, reliability, security) concurrently. Each agent
+  is verified by its own verifier.
+- `single` runs one generalist agent that covers every review scope. The
+  generalist submits each finding with a `scope` array naming the review scopes
+  the finding belongs to. The generalist is verified by a verifier.
+
+Both modes run the same deduplication and scoring phases, so the two modes can be
+compared directly. The fixture runner runs both modes for every test.
+
+In `single` mode the report key is `generalist`. Main-target recall is computed
+from each finding's `scope` array instead of the detecting agent id, so a finding
+counts toward the main target when its scope includes the purpose's main agent.
 
 ## Manifest schema
 
@@ -159,8 +180,12 @@ findings. That is twelve findings per agent and sixty findings in total.
 2. Edit the files in the scratch clone to introduce the intended findings.
 3. Capture the diff with `npm run fixtures:capture -- T01 easier`.
 4. Write `manifest.json` for the test.
-5. Run the review with `npm run fixtures:run -- T01`.
-6. Author `matches.json` by mapping each purpose id to the reported finding id.
+5. Run the review with `npm run fixtures:run -- T01`. This runs both the
+   `multi` and `single` modes and writes `report.multi.json` and
+   `report.single.json`. Pass a mode first to run only one, for example
+   `npm run fixtures:run -- single T01`.
+6. Author `matches.multi.json` and `matches.single.json` by mapping each purpose
+   id to the reported finding id in each mode.
 7. Compute metrics with `npm run evaluate:fixtures`.
 
 The scratch clone lives in `tmp/fixture-work/` and is removed after capture. The
@@ -170,7 +195,8 @@ submodule is never modified.
 
 `npm run evaluate:fixtures` writes `results/summary.md` and `results/summary.json`.
 For each purpose it reports recall, main-target recall, and the error between the
-declared and reported values.
+declared and reported values. Metrics are reported per mode so the multi-agent and
+single-agent runs can be compared directly.
 
 - `severityError` is the distance in severity ranks between the declared and
   reported severity.
@@ -178,9 +204,12 @@ declared and reported values.
   confidence.
 - `baseScoreError` is the primary score metric. It compares the declared `score`
   against the base score recomputed from the reported finding
-  (`severity * confidence * agentWeight(mainAgent)`), so it is independent of how
-  many agents detected the finding.
+  (`severity * confidence * agentWeight`), so it is independent of how many agents
+  detected the finding. In `single` mode the weight is the most severe weight
+  among the finding's `scope` values.
 - `scoreError` compares the declared `score` against the reported final `score`.
   The declared `score` is multiplied by the merge factor (the number of distinct
   detecting agents, capped at 3) so the comparison accounts for merge
   amplification.
+- The telemetry section compares duration and total token usage between the two
+  modes per test.

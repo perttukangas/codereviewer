@@ -28,30 +28,34 @@ const MAX_MERGED_FACTOR = 3;
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-const contributingAgents = (
+const corroborationUnits = (
 	finding: ReviewFinding,
 	agentId: string,
-): string[] =>
-	finding.mergedFrom && finding.mergedFrom.length > 0
+): string[] => {
+	const scopes = finding.scope;
+	if (scopes && scopes.length > 0) {
+		return scopes;
+	}
+
+	return finding.mergedFrom && finding.mergedFrom.length > 0
 		? finding.mergedFrom
 		: [agentId];
+};
 
-const mergedFactor = (agents: string[]): number =>
-	Math.min(new Set(agents).size, MAX_MERGED_FACTOR);
+const mergedFactor = (units: string[]): number =>
+	Math.min(new Set(units).size, MAX_MERGED_FACTOR);
 
-const agentWeight = (agents: string[]): number =>
-	Math.max(
-		...agents.map((agent) => agentWeights[agent] ?? DEFAULT_AGENT_WEIGHT),
-	);
+const agentWeight = (units: string[]): number =>
+	Math.max(...units.map((unit) => agentWeights[unit] ?? DEFAULT_AGENT_WEIGHT));
 
 const scoreFinding = (finding: ReviewFinding, agentId: string): number => {
-	const agents = contributingAgents(finding, agentId);
+	const units = corroborationUnits(finding, agentId);
 
 	return round2(
 		severityWeights[finding.severity] *
 			finding.confidence *
-			mergedFactor(agents) *
-			agentWeight(agents),
+			mergedFactor(units) *
+			agentWeight(units),
 	);
 };
 

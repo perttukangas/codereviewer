@@ -125,6 +125,10 @@ export const createMergeReviewFindingsTool = (
 				),
 			];
 
+			const scope = [
+				...new Set(sources.flatMap((source) => source.finding.scope ?? [])),
+			];
+
 			const severities = sources.map((source) =>
 				severityRank(source.finding.severity),
 			);
@@ -184,6 +188,7 @@ export const createMergeReviewFindingsTool = (
 					undefined,
 					sources.map((source) => source.finding),
 				)),
+				...(scope.length > 0 ? { scope } : {}),
 				mergedFrom,
 				mergedFindingIds,
 			};

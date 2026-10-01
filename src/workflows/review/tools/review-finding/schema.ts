@@ -1,16 +1,9 @@
 import { Type } from "typebox";
-import type { ReviewFinding, ReviewSeverity } from "../../types.js";
+import type { ReviewFinding } from "../../types.js";
+import { severityValues } from "./severity.js";
 
-export const severityValues = [
-	"CRITICAL",
-	"HIGH",
-	"MEDIUM",
-	"LOW",
-	"INFO",
-] as const;
-
-export const severityRank = (severity: ReviewSeverity): number =>
-	severityValues.indexOf(severity);
+export { reviewScopeValues } from "../../agents/review-agents.js";
+export { severityRank, severityValues } from "./severity.js";
 
 export type ReviewFindingInput = Omit<
 	ReviewFinding,

@@ -24,6 +24,12 @@ set +a
 echo "Building the CLI"
 npm --prefix "$project_dir" run build
 
+modes=(multi single)
+if [[ $# -gt 0 && ( "$1" == "multi" || "$1" == "single" ) ]]; then
+	modes=("$1")
+	shift
+fi
+
 if [[ $# -gt 0 ]]; then
 	test_ids=("$@")
 else
@@ -51,25 +57,28 @@ for test_id in "${test_ids[@]}"; do
 		continue
 	fi
 
-	scratch_dir="$work_root/$test_id"
-	rm -rf "$scratch_dir"
-	mkdir -p "$work_root"
-
-	git clone --quiet "$submodule_dir" "$scratch_dir"
-	revision=$(git -C "$submodule_dir" rev-parse HEAD)
-	git -C "$scratch_dir" checkout --quiet "$revision"
-	git -C "$scratch_dir" apply --ignore-space-change --ignore-whitespace "$diff_path"
-
 	result_dir="$results_root/$test_id"
 	mkdir -p "$result_dir"
 
-	echo "Running review for $test_id"
-	REPO_DIR="$scratch_dir" \
-		GIT_DIFF_PATH="$diff_path" \
-		LOG_DIR="${LOG_DIR:-/tmp/codereviewer}" \
-		node "$project_dir/dist/index.js" review --output "$result_dir/report.json"
+	for mode in "${modes[@]}"; do
+		scratch_dir="$work_root/$test_id"
+		rm -rf "$scratch_dir"
+		mkdir -p "$work_root"
 
-	rm -rf "$scratch_dir"
+		git clone --quiet "$submodule_dir" "$scratch_dir"
+		revision=$(git -C "$submodule_dir" rev-parse HEAD)
+		git -C "$scratch_dir" checkout --quiet "$revision"
+		git -C "$scratch_dir" apply --ignore-space-change --ignore-whitespace "$diff_path"
+
+		echo "Running $mode review for $test_id"
+		REPO_DIR="$scratch_dir" \
+			GIT_DIFF_PATH="$diff_path" \
+			REVIEW_MODE="$mode" \
+			LOG_DIR="${LOG_DIR:-/tmp/codereviewer}" \
+			node "$project_dir/dist/index.js" review --output "$result_dir/report.$mode.json"
+
+		rm -rf "$scratch_dir"
+	done
 done
 
 echo "Done. Reports written to $results_root"
