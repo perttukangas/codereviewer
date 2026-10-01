@@ -3,13 +3,109 @@ import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import type { Agent } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
+import type { Phase } from "../../pipeline.js";
 import type { WorkflowContext } from "../../types.js";
+import { reviewAgents } from "../agents/index.js";
 import { createVerifierAgent } from "../agents/verifier.js";
 import { logFindingsSnapshot } from "../shared/findings.js";
-import { formatVerificationPrompt } from "../shared/prompt.js";
+import {
+	formatReviewPrompt,
+	formatVerificationPrompt,
+} from "../shared/prompt.js";
 import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
 import { nextId, severityRank } from "../tools/review-finding/index.js";
-import type { AgentReview, ReviewFinding, ReviewRunState } from "../types.js";
+import { createReviewFindingTool } from "../tools/submit-review-finding.js";
+import type {
+	AgentReview,
+	ReviewFinding,
+	ReviewPipelineState,
+	ReviewRunState,
+} from "../types.js";
+
+export const reviewAgentsPhase: Phase<ReviewPipelineState> = {
+	id: "review-agents",
+	run: async (state) => {
+		const enabledAgents = reviewAgents.filter((agent) => {
+			if (getAgentConfig(agent).enabled) {
+				return true;
+			}
+			createLogger({ agentId: agent.id }).debug(
+				"Skipping disabled review agent",
+			);
+			return false;
+		});
+
+		const results = await Promise.all(
+			enabledAgents.map((agent) =>
+				runAgentPipeline(
+					state.context,
+					agent,
+					state.changeSet.repositoryDir,
+					state.changeSet.diff,
+					state.run,
+				),
+			),
+		);
+
+		return { ...state, report: Object.fromEntries(results) };
+	},
+};
+
+const runAgentPipeline = async (
+	context: WorkflowContext,
+	agent: Agent,
+	repositoryDir: string,
+	diff: string,
+	runState: ReviewRunState,
+): Promise<[string, AgentReview]> => {
+	const review: AgentReview = { findings: [] };
+
+	await reviewAgent(context, agent, repositoryDir, diff, review, runState);
+	await verifyReview(context, agent, review, repositoryDir, diff, runState);
+
+	return [agent.id, review];
+};
+
+const reviewAgent = async (
+	context: WorkflowContext,
+	agent: Agent,
+	repositoryDir: string,
+	diff: string,
+	review: AgentReview,
+	run: ReviewRunState,
+): Promise<void> => {
+	const log = createLogger({ agentId: agent.id });
+	const reviewFindingTool = createReviewFindingTool(
+		agent,
+		repositoryDir,
+		review.findings,
+	);
+
+	const response = await runGuardedSession({
+		agent,
+		runtime: context.runtime,
+		config: getAgentConfig(agent),
+		customTools: [reviewFindingTool],
+		output: review,
+		prompt: formatReviewPrompt(agent, diff),
+	});
+
+	run.telemetry.record(agent.id, response.durationMs, response.usage);
+
+	logFindingsSnapshot(log, "Reviewer findings", review.findings);
+
+	for (const outcome of response.guardrails.filter(
+		(guardrail) => guardrail.terminated,
+	)) {
+		run.errors.push(
+			toGuardrailError(
+				nextId(run.errors, `${agent.id}:error`),
+				agent.id,
+				outcome,
+			),
+		);
+	}
+};
 
 const DIFF_HEADER_PREFIX = "diff --git ";
 
@@ -120,7 +216,7 @@ const findingFilePaths = (findings: ReviewFinding[]): string[] => {
 	return [...paths];
 };
 
-export const verifyReview = async (
+const verifyReview = async (
 	context: WorkflowContext,
 	reviewer: Agent,
 	review: AgentReview,

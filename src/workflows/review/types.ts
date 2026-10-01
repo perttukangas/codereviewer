@@ -1,5 +1,7 @@
 import type { TelemetryCollector } from "../../engine/telemetry.js";
 import type { WorkflowError } from "../../engine/types.js";
+import type { ChangeSet } from "../../integrations/types.js";
+import type { WorkflowContext } from "../types.js";
 
 export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
@@ -34,4 +36,15 @@ export type ReviewReport = Record<string, AgentReview>;
 export type ReviewRunState = {
 	errors: ReviewError[];
 	telemetry: TelemetryCollector;
+};
+
+export type ReviewSeed = {
+	context: WorkflowContext;
+	run: ReviewRunState;
+	report: ReviewReport;
+	startedAt: number;
+};
+
+export type ReviewPipelineState = ReviewSeed & {
+	changeSet: ChangeSet;
 };

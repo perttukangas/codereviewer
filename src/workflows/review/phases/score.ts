@@ -1,6 +1,11 @@
 import { createLogger } from "../../../shared/logger.js";
+import type { Phase } from "../../pipeline.js";
 import { logFindingsSnapshot } from "../shared/findings.js";
-import type { ReviewFinding, ReviewReport, ReviewSeverity } from "../types.js";
+import type {
+	ReviewFinding,
+	ReviewPipelineState,
+	ReviewSeverity,
+} from "../types.js";
 
 export const severityWeights: Record<ReviewSeverity, number> = {
 	CRITICAL: 10,
@@ -50,18 +55,24 @@ const scoreFinding = (finding: ReviewFinding, agentId: string): number => {
 	);
 };
 
-export const scoreFindings = (report: ReviewReport): void => {
-	const log = createLogger();
+export const score: Phase<ReviewPipelineState> = {
+	id: "score",
+	run: async (state) => {
+		const { report } = state;
+		const log = createLogger();
 
-	for (const [agentId, review] of Object.entries(report)) {
-		for (const finding of review.findings) {
-			finding.score = scoreFinding(finding, agentId);
+		for (const [agentId, review] of Object.entries(report)) {
+			for (const finding of review.findings) {
+				finding.score = scoreFinding(finding, agentId);
+			}
 		}
-	}
 
-	logFindingsSnapshot(
-		log,
-		"Scored findings",
-		Object.values(report).flatMap((review) => review.findings),
-	);
+		logFindingsSnapshot(
+			log,
+			"Scored findings",
+			Object.values(report).flatMap((review) => review.findings),
+		);
+
+		return state;
+	},
 };

@@ -1,81 +1,33 @@
-import { getAgentConfig } from "../../engine/agent-config.js";
 import { createTelemetryCollector } from "../../engine/telemetry.js";
-import type { Agent } from "../../engine/types.js";
-import { createLocalGitChangeSource } from "../../integrations/local-git.js";
-import type { ChangeSource } from "../../integrations/types.js";
-import { createLogger, info } from "../../shared/logger.js";
+import { runPipeline } from "../pipeline.js";
 import type { Workflow, WorkflowContext, WorkflowResult } from "../types.js";
-import { reviewAgents } from "./agents/index.js";
 import { deduplicate } from "./phases/deduplicate.js";
-import { reviewAgent } from "./phases/review-agent.js";
-import { scoreFindings } from "./phases/score.js";
-import { verifyReview } from "./phases/verify-review.js";
-import { getReviewEnv } from "./shared/env.js";
-import { validateReviewInputs } from "./shared/validate-inputs.js";
-import type { AgentReview, ReviewReport, ReviewRunState } from "./types.js";
+import { loadChanges } from "./phases/load-changes.js";
+import { reviewAgentsPhase } from "./phases/review-agents.js";
+import { score } from "./phases/score.js";
+import type { ReviewPipelineState, ReviewReport, ReviewSeed } from "./types.js";
 
-export const run = async (
+const createReviewSeed = (context: WorkflowContext): ReviewSeed => ({
+	context,
+	run: { errors: [], telemetry: createTelemetryCollector() },
+	report: {},
+	startedAt: Date.now(),
+});
+
+const toResult = (
+	state: ReviewPipelineState,
+): WorkflowResult<ReviewReport> => ({
+	output: state.report,
+	errors: state.run.errors,
+	telemetry: state.run.telemetry.build(Date.now() - state.startedAt),
+});
+
+const phases = [loadChanges, reviewAgentsPhase, deduplicate, score] as const;
+
+const run = async (
 	context: WorkflowContext,
-): Promise<WorkflowResult<ReviewReport>> => {
-	const startedAt = Date.now();
-	await validateReviewInputs();
-
-	const { GIT_DIFF_PATH } = getReviewEnv();
-	const changeSource: ChangeSource = createLocalGitChangeSource(GIT_DIFF_PATH);
-
-	info("Reading Git diff", GIT_DIFF_PATH);
-	const changeSet = await changeSource.load();
-
-	const runState: ReviewRunState = {
-		errors: [],
-		telemetry: createTelemetryCollector(),
-	};
-
-	const enabledAgents = reviewAgents.filter((agent) => {
-		if (getAgentConfig(agent).enabled) {
-			return true;
-		}
-		createLogger({ agentId: agent.id }).debug("Skipping disabled review agent");
-		return false;
-	});
-
-	const results = await Promise.all(
-		enabledAgents.map((agent) =>
-			runAgentPipeline(
-				context,
-				agent,
-				changeSet.repositoryDir,
-				changeSet.diff,
-				runState,
-			),
-		),
-	);
-
-	const report: ReviewReport = Object.fromEntries(results);
-	await deduplicate(context, report, runState);
-	scoreFindings(report);
-
-	return {
-		output: report,
-		errors: runState.errors,
-		telemetry: runState.telemetry.build(Date.now() - startedAt),
-	};
-};
-
-const runAgentPipeline = async (
-	context: WorkflowContext,
-	agent: Agent,
-	repositoryDir: string,
-	diff: string,
-	runState: ReviewRunState,
-): Promise<[string, AgentReview]> => {
-	const review: AgentReview = { findings: [] };
-
-	await reviewAgent(context, agent, repositoryDir, diff, review, runState);
-	await verifyReview(context, agent, review, repositoryDir, diff, runState);
-
-	return [agent.id, review];
-};
+): Promise<WorkflowResult<ReviewReport>> =>
+	toResult(await runPipeline(createReviewSeed(context), phases));
 
 export const reviewWorkflow: Workflow<ReviewReport> = {
 	id: "review",
