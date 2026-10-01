@@ -149,7 +149,7 @@ type TestResult = {
 	id: string;
 	difficulty: Difficulty;
 	purposes: PurposeResult[];
-	falsePositives: number;
+	additionalFindings: number;
 	missingMatches: boolean;
 };
 
@@ -231,7 +231,7 @@ const evaluateTest = async (
 			}),
 		),
 	);
-	const falsePositives = allFindings(report).filter(
+	const additionalFindings = allFindings(report).filter(
 		(finding) =>
 			finding.invalidReason === undefined &&
 			!matchedFindingIds.has(finding.id),
@@ -241,7 +241,7 @@ const evaluateTest = async (
 		id: manifest.id,
 		difficulty: manifest.difficulty,
 		purposes,
-		falsePositives,
+		additionalFindings,
 		missingMatches: matches === undefined,
 	};
 };
@@ -274,8 +274,8 @@ const buildSummary = (results: TestResult[]): string => {
 	const scoreErrors = allPurposes
 		.map((purpose) => purpose.scoreError)
 		.filter((value): value is number => value !== undefined);
-	const falsePositives = results.reduce(
-		(sum, result) => sum + result.falsePositives,
+	const additionalFindings = results.reduce(
+		(sum, result) => sum + result.additionalFindings,
 		0,
 	);
 
@@ -286,7 +286,7 @@ const buildSummary = (results: TestResult[]): string => {
 	lines.push(
 		`- Main-target recall: ${ratio(mainDetected.length, allPurposes.length)}`,
 	);
-	lines.push(`- False positives: ${falsePositives}`);
+	lines.push(`- Additional findings: ${additionalFindings}`);
 	lines.push(`- Mean severity error: ${mean(severityErrors)}`);
 	lines.push(`- Mean confidence error: ${mean(confidenceErrors)}`);
 	lines.push(`- Mean base score error (primary): ${mean(baseScoreErrors)}`);
@@ -336,14 +336,14 @@ const buildSummary = (results: TestResult[]): string => {
 
 	lines.push("## Per test");
 	lines.push("");
-	lines.push("| Test | Difficulty | Recall | False positives |");
-	lines.push("| ---- | ---------- | ------ | --------------- |");
+	lines.push("| Test | Difficulty | Recall | Additional findings |");
+	lines.push("| ---- | ---------- | ------ | ------------------- |");
 	for (const result of results) {
 		lines.push(
 			`| ${result.id} | ${result.difficulty} | ${ratio(
 				result.purposes.filter((purpose) => purpose.detected).length,
 				result.purposes.length,
-			)} | ${result.falsePositives} |`,
+			)} | ${result.additionalFindings} |`,
 		);
 	}
 	lines.push("");

@@ -1,0 +1,56 @@
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..26194ec 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -153,7 +153,7 @@ export const postRouter = router({
+ 
+       const removed = await removeMany({ ids, userId });
+ 
+-      if (removed.count !== ids.length) {
++      if (removed.count === 0) {
+         throw new TRPCError({
+           code: 'NOT_FOUND',
+           message: `Successfully removed ${removed.count}/${ids.length} of posts`,
+@@ -167,7 +167,7 @@ export const postRouter = router({
+     const userId = opts.ctx.userId;
+ 
+     const creator = await isCreator({ id, userId });
+-    if (!creator) {
++    if (creator) {
+       throw new TRPCError({
+         code: 'UNAUTHORIZED',
+         message: 'You are not the creator of this post',
+diff --git a/services/server/src/routes/v1/trpc/auth.ts b/services/server/src/routes/v1/trpc/auth.ts
+index 2789588..4f5f8d7 100644
+--- a/services/server/src/routes/v1/trpc/auth.ts
++++ b/services/server/src/routes/v1/trpc/auth.ts
+@@ -13,7 +13,9 @@ export const createContext = async (opts: CreateExpressContextOptions) => {
+     // eslint-disable-next-line security/detect-object-injection
+     const authHeader = opts.req.signedCookies[SESSION_TOKEN_COOKIE];
+     if (authHeader) {
+-      const userJwtPayload = jwt.verify(authHeader, AUTH_SECRET);
++      const userJwtPayload = jwt.verify(authHeader, AUTH_SECRET, {
++        ignoreExpiration: true,
++      });
+       const session = sessionSchema.parse(userJwtPayload);
+       return session.id;
+     }
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 11a9421..410a790 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -84,12 +84,8 @@ export const userRouter = router({
+       return false;
+     }
+ 
+-    try {
+-      jwt.verify(token, AUTH_SECRET);
+-      return true;
+-    } catch {
+-      return false;
+-    }
++    jwt.verify(token, AUTH_SECRET);
++    return true;
+   }),
+   logout: protectedProcedure.mutation(async (opts) => {
+     opts.ctx.res.clearCookie(SESSION_TOKEN_COOKIE, {

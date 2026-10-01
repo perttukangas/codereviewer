@@ -5,39 +5,71 @@
   "difficulty": "easier",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/trpc/auth.ts",
+      "services/server/src/routes/v1/user/index.ts"
+    ],
     "purposes": [
       {
         "id": "T03-F01",
         "mainAgent": "correctness",
-        "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO",
-        "score": 7.84
+        "severity": "MEDIUM",
+        "confidence": 0.9,
+        "title": "removeMany only throws when nothing was removed, so a partial deletion reports success",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          156,
+          156
+        ],
+        "score": 5.04
       },
       {
         "id": "T03-F02",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO",
-        "score": 4.48
+        "severity": "CRITICAL",
+        "confidence": 0.9,
+        "title": "edit rejects the post creator and allows everyone else because the ownership guard is inverted",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          170,
+          170
+        ],
+        "score": 7.2
       },
       {
         "id": "T03-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO",
-        "score": 6.72
+        "confidence": 0.85,
+        "title": "authorized no longer catches jwt.verify errors so an invalid token throws instead of returning false",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          87,
+          88
+        ],
+        "score": 7.14
       },
       {
         "id": "T03-F04",
         "mainAgent": "security",
-        "severity": "HIGH",
-        "confidence": 0.8,
-        "title": "TODO",
-        "score": 8.4
+        "severity": "CRITICAL",
+        "confidence": 0.85,
+        "title": "context verification passes ignoreExpiration so expired session tokens are still accepted",
+        "expectedFiles": [
+          "services/server/src/routes/v1/trpc/auth.ts"
+        ],
+        "expectedLines": [
+          16,
+          18
+        ],
+        "score": 12.75
       }
     ]
   }
