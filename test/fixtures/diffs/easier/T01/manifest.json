@@ -3,42 +3,77 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
-  "mr": "TODO",
+  "mr": "Add a post search filter to the feed, with a seed helper that creates searchable posts.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/client/src/pages/_components/Post/List.tsx",
+      "services/client/src/pages/_components/Post/Search.tsx",
+      "services/server/prisma/seed.ts",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/shared/src/zod/post.ts"
+    ],
     "purposes": [
       {
         "id": "T01-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Search matches exact titles instead of substrings",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          77,
+          81
+        ],
         "score": 7.84
       },
       {
         "id": "T01-F02",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 4.48
+        "title": "Duplicated pagination block in search and searchCreator",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          99,
+          134
+        ],
+        "score": 2.56
       },
       {
         "id": "T01-F03",
         "mainAgent": "performance",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Search query loads all matching posts without a limit",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          54,
+          82
+        ],
         "score": 5.6
       },
       {
         "id": "T01-F04",
         "mainAgent": "reliability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 6.72
+        "title": "Seed helper swallows failures with an empty catch",
+        "expectedFiles": [
+          "services/server/prisma/seed.ts"
+        ],
+        "expectedLines": [
+          83,
+          85
+        ],
+        "score": 3.84
       }
     ]
   }

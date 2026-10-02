@@ -1,0 +1,218 @@
+diff --git a/services/client/src/pages/_components/Profile/Post/Export.tsx b/services/client/src/pages/_components/Profile/Post/Export.tsx
+new file mode 100644
+index 0000000..b758d6e
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/Post/Export.tsx
+@@ -0,0 +1,51 @@
++import { Download } from 'lucide-react';
++
++import { Button } from '@cc/components/Button';
++import { useSession } from '@cc/hooks/use-session';
++import { useToast } from '@cc/hooks/use-toast';
++import { t } from '@cc/lib/trpc';
++
++export default function Export() {
++  const { user } = useSession();
++  const { toast } = useToast();
++
++  const exportQuery = t.post.export.useQuery(
++    { userId: user?.id ?? '' },
++    { enabled: false }
++  );
++
++  const handleExport = async () => {
++    try {
++      const { data } = await exportQuery.refetch();
++      if (!data) {
++        return;
++      }
++
++      const blob = new Blob([data], { type: 'text/csv' });
++      const url = URL.createObjectURL(blob);
++      const link = document.createElement('a');
++      link.href = url;
++      link.download = 'my-posts.csv';
++      link.click();
++      link.remove();
++      URL.revokeObjectURL(url);
++    } catch {
++      toast({
++        variant: 'destructive',
++        description: 'Failed to export posts',
++      });
++    }
++  };
++
++  return (
++    <Button
++      variant="outline"
++      size="sm"
++      disabled={!user || exportQuery.isFetching}
++      onClick={() => void handleExport()}
++    >
++      <Download />
++      Export
++    </Button>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/Post/index.tsx b/services/client/src/pages/_components/Profile/Post/index.tsx
+index d3da5b1..e17b43f 100644
+--- a/services/client/src/pages/_components/Profile/Post/index.tsx
++++ b/services/client/src/pages/_components/Profile/Post/index.tsx
+@@ -5,6 +5,7 @@ import { t } from '@cc/lib/trpc';
+ import CommentTable from '../Comment';
+ import { DataTable } from '../DataTable';
+ import columns from './Columns';
++import Export from './Export';
+ 
+ export default function Table() {
+   const infinitePosts = t.post.infiniteCreator.useInfiniteQuery(
+@@ -26,6 +27,9 @@ export default function Table() {
+       <div className="flex items-center justify-center">
+         <h1 className="text-2xl font-bold">My Posts</h1>
+       </div>
++      <div className="flex items-center justify-end pb-2">
++        <Export />
++      </div>
+       <DataTable
+         columns={columns()}
+         columnsData={allRows}
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..8b5c7da 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -1,5 +1,6 @@
+ import {
+   EditInput,
++  ExportInput,
+   InfiniteCreatorInput,
+   InfiniteInput,
+   ProtectedCreateInput,
+@@ -74,6 +75,40 @@ export const getInfiniteCreator = async ({
+   });
+ };
+ 
++export const exportPosts = async ({ userId }: ExportInput) => {
++  const posts = await prisma.post.findMany({
++    where: {
++      userId,
++    },
++    orderBy: {
++      id: 'desc',
++    },
++    select: {
++      id: true,
++      title: true,
++      content: true,
++      userId: true,
++    },
++  });
++
++  const rows = [];
++  for (const post of posts) {
++    const comments = await prisma.comment.count({
++      where: {
++        postId: post.id,
++      },
++    });
++    rows.push({
++      id: post.id,
++      title: post.title,
++      content: post.content,
++      comments,
++    });
++  }
++
++  return rows;
++};
++
+ export const like = async ({ id, userId }: ProtectedLikeUnlikeInput) => {
+   return await prisma.postLikes.create({
+     data: {
+diff --git a/services/server/src/routes/v1/post/export.ts b/services/server/src/routes/v1/post/export.ts
+new file mode 100644
+index 0000000..cb672d7
+--- /dev/null
++++ b/services/server/src/routes/v1/post/export.ts
+@@ -0,0 +1,25 @@
++interface ExportRow {
++  id: bigint;
++  title: string;
++  content: string;
++  comments: number;
++}
++
++const escapeField = (value: string) => {
++  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
++    return `"${value.replace(/"/g, '""')}"`;
++  }
++  return value;
++};
++
++export const toCsv = (rows: ExportRow[]) => {
++  const header = ['id', 'title', 'content', 'comments'].join(',');
++
++  const lines = rows.map((row) =>
++    [row.id, row.comments, row.title, row.content]
++      .map((value) => escapeField(String(value)))
++      .join(',')
++  );
++
++  return [header, ...lines].join('\n');
++};
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..cd6d44a 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
+ import {
+   createInput,
+   editInput,
++  exportInput,
+   infiniteInput,
+   likeUnlikeInput,
+   removeInput,
+@@ -21,6 +22,7 @@ import { commentRouter } from './comment/index.js';
+ import {
+   create,
+   edit,
++  exportPosts,
+   getInfinite,
+   getInfiniteCreator,
+   hasLiked,
+@@ -30,6 +32,7 @@ import {
+   removeMany,
+   unlike,
+ } from './database.js';
++import { toCsv } from './export.js';
+ 
+ export const postRouter = router({
+   comment: commentRouter,
+@@ -94,6 +97,10 @@ export const postRouter = router({
+         previousCursor,
+       };
+     }),
++  export: publicProcedure.input(exportInput).query(async (opts) => {
++    const posts = await exportPosts(opts.input);
++    return toCsv(posts);
++  }),
+   like: protectedProcedure.input(likeUnlikeInput).mutation(async (opts) => {
+     const { id } = opts.input;
+     const userId = opts.ctx.userId;
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..f23bc56 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -15,6 +15,12 @@ export const infiniteInput = z.object({
+ export type InfiniteInput = z.infer<typeof infiniteInput> & ProtectedOptional;
+ export type InfiniteCreatorInput = z.infer<typeof infiniteInput> & Protected;
+ 
++export const exportInput = z.object({
++  userId: defaultId,
++  format: z.enum(['csv', 'json']).default('csv'),
++});
++export type ExportInput = z.infer<typeof exportInput>;
++
+ export const likeUnlikeInput = z.object({ id: defaultId });
+ export type ProtectedLikeUnlikeInput = z.infer<typeof likeUnlikeInput> &
+   Protected;

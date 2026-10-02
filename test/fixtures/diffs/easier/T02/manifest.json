@@ -3,33 +3,61 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
-  "mr": "TODO",
+  "mr": "Add a CSV export of the signed-in user's posts from the profile page.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/client/src/pages/_components/Profile/Post/Export.tsx",
+      "services/client/src/pages/_components/Profile/Post/index.tsx",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/export.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/shared/src/zod/post.ts"
+    ],
     "purposes": [
       {
         "id": "T02-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "CSV header and row column order do not match",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/export.ts"
+        ],
+        "expectedLines": [
+          16,
+          19
+        ],
         "score": 7.84
       },
       {
         "id": "T02-F02",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 4.48
+        "title": "Export input advertises a format option that is never honored",
+        "expectedFiles": [
+          "services/shared/src/zod/post.ts"
+        ],
+        "expectedLines": [
+          18,
+          22
+        ],
+        "score": 2.56
       },
       {
         "id": "T02-F03",
         "mainAgent": "performance",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Export issues one comment count query per post (N+1)",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          94,
+          107
+        ],
         "score": 5.6
       },
       {
@@ -37,7 +65,14 @@
         "mainAgent": "security",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Export route is public and trusts a client-supplied userId",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          100,
+          103
+        ],
         "score": 8.4
       }
     ]
