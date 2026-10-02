@@ -2,10 +2,9 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ReviewFinding } from "../../types.js";
-import type { ReviewFindingInput } from "./schema.js";
 
 export const validateFinding = async (
-	finding: ReviewFindingInput,
+	finding: Omit<ReviewFinding, "id">,
 	repoDir: string,
 	findings: ReviewFinding[],
 	excludeId?: string,
@@ -49,7 +48,7 @@ const normalizeFilePaths = async (
 };
 
 const normalizeCodeChange = async (
-	finding: ReviewFindingInput,
+	finding: Omit<ReviewFinding, "id">,
 	repoDir: string,
 	codeChangeSources?: ReviewFinding[],
 ): Promise<Partial<ReviewFinding>> => {

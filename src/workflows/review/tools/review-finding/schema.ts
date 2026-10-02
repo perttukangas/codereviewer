@@ -1,14 +1,8 @@
 import { Type } from "typebox";
-import type { ReviewFinding } from "../../types.js";
 import { severityValues } from "./severity.js";
 
 export { reviewScopeValues } from "../../agents/review-agents.js";
 export { severityRank, severityValues } from "./severity.js";
-
-export type ReviewFindingInput = Omit<
-	ReviewFinding,
-	"id" | "codeChangeStartLine" | "codeChangeEndLine" | "score"
->;
 
 export const nextId = (items: { id: string }[], prefix: string): string => {
 	const idPrefix = `${prefix}-`;

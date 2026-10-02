@@ -26,6 +26,7 @@ export type ReviewFinding = {
 	invalidReason?: string;
 	mergedFrom?: string[];
 	mergedFindingIds?: string[];
+	codeChangesOverlap?: string[];
 	score?: number;
 };
 

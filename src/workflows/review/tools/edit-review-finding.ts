@@ -2,7 +2,6 @@ import { Type } from "typebox";
 import { defineTool } from "../../../engine/tools.js";
 import type { ReviewFinding } from "../types.js";
 import {
-	type ReviewFindingInput,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	validateFinding,
@@ -151,7 +150,7 @@ export const createEditReviewFindingTool = (
 
 			const codeChange = resolveCodeChange(changes, base);
 
-			const merged: ReviewFindingInput = {
+			const merged: Omit<ReviewFinding, "id"> = {
 				title: changes.title ?? base.title,
 				severity: changes.severity ?? base.severity,
 				confidence: changes.confidence ?? base.confidence,

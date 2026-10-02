@@ -3,7 +3,7 @@ import {
 	severityRank,
 	severityValues,
 } from "../tools/review-finding/severity.js";
-import type { ReviewFinding } from "../types.js";
+import type { ReviewFinding, ReviewReport } from "../types.js";
 
 export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
 	const canonical: ReviewFinding = {
@@ -43,6 +43,9 @@ export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
 	}
 	if (finding.mergedFindingIds !== undefined) {
 		canonical.mergedFindingIds = finding.mergedFindingIds;
+	}
+	if (finding.codeChangesOverlap !== undefined) {
+		canonical.codeChangesOverlap = finding.codeChangesOverlap;
 	}
 	if (finding.score !== undefined) {
 		canonical.score = finding.score;
@@ -89,6 +92,13 @@ const summarizeFinding = (finding: ReviewFinding): string => {
 		parts.push(`scope ${finding.scope.join(", ")}`);
 	}
 
+	if (
+		finding.codeChangesOverlap !== undefined &&
+		finding.codeChangesOverlap.length > 0
+	) {
+		parts.push(`overlaps ${finding.codeChangesOverlap.join(", ")}`);
+	}
+
 	return parts.join(" | ");
 };
 
@@ -112,4 +122,84 @@ export const logFindingsSnapshot = (
 	}
 
 	log.debug(`${label} details`, findings);
+};
+
+type FindingWithCodeChange = ReviewFinding &
+	Required<
+		Pick<
+			ReviewFinding,
+			"codeChangeFilePath" | "codeChangeStartLine" | "codeChangeEndLine"
+		>
+	>;
+
+const hasCodeChange = (
+	finding: ReviewFinding,
+): finding is FindingWithCodeChange =>
+	finding.codeChangeFilePath !== undefined &&
+	finding.codeChangeStartLine !== undefined &&
+	finding.codeChangeEndLine !== undefined;
+
+const rangesOverlap = (
+	a: FindingWithCodeChange,
+	b: FindingWithCodeChange,
+): boolean =>
+	a.codeChangeStartLine <= b.codeChangeEndLine &&
+	b.codeChangeStartLine <= a.codeChangeEndLine;
+
+const compareIds = (a: string, b: string): number =>
+	a.localeCompare(b, "en", { numeric: true });
+
+export const flagCodeChangeOverlaps = (
+	report: ReviewReport,
+): ReviewFinding[] => {
+	const findings = Object.values(report).flatMap((review) => review.findings);
+
+	for (const finding of findings) {
+		delete finding.codeChangesOverlap;
+	}
+
+	const overlapping = new Map<string, Set<string>>();
+	const addOverlap = (id: string, otherId: string): void => {
+		const ids = overlapping.get(id) ?? new Set<string>();
+		ids.add(otherId);
+		overlapping.set(id, ids);
+	};
+
+	for (let i = 0; i < findings.length; i++) {
+		const a = findings[i];
+		if (!hasCodeChange(a)) {
+			continue;
+		}
+
+		for (let j = i + 1; j < findings.length; j++) {
+			const b = findings[j];
+			if (!hasCodeChange(b)) {
+				continue;
+			}
+
+			if (a.codeChangeFilePath !== b.codeChangeFilePath) {
+				continue;
+			}
+
+			if (!rangesOverlap(a, b)) {
+				continue;
+			}
+
+			addOverlap(a.id, b.id);
+			addOverlap(b.id, a.id);
+		}
+	}
+
+	const flagged: ReviewFinding[] = [];
+	for (const finding of findings) {
+		const ids = overlapping.get(finding.id);
+		if (ids === undefined || ids.size === 0) {
+			continue;
+		}
+
+		finding.codeChangesOverlap = [...ids].sort(compareIds);
+		flagged.push(finding);
+	}
+
+	return flagged;
 };

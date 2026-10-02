@@ -2,7 +2,6 @@ export {
 	codeChangeGuideline,
 	mergeCodeChangeGuideline,
 	nextId,
-	type ReviewFindingInput,
 	relatedFilesGuideline,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
