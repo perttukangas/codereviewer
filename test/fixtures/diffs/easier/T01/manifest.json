@@ -3,6 +3,7 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
+  "mr": "TODO",
   "diff": {
     "path": "review.diff",
     "changedFiles": [],
