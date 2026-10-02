@@ -1,0 +1,435 @@
+diff --git a/services/client/src/pages/_components/Profile/Settings/EmailForm.tsx b/services/client/src/pages/_components/Profile/Settings/EmailForm.tsx
+new file mode 100644
+index 0000000..ad84031
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/Settings/EmailForm.tsx
+@@ -0,0 +1,69 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useForm } from 'react-hook-form';
++
++import { type ChangeEmailInput, changeEmailInput } from '@shared/zod/user';
++
++import { Button } from '@cc/components/Button';
++import {
++  Form,
++  FormControl,
++  FormField,
++  FormItem,
++  FormLabel,
++  FormMessage,
++} from '@cc/components/Form';
++import { Input } from '@cc/components/Input';
++import { useToast } from '@cc/hooks/use-toast';
++import { t } from '@cc/lib/trpc';
++
++export default function EmailForm() {
++  const { toast } = useToast();
++
++  const form = useForm<ChangeEmailInput>({
++    resolver: zodResolver(changeEmailInput),
++    defaultValues: { email: '' },
++  });
++
++  const changeEmail = t.user.changeEmail.useMutation({
++    onSuccess: () => {
++      form.reset();
++      toast({ description: 'Email updated' });
++    },
++    onError: (error) => {
++      toast({ variant: 'destructive', description: error.message });
++    },
++  });
++
++  return (
++    <Form {...form}>
++      <form
++        className="flex flex-col gap-2"
++        onSubmit={(event) => {
++          event.preventDefault();
++          void form.handleSubmit((data) => changeEmail.mutate(data))(event);
++        }}
++      >
++        <FormField
++          control={form.control}
++          name="email"
++          render={({ field }) => (
++            <FormItem>
++              <FormLabel>Email</FormLabel>
++              <FormControl>
++                <Input type="email" placeholder="Email" {...field} />
++              </FormControl>
++              <FormMessage />
++            </FormItem>
++          )}
++        />
++        <Button
++          className="self-start"
++          type="submit"
++          disabled={form.formState.isSubmitting}
++        >
++          Save email
++        </Button>
++      </form>
++    </Form>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/Settings/PasswordForm.tsx b/services/client/src/pages/_components/Profile/Settings/PasswordForm.tsx
+new file mode 100644
+index 0000000..c57db1e
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/Settings/PasswordForm.tsx
+@@ -0,0 +1,89 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useForm } from 'react-hook-form';
++
++import {
++  type ChangePasswordInput,
++  changePasswordInput,
++} from '@shared/zod/user';
++
++import { Button } from '@cc/components/Button';
++import {
++  Form,
++  FormControl,
++  FormField,
++  FormItem,
++  FormLabel,
++  FormMessage,
++} from '@cc/components/Form';
++import { Input } from '@cc/components/Input';
++import { useToast } from '@cc/hooks/use-toast';
++import { t } from '@cc/lib/trpc';
++
++export default function PasswordForm() {
++  const { toast } = useToast();
++
++  const form = useForm<ChangePasswordInput>({
++    resolver: zodResolver(changePasswordInput),
++    defaultValues: { currentPassword: '', newPassword: '' },
++  });
++
++  const changePassword = t.user.changePassword.useMutation({
++    onSuccess: () => {
++      form.reset();
++      toast({ description: 'Password updated' });
++    },
++    onError: (error) => {
++      toast({ variant: 'destructive', description: error.message });
++    },
++  });
++
++  return (
++    <Form {...form}>
++      <form
++        className="flex flex-col gap-2"
++        onSubmit={(event) => {
++          event.preventDefault();
++          void form.handleSubmit((data) => changePassword.mutate(data))(event);
++        }}
++      >
++        <FormField
++          control={form.control}
++          name="currentPassword"
++          render={({ field }) => (
++            <FormItem>
++              <FormLabel>Current password</FormLabel>
++              <FormControl>
++                <Input
++                  type="password"
++                  placeholder="Current password"
++                  {...field}
++                />
++              </FormControl>
++              <FormMessage />
++            </FormItem>
++          )}
++        />
++        <FormField
++          control={form.control}
++          name="newPassword"
++          render={({ field }) => (
++            <FormItem>
++              <FormLabel>New password</FormLabel>
++              <FormControl>
++                <Input type="password" placeholder="New password" {...field} />
++              </FormControl>
++              <FormMessage />
++            </FormItem>
++          )}
++        />
++        <Button
++          className="self-start"
++          type="submit"
++          disabled={form.formState.isSubmitting}
++        >
++          Save password
++        </Button>
++      </form>
++    </Form>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/Settings/index.tsx b/services/client/src/pages/_components/Profile/Settings/index.tsx
+new file mode 100644
+index 0000000..7983810
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/Settings/index.tsx
+@@ -0,0 +1,17 @@
++import EmailForm from './EmailForm';
++import PasswordForm from './PasswordForm';
++
++export default function Settings() {
++  return (
++    <div className="flex flex-col gap-6">
++      <div>
++        <h2 className="text-xl font-bold">Account settings</h2>
++        <p className="text-sm text-muted-foreground">
++          Update the email and password for your account.
++        </p>
++      </div>
++      <EmailForm />
++      <PasswordForm />
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/index.tsx b/services/client/src/pages/_components/Profile/index.tsx
+index c9c736f..23444ef 100644
+--- a/services/client/src/pages/_components/Profile/index.tsx
++++ b/services/client/src/pages/_components/Profile/index.tsx
+@@ -1,8 +1,10 @@
+ import PostComponent from './Post';
++import Settings from './Settings';
+ 
+ export default function Index() {
+   return (
+-    <div className="p-4">
++    <div className="flex flex-col gap-8 p-4">
++      <Settings />
+       <PostComponent />
+     </div>
+   );
+diff --git a/services/server/prisma/seed.ts b/services/server/prisma/seed.ts
+index b3ab5db..172424c 100644
+--- a/services/server/prisma/seed.ts
++++ b/services/server/prisma/seed.ts
+@@ -77,6 +77,13 @@ export async function main() {
+ 
+     await userActions(user);
+   }
++
++  await prisma.user.create({
++    data: {
++      email: 'second@example.com',
++      password: await bcrypt.hash('654321', 10),
++    },
++  });
+ }
+ 
+ main()
+diff --git a/services/server/src/routes/v1/user/database.ts b/services/server/src/routes/v1/user/database.ts
+new file mode 100644
+index 0000000..fedffc6
+--- /dev/null
++++ b/services/server/src/routes/v1/user/database.ts
+@@ -0,0 +1,56 @@
++import bcrypt from 'bcrypt';
++
++import { prisma } from '@sc/lib/prisma.js';
++
++export const findByEmail = async (email: string) => {
++  return await prisma.user.findFirst({
++    where: {
++      email,
++    },
++  });
++};
++
++export const findById = async (id: bigint) => {
++  return await prisma.user.findUnique({
++    where: {
++      id,
++    },
++  });
++};
++
++export const hashPassword = async (password: string) => {
++  return await bcrypt.hash(password, 10);
++};
++
++export const verifyPassword = async (
++  plainPassword: string,
++  passwordHash: string
++) => {
++  return await bcrypt.compare(plainPassword, passwordHash);
++};
++
++export const updateEmail = async ({
++  id,
++  email,
++}: {
++  id: bigint;
++  email: string;
++}) => {
++  return await prisma.user.update({
++    data: { email },
++    where: { id },
++  });
++};
++
++export const updatePassword = async ({
++  id,
++  password,
++}: {
++  id: bigint;
++  password: string;
++}) => {
++  return await prisma.user.update({
++    data: { password },
++    where: { id },
++  });
++};
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 11a9421..43d0876 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -3,7 +3,11 @@ import bcrypt from 'bcrypt';
+ import jwt from 'jsonwebtoken';
+ 
+ import type { SessionSchema } from '@shared/zod/user.js';
+-import { loginSignupInput } from '@shared/zod/user.js';
++import {
++  changeEmailInput,
++  changePasswordInput,
++  loginSignupInput,
++} from '@shared/zod/user.js';
+ 
+ import { AUTH_SECRET } from '@sc/lib/envalid.js';
+ import { prisma } from '@sc/lib/prisma.js';
+@@ -16,19 +20,23 @@ import {
+   router,
+ } from '@apiv1/trpc/index.js';
+ 
++import {
++  findByEmail,
++  hashPassword,
++  updateEmail,
++  updatePassword,
++  verifyPassword,
++} from './database.js';
++
+ export const userRouter = router({
+   login: publicProcedure.input(loginSignupInput).mutation(async (opts) => {
+     const { email, password } = opts.input;
+ 
+-    const existingUser = await prisma.user.findFirst({
+-      where: {
+-        email,
+-      },
+-    });
++    const existingUser = await findByEmail(email);
+ 
+     if (
+       !existingUser ||
+-      !(await bcrypt.compare(password, existingUser.password))
++      !(await verifyPassword(password, existingUser.password))
+     ) {
+       throw new TRPCError({
+         code: 'UNAUTHORIZED',
+@@ -51,11 +59,7 @@ export const userRouter = router({
+   signup: publicProcedure.input(loginSignupInput).mutation(async (opts) => {
+     const { email, password } = opts.input;
+ 
+-    const existingUser = await prisma.user.findFirst({
+-      where: {
+-        email,
+-      },
+-    });
++    const existingUser = await findByEmail(email);
+ 
+     if (existingUser) {
+       throw new TRPCError({
+@@ -64,7 +68,7 @@ export const userRouter = router({
+       });
+     }
+ 
+-    const hashedPassword = await bcrypt.hash(password, 10);
++    const hashedPassword = await hashPassword(password);
+ 
+     await prisma.user.create({
+       data: {
+@@ -75,6 +79,54 @@ export const userRouter = router({
+ 
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
++  changeEmail: protectedProcedure
++    .input(changeEmailInput)
++    .mutation(async (opts) => {
++      const { email } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const existingUser = await findByEmail(email);
++      if (existingUser) {
++        throw new TRPCError({
++          code: 'CONFLICT',
++          message: 'User with the same email exists',
++        });
++      }
++
++      updateEmail({ id: userId, email });
++
++      opts.ctx.res.status(StatusCode.OK);
++    }),
++  changePassword: protectedProcedure
++    .input(changePasswordInput)
++    .mutation(async (opts) => {
++      const { currentPassword, newPassword } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const user = await prisma.user.findUnique({ where: { id: userId } });
++      if (!user) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'Invalid session',
++        });
++      }
++
++      const passwordMatches = await verifyPassword(
++        user.password,
++        currentPassword
++      );
++      if (!passwordMatches) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'Current password is incorrect',
++        });
++      }
++
++      const hashedPassword = await bcrypt.hash(newPassword, 4);
++      await updatePassword({ id: userId, password: hashedPassword });
++
++      opts.ctx.res.status(StatusCode.OK);
++    }),
+   authorized: publicProcedure.query(async (opts) => {
+     // This is not an user input
+     // eslint-disable-next-line security/detect-object-injection
+diff --git a/services/shared/src/zod/user.ts b/services/shared/src/zod/user.ts
+index c8ee076..e4941ee 100644
+--- a/services/shared/src/zod/user.ts
++++ b/services/shared/src/zod/user.ts
+@@ -8,6 +8,17 @@ export const loginSignupInput = z.object({
+ });
+ export type LoginSignupInput = z.infer<typeof loginSignupInput>;
+ 
++export const changeEmailInput = z.object({
++  email: z.string().email().max(100),
++});
++export type ChangeEmailInput = z.infer<typeof changeEmailInput>;
++
++export const changePasswordInput = z.object({
++  currentPassword: z.string().min(6).max(50),
++  newPassword: z.string().min(6).max(50),
++});
++export type ChangePasswordInput = z.infer<typeof changePasswordInput>;
++
+ export const sessionSchema = z.object({
+   id: defaultId,
+ });

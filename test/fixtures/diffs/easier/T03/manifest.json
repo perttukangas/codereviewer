@@ -3,17 +3,33 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
-  "mr": "TODO",
+  "mr": "Add an account settings page where users can change their email and password.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/client/src/pages/_components/Profile/Settings/EmailForm.tsx",
+      "services/client/src/pages/_components/Profile/Settings/PasswordForm.tsx",
+      "services/client/src/pages/_components/Profile/Settings/index.tsx",
+      "services/client/src/pages/_components/Profile/index.tsx",
+      "services/server/prisma/seed.ts",
+      "services/server/src/routes/v1/user/database.ts",
+      "services/server/src/routes/v1/user/index.ts",
+      "services/shared/src/zod/user.ts"
+    ],
     "purposes": [
       {
         "id": "T03-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "changePassword passes the stored hash and the current password to bcrypt.compare in the wrong order",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          114,
+          117
+        ],
         "score": 7.84
       },
       {
@@ -21,7 +37,14 @@
         "mainAgent": "maintainability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "findById helper is exported but never imported or called",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/database.ts"
+        ],
+        "expectedLines": [
+          13,
+          19
+        ],
         "score": 4.48
       },
       {
@@ -29,7 +52,14 @@
         "mainAgent": "reliability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "changeEmail calls updateEmail without awaiting it",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          96,
+          96
+        ],
         "score": 6.72
       },
       {
@@ -37,7 +67,14 @@
         "mainAgent": "security",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "changePassword hashes the new password with a bcrypt cost factor of 4",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          125,
+          125
+        ],
         "score": 8.4
       }
     ]
