@@ -70,11 +70,14 @@ for test_id in "${test_ids[@]}"; do
 		git -C "$scratch_dir" checkout --quiet "$revision"
 		git -C "$scratch_dir" apply --ignore-space-change --ignore-whitespace "$diff_path"
 
+		log_dir="$result_dir/logs.$mode"
+		rm -rf "$log_dir"
+
 		echo "Running $mode review for $test_id"
 		REPO_DIR="$scratch_dir" \
 			GIT_DIFF_PATH="$diff_path" \
 			REVIEW_MODE="$mode" \
-			LOG_DIR="${LOG_DIR:-/tmp/codereviewer}" \
+			LOG_DIR="${LOG_DIR:-$log_dir}" \
 			node "$project_dir/dist/index.js" review --output "$result_dir/report.$mode.json"
 
 		rm -rf "$scratch_dir"

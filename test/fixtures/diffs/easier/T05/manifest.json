@@ -5,72 +5,39 @@
   "difficulty": "easier",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [
-      "services/server/src/index.ts",
-      "services/server/src/routes/v1/post/comment/index.ts",
-      "services/server/src/routes/v1/post/database.ts",
-      "services/server/src/routes/v1/post/index.ts"
-    ],
+    "changedFiles": [],
     "purposes": [
       {
         "id": "T05-F01",
         "mainAgent": "maintainability",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "removeOwn inlines the isCreatorOrOwnerOfPost ownership predicate instead of reusing the existing helper",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/comment/index.ts"
-        ],
-        "expectedLines": [
-          149,
-          169
-        ],
-        "score": 2.56
+        "title": "TODO",
+        "score": 4.48
       },
       {
         "id": "T05-F02",
         "mainAgent": "performance",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "getInfiniteCreator now loads every comment and its full likes relation for each post",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/database.ts"
-        ],
-        "expectedLines": [
-          70,
-          77
-        ],
-        "score": 3.2
+        "title": "TODO",
+        "score": 5.6
       },
       {
         "id": "T05-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
-        "confidence": 0.85,
-        "title": "unlike drops the hasLiked guard so deleting a like that does not exist throws instead of returning a conflict",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/index.ts"
-        ],
-        "expectedLines": [
-          116,
-          123
-        ],
-        "score": 7.14
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 6.72
       },
       {
         "id": "T05-F04",
         "mainAgent": "security",
         "severity": "HIGH",
-        "confidence": 0.9,
-        "title": "CORS origin is set to true so any origin is reflected with credentials allowed",
-        "expectedFiles": [
-          "services/server/src/index.ts"
-        ],
-        "expectedLines": [
-          41,
-          41
-        ],
-        "score": 9.45
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 8.4
       }
     ]
   }

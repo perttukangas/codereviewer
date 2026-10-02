@@ -5,73 +5,39 @@
   "difficulty": "easier",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [
-      "services/server/src/routes/v1/post/comment/database.ts",
-      "services/server/src/routes/v1/post/database.ts",
-      "services/server/src/routes/v1/post/index.ts",
-      "services/server/src/routes/v1/user/index.ts",
-      "services/shared/src/zod/post.ts"
-    ],
+    "changedFiles": [],
     "purposes": [
       {
         "id": "T02-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.9,
-        "title": "comment removeMany switched OR to AND so only comments the user both authored and owns the post of are deleted",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/comment/database.ts"
-        ],
-        "expectedLines": [
-          142,
-          142
-        ],
-        "score": 8.82
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 7.84
       },
       {
         "id": "T02-F02",
         "mainAgent": "maintainability",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "search filters posts in application code instead of the query, duplicating the getInfinite mapping and loading every post",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/database.ts"
-        ],
-        "expectedLines": [
-          104,
-          104
-        ],
-        "score": 2.56
+        "title": "TODO",
+        "score": 4.48
       },
       {
         "id": "T02-F03",
         "mainAgent": "performance",
-        "severity": "MEDIUM",
-        "confidence": 0.85,
-        "title": "search loads every post and its like relation then filters in memory instead of using a where clause",
-        "expectedFiles": [
-          "services/server/src/routes/v1/post/database.ts"
-        ],
-        "expectedLines": [
-          79,
-          101
-        ],
-        "score": 3.4
+        "severity": "HIGH",
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 5.6
       },
       {
         "id": "T02-F04",
         "mainAgent": "security",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "login issues a JWT with a 30 day expiry, extending the session lifetime far beyond the previous non-expiring default",
-        "expectedFiles": [
-          "services/server/src/routes/v1/user/index.ts"
-        ],
-        "expectedLines": [
-          40,
-          40
-        ],
-        "score": 4.8
+        "title": "TODO",
+        "score": 8.4
       }
     ]
   }

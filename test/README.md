@@ -80,6 +80,9 @@ Evaluation output lives in `test/fixtures/results/Txx/` and contains
 - `report.single.json` the single-agent review workflow output
 - `matches.multi.json` the human-authored mapping for the multi-agent run
 - `matches.single.json` the human-authored mapping for the single-agent run
+- `logs.multi/` and `logs.single/` the run logs for each mode, each holding
+  `combined.log` plus one `<agentId>.log` per agent. Set the `LOG_DIR` environment
+  variable to send all runs to a single directory instead.
 
 A `matches.json` value may reference either a source finding id (for example
 `correctness-1`) or a merged finding id (for example `deduplicator-1`). When the

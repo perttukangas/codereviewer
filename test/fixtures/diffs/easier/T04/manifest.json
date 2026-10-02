@@ -5,72 +5,39 @@
   "difficulty": "easier",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [
-      "services/client/src/core/components/Providers/SessionProvider.tsx",
-      "services/client/src/core/utils/bigint.ts",
-      "services/client/src/pages/_components/Post/List.tsx",
-      "services/server/src/routes/v1/trpc/middleware.ts"
-    ],
+    "changedFiles": [],
     "purposes": [
       {
         "id": "T04-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.9,
-        "title": "compareLessThan returns the opposite comparison so cursor pagination walks the wrong direction",
-        "expectedFiles": [
-          "services/client/src/core/utils/bigint.ts"
-        ],
-        "expectedLines": [
-          11,
-          12
-        ],
-        "score": 8.82
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 7.84
       },
       {
         "id": "T04-F02",
         "mainAgent": "performance",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "Post List drops the useMemo around allRows so the flattened page array is rebuilt on every render",
-        "expectedFiles": [
-          "services/client/src/pages/_components/Post/List.tsx"
-        ],
-        "expectedLines": [
-          16,
-          16
-        ],
-        "score": 3.2
+        "title": "TODO",
+        "score": 5.6
       },
       {
         "id": "T04-F03",
         "mainAgent": "reliability",
-        "severity": "MEDIUM",
+        "severity": "HIGH",
         "confidence": 0.8,
-        "title": "SessionProvider restores the cached user before the authorized query settles, so a stale session is trusted",
-        "expectedFiles": [
-          "services/client/src/core/components/Providers/SessionProvider.tsx"
-        ],
-        "expectedLines": [
-          32,
-          32
-        ],
-        "score": 3.84
+        "title": "TODO",
+        "score": 6.72
       },
       {
         "id": "T04-F04",
         "mainAgent": "security",
         "severity": "HIGH",
-        "confidence": 0.85,
-        "title": "tRPC onError no longer masks internal error messages so server details leak to the client",
-        "expectedFiles": [
-          "services/server/src/routes/v1/trpc/middleware.ts"
-        ],
-        "expectedLines": [
-          12,
-          14
-        ],
-        "score": 8.93
+        "confidence": 0.8,
+        "title": "TODO",
+        "score": 8.4
       }
     ]
   }
