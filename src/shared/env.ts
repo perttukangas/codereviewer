@@ -62,12 +62,12 @@ export const env = cleanEnv(process.env, {
 
 	DEFAULT_INPUT_TOKEN_BUDGET: num({
 		desc: "The default input token budget for an agent prompt. Zero disables the budget.",
-		default: 100000,
+		default: 96000,
 	}),
 
 	DEFAULT_OUTPUT_TOKEN_BUDGET: num({
 		desc: "The default output token budget for an agent prompt. Zero disables the budget.",
-		default: 20000,
+		default: 32000,
 	}),
 
 	DEFAULT_TOOL_LOOP_THRESHOLD: num({
