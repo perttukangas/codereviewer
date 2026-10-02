@@ -27,6 +27,7 @@ export const reviewApproach = [
 	"Scan the entire diff before investigating individual changes.",
 	"Identify the changes most likely to matter for your role and scope.",
 	"Investigate those changes first.",
+	"Use the read-only tools to inspect relevant files when the diff alone is insufficient.",
 	"Do not let prioritization cause you to ignore lower-impact changes or valid findings.",
 ];
 

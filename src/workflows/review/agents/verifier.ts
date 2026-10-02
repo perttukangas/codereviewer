@@ -11,6 +11,7 @@ const baseVerifierAgent: Agent = {
 	],
 	constraints: [
 		"Independently confirm or refute each finding. Do not trust the reviewer's claims.",
+		"Use the read-only tools to inspect relevant files when the diff alone is insufficient to confirm or refute a finding.",
 		"Re-derive severity and confidence from the rubric. Raise or lower severity when the impact meets a different definition, and raise or lower confidence when the evidence supports it.",
 		...reviewFindingRubric,
 		"Correct a finding when it is wrong or unsupported. Mark it invalid only when it cannot be corrected by editing.",
