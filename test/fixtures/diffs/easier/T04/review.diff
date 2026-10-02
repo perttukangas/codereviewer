@@ -1,0 +1,161 @@
+diff --git a/services/client/src/pages/_components/Profile/TopPosts.tsx b/services/client/src/pages/_components/Profile/TopPosts.tsx
+new file mode 100644
+index 0000000..ff67e6d
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/TopPosts.tsx
+@@ -0,0 +1,30 @@
++import { useMemo } from 'react';
++
++import { t } from '@cc/lib/trpc';
++
++export default function TopPosts() {
++  const infiniteTop = t.post.top.useInfiniteQuery(
++    {},
++    {
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++  const { data } = infiniteTop;
++  const allRows = useMemo(() => data.pages.flatMap((d) => d.posts), [data]);
++
++  return (
++    <div className="flex flex-col gap-2">
++      <h2 className="text-xl font-bold">Top posts</h2>
++      <ol className="flex flex-col gap-1">
++        {allRows.map((post) => (
++          <li key={post.id} className="flex items-center justify-between">
++            <span>{post.title}</span>
++            <span className="text-sm text-muted-foreground">
++              {post.likes} likes
++            </span>
++          </li>
++        ))}
++      </ol>
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/index.tsx b/services/client/src/pages/_components/Profile/index.tsx
+index c9c736f..fd25c05 100644
+--- a/services/client/src/pages/_components/Profile/index.tsx
++++ b/services/client/src/pages/_components/Profile/index.tsx
+@@ -1,8 +1,10 @@
+ import PostComponent from './Post';
++import TopPosts from './TopPosts';
+ 
+ export default function Index() {
+   return (
+-    <div className="p-4">
++    <div className="flex flex-col gap-8 p-4">
++      <TopPosts />
+       <PostComponent />
+     </div>
+   );
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..36b3916 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -6,6 +6,7 @@ import {
+   ProtectedLikeUnlikeInput,
+   ProtectedRemoveManyInput,
+   RemoveInput,
++  TopInput,
+ } from '@shared/zod/post.js';
+ 
+ import { prisma } from '@sc/lib/prisma.js';
+@@ -74,6 +75,47 @@ export const getInfiniteCreator = async ({
+   });
+ };
+ 
++export const getTop = async ({ limit, cursor }: TopInput) => {
++  const posts = await prisma.post.findMany({
++    take: limit,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: {
++      likes: {
++        _count: 'desc',
++      },
++    },
++    select: {
++      id: true,
++      title: true,
++      content: true,
++      likes: true,
++      user: {
++        select: {
++          email: true,
++          password: true,
++        },
++      },
++    },
++  });
++
++  let nextCursor = undefined;
++  if (posts.length > limit) {
++    const nextItem = posts.pop();
++    nextCursor = nextItem?.id;
++  }
++
++  return {
++    posts: posts.map((post: (typeof posts)[number]) => ({
++      id: post.id,
++      title: post.title,
++      content: post.content,
++      likes: post.likes.length,
++      creator: post.user,
++    })),
++    nextCursor,
++  };
++};
++
+ export const like = async ({ id, userId }: ProtectedLikeUnlikeInput) => {
+   return await prisma.postLikes.create({
+     data: {
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..ac9bfa0 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -7,6 +7,7 @@ import {
+   likeUnlikeInput,
+   removeInput,
+   removeManyInput,
++  topInput,
+ } from '@shared/zod/post.js';
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+@@ -23,6 +24,7 @@ import {
+   edit,
+   getInfinite,
+   getInfiniteCreator,
++  getTop,
+   hasLiked,
+   isCreator,
+   like,
+@@ -50,6 +52,11 @@ export const postRouter = router({
+       nextCursor,
+     };
+   }),
++  top: publicProcedure.input(topInput).query(async (opts) => {
++    const { limit, cursor } = opts.input;
++
++    return await getTop({ limit, cursor });
++  }),
+   infiniteCreator: protectedProcedure
+     .input(infiniteInput)
+     .query(async (opts) => {
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..cd35925 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -15,6 +15,12 @@ export const infiniteInput = z.object({
+ export type InfiniteInput = z.infer<typeof infiniteInput> & ProtectedOptional;
+ export type InfiniteCreatorInput = z.infer<typeof infiniteInput> & Protected;
+ 
++export const topInput = z.object({
++  limit: z.number().min(5).max(30).default(10),
++  cursor: defaultId.nullish(),
++});
++export type TopInput = z.infer<typeof topInput>;
++
+ export const likeUnlikeInput = z.object({ id: defaultId });
+ export type ProtectedLikeUnlikeInput = z.infer<typeof likeUnlikeInput> &
+   Protected;

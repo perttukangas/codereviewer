@@ -3,42 +3,76 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
-  "mr": "TODO",
+  "mr": "Add a top-posts leaderboard to the profile page.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/client/src/pages/_components/Profile/TopPosts.tsx",
+      "services/client/src/pages/_components/Profile/index.tsx",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/shared/src/zod/post.ts"
+    ],
     "purposes": [
       {
         "id": "T04-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "getTop fetches take: limit but checks posts.length > limit, so nextCursor is never set and pagination never advances",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          78,
+          118
+        ],
         "score": 7.84
       },
       {
         "id": "T04-F02",
         "mainAgent": "performance",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 5.6
+        "title": "getTop selects the full likes relation and counts with post.likes.length instead of Prisma _count",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          91,
+          112
+        ],
+        "score": 3.2
       },
       {
         "id": "T04-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "TopPosts reads data.pages without guarding data undefined, crashing on first render",
+        "expectedFiles": [
+          "services/client/src/pages/_components/Profile/TopPosts.tsx"
+        ],
+        "expectedLines": [
+          13,
+          13
+        ],
         "score": 6.72
       },
       {
         "id": "T04-F04",
         "mainAgent": "security",
-        "severity": "HIGH",
+        "severity": "CRITICAL",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 8.4
+        "title": "getTop selects and returns the creator's email and password hash in the leaderboard response",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          92,
+          113
+        ],
+        "score": 12
       }
     ]
   }

@@ -13,7 +13,10 @@ import {
 	formatReviewPrompt,
 	formatVerificationPrompt,
 } from "../shared/prompt.js";
-import { createEditReviewFindingTool } from "../tools/edit-review-finding.js";
+import {
+	createEditReviewFindingTool,
+	createGeneralistEditReviewFindingTool,
+} from "../tools/edit-review-finding.js";
 import { nextId, severityRank } from "../tools/review-finding/index.js";
 import {
 	createGeneralistReviewFindingTool,
@@ -244,10 +247,10 @@ const verifyReview = async (
 		return;
 	}
 
-	const editFindingTool = createEditReviewFindingTool(
-		repositoryDir,
-		review.findings,
-	);
+	const editFindingTool =
+		reviewer.id === "generalist"
+			? createGeneralistEditReviewFindingTool(repositoryDir, review.findings)
+			: createEditReviewFindingTool(repositoryDir, review.findings);
 
 	const scopedDiff = selectDiffFiles(
 		diff,
