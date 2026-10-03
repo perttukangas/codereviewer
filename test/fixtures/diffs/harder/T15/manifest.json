@@ -11,34 +11,34 @@
       {
         "id": "T15-F01",
         "mainAgent": "maintainability",
-        "severity": "MEDIUM",
-        "confidence": 0.5,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 1.6
+        "score": null
       },
       {
         "id": "T15-F02",
         "mainAgent": "performance",
-        "severity": "MEDIUM",
-        "confidence": 0.5,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 2
+        "score": null
       },
       {
         "id": "T15-F03",
         "mainAgent": "reliability",
-        "severity": "MEDIUM",
-        "confidence": 0.5,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 2.4
+        "score": null
       },
       {
         "id": "T15-F04",
         "mainAgent": "security",
-        "severity": "MEDIUM",
-        "confidence": 0.5,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 3
+        "score": null
       }
     ]
   }

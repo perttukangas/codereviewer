@@ -11,34 +11,34 @@
       {
         "id": "T09-F01",
         "mainAgent": "correctness",
-        "severity": "MEDIUM",
-        "confidence": 0.6,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 3.36
+        "score": null
       },
       {
         "id": "T09-F02",
         "mainAgent": "performance",
-        "severity": "MEDIUM",
-        "confidence": 0.6,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 2.4
+        "score": null
       },
       {
         "id": "T09-F03",
         "mainAgent": "reliability",
-        "severity": "MEDIUM",
-        "confidence": 0.6,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 2.88
+        "score": null
       },
       {
         "id": "T09-F04",
         "mainAgent": "security",
-        "severity": "MEDIUM",
-        "confidence": 0.6,
+        "severity": "TODO",
+        "confidence": 0,
         "title": "TODO",
-        "score": 3.6
+        "score": null
       }
     ]
   }
