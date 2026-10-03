@@ -3,25 +3,44 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "easier",
-  "mr": "TODO",
+  "mr": "Speed up CI and container builds by splitting the smoke-test job into parallel server and client jobs, caching npm, and adding a container healthcheck.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      ".github/workflows/smoke-test.yml",
+      "README.md",
+      "docker/docker-compose.all.yml",
+      "services/Dockerfile"
+    ],
     "purposes": [
       {
         "id": "T05-F01",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
-        "title": "TODO",
-        "score": 4.48
+        "title": "The new client job duplicates the server job's checkout, cache, install, and shared-test steps verbatim",
+        "expectedFiles": [
+          ".github/workflows/smoke-test.yml"
+        ],
+        "expectedLines": [
+          44,
+          71
+        ],
+        "score": 2.56
       },
       {
         "id": "T05-F02",
         "mainAgent": "performance",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Dockerfile copies the whole monorepo before npm ci, so any source change invalidates the dependency layer and forces a full reinstall",
+        "expectedFiles": [
+          "services/Dockerfile"
+        ],
+        "expectedLines": [
+          10,
+          11
+        ],
         "score": 5.6
       },
       {
@@ -29,7 +48,14 @@
         "mainAgent": "reliability",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "docker-compose depends_on uses service_started instead of service_healthy, so the app starts before the database is ready",
+        "expectedFiles": [
+          "docker/docker-compose.all.yml"
+        ],
+        "expectedLines": [
+          26,
+          28
+        ],
         "score": 6.72
       },
       {
@@ -37,7 +63,14 @@
         "mainAgent": "security",
         "severity": "HIGH",
         "confidence": 0.8,
-        "title": "TODO",
+        "title": "Dockerfile drops USER node, so the application container runs as root",
+        "expectedFiles": [
+          "services/Dockerfile"
+        ],
+        "expectedLines": [
+          52,
+          52
+        ],
         "score": 8.4
       }
     ]

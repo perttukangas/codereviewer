@@ -5,7 +5,7 @@ import {
 	baseScore,
 	corroborationUnits,
 	mergedFactor,
-	ReviewSeverity,
+	type ReviewSeverity,
 	round2,
 	severityRank,
 } from "../src/workflows/review/shared/scoring.ts";

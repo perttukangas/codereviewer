@@ -1,0 +1,166 @@
+diff --git a/.github/workflows/smoke-test.yml b/.github/workflows/smoke-test.yml
+index f9fcaf2..d7d5fbd 100644
+--- a/.github/workflows/smoke-test.yml
++++ b/.github/workflows/smoke-test.yml
+@@ -4,21 +4,28 @@ on:
+   workflow_call:
+ 
+ jobs:
+-  main:
++  server:
+     runs-on: ubuntu-22.04
++    timeout-minutes: 15
+     steps:
+       - name: checkout
+         uses: actions/checkout@v4
+ 
++      - name: cache npm
++        uses: actions/cache@v4
++        with:
++          path: ~/.npm
++          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
++
+       - name: install root
+         run: |
+-          npm ci
++          npm ci --prefer-offline
+           npm run prettier:check
+ 
+       - name: install services
+         run: |
+           cd services
+-          npm ci
++          npm ci --prefer-offline
+ 
+       - name: run shared smoke tests
+         run: |
+@@ -34,6 +41,35 @@ jobs:
+           npx tsc-alias
+           npm run lint:check
+ 
++  client:
++    runs-on: ubuntu-22.04
++    timeout-minutes: 15
++    steps:
++      - name: checkout
++        uses: actions/checkout@v4
++
++      - name: cache npm
++        uses: actions/cache@v4
++        with:
++          path: ~/.npm
++          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
++
++      - name: install root
++        run: |
++          npm ci --prefer-offline
++          npm run prettier:check
++
++      - name: install services
++        run: |
++          cd services
++          npm ci --prefer-offline
++
++      - name: run shared smoke tests
++        run: |
++          cd services/shared
++          npx tsc --noEmit
++          npm run lint:check
++
+       - name: run client smoke tests
+         run: |
+           cd services/client
+@@ -43,6 +79,6 @@ jobs:
+       - name: Run stress test smoke tests
+         run: |
+           cd test/stress-test
+-          npm ci
++          npm ci --prefer-offline
+           npx tsc --noEmit
+           npm run lint:check
+diff --git a/README.md b/README.md
+index c7a9712..2d3ff47 100644
+--- a/README.md
++++ b/README.md
+@@ -41,6 +41,13 @@ Add following environment variables to Heroku:
+ - `NODE_ENV=production`
+ - `SENTRY_AUTH_TOKEN`
+ 
++### Continuous integration
++
++The smoke test workflow runs the server and client checks as two parallel jobs
++to shorten the feedback loop. The application container exposes a healthcheck on
++`/api/healthz` so orchestrators can wait for it to become ready before routing
++traffic to it.
++
+ ## About project
+ 
+ Work hours can be found [here](work-hours.md). They explain pretty well the flow of this project, and what has been done. Here is table of things that I want mention in somewhat categories.
+diff --git a/docker/docker-compose.all.yml b/docker/docker-compose.all.yml
+index 531370e..be19a86 100644
+--- a/docker/docker-compose.all.yml
++++ b/docker/docker-compose.all.yml
+@@ -25,7 +25,16 @@ services:
+       - '127.0.0.1:3005:3005'
+     depends_on:
+       dev-db-all:
+-        condition: service_healthy
++        condition: service_started
++    healthcheck:
++      test:
++        [
++          'CMD-SHELL',
++          'wget -qO- http://localhost:3005/api/healthz || exit 1',
++        ]
++      interval: 10s
++      timeout: 5s
++      retries: 5
+     environment:
+       DATABASE_URL: 'postgresql://root:password@dev-db-all:26257/dbdevall?schema=public'
+       NODE_ENV: test
+diff --git a/services/Dockerfile b/services/Dockerfile
+index 20a2dd6..58a8d94 100644
+--- a/services/Dockerfile
++++ b/services/Dockerfile
+@@ -7,22 +7,12 @@ ARG SENTRY_PROJECT
+ 
+ WORKDIR /usr/src/app
+ 
+-COPY tsconfig.json ./
+-
+-# PACKAGE JSONS
+-# Package lock files layer
+-COPY ./package*.json ./
+-COPY ./shared/package*.json ./shared/
+-COPY ./server/package*.json ./server/
+-COPY ./client/package*.json ./client/
++# Copy the whole monorepo so the build has every source file it needs
++COPY . .
+ 
+ RUN npm ci
+ 
+-# Rest of the shared layer
+-COPY ./shared/ ./shared/
+-
+ # SERVER
+-COPY ./server/ ./server/
+ RUN cd ./server && npm run build
+ 
+ # Run Sentry sourcemaps upload if CI
+@@ -32,8 +22,6 @@ RUN if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORG" ] && [ -n "$SENTRY_PROJ
+ RUN cd ./server && find ./dist -name "*.js.map" -type f -delete
+ 
+ # CLIENT
+-# Rest of the client layer
+-COPY ./client ./client
+ RUN cd ./client && npm run build
+ 
+ FROM node:22-alpine3.20@sha256:b64ced2e7cd0a4816699fe308ce6e8a08ccba463c757c00c14cd372e3d2c763e AS node_modules
+@@ -61,6 +49,4 @@ COPY --chown=node:node --from=builder /usr/src/app/server/dist ./dist
+ COPY --chown=node:node --from=builder /usr/src/app/server/package*.json ./
+ COPY --chown=node:node --from=builder /usr/src/app/server/prisma ./prisma/
+ 
+-USER node
+-
+ CMD [ "npm", "run", "start" ]
+\ No newline at end of file
