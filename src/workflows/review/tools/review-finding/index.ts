@@ -3,9 +3,13 @@ export {
 	mergeCodeChangeGuideline,
 	nextId,
 	relatedFilesGuideline,
+	requiredScopeParam,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	reviewScopeValues,
+	scopeDescription,
+	scopeGuideline,
+	scopeParam,
 	severityRank,
 	severityValues,
 } from "./schema.js";

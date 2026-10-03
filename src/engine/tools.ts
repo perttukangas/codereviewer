@@ -26,3 +26,11 @@ export type AgentToolDefinition<TParams extends TSchema = TSchema> = {
 export const defineTool = <TParams extends TSchema>(
 	tool: AgentToolDefinition<TParams>,
 ): AgentToolDefinition<TParams> => tool;
+
+export const toolResult = <TDetails = unknown>(
+	text: string,
+	details?: TDetails,
+): ToolResult<TDetails> => ({
+	content: [{ type: "text", text }],
+	...(details !== undefined ? { details } : {}),
+});

@@ -6,6 +6,7 @@ import { createLogger } from "../../../shared/logger.js";
 import type { Phase } from "../../pipeline.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
 import {
+	allFindings,
 	flagCodeChangeOverlaps,
 	logFindingsSnapshot,
 } from "../shared/findings.js";
@@ -45,9 +46,9 @@ const runDeduplication = async (state: ReviewPipelineState): Promise<void> => {
 		return;
 	}
 
-	const eligible = Object.values(report)
-		.flatMap((review) => review.findings)
-		.filter((finding) => finding.invalidReason === undefined);
+	const eligible = allFindings(report).filter(
+		(finding) => finding.invalidReason === undefined,
+	);
 	if (eligible.length < 2) {
 		log.info("Skipping deduplication, fewer than two eligible findings");
 		return;

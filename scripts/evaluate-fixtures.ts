@@ -1,6 +1,19 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { baseScore, corroborationUnits, mergedFactor, round2 } from "./fixture-score.ts";
+import type { AgentUsage } from "../src/runtime/types.ts";
+import {
+	baseScore,
+	corroborationUnits,
+	mergedFactor,
+	ReviewSeverity,
+	round2,
+	severityRank,
+} from "../src/workflows/review/shared/scoring.ts";
+import type {
+	ReviewFinding,
+	ReviewReport,
+} from "../src/workflows/review/types.ts";
+import type { WorkflowResult } from "../src/workflows/types.ts";
 
 type Difficulty = "easier" | "medium" | "harder";
 
@@ -8,12 +21,10 @@ type Mode = "multi" | "single";
 
 const modes: Mode[] = ["multi", "single"];
 
-type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
-
 type Purpose = {
 	id: string;
 	mainAgent: string;
-	severity: Severity;
+	severity: ReviewSeverity;
 	confidence: number;
 	score: number;
 	title?: string;
@@ -33,49 +44,9 @@ type Manifest = {
 	};
 };
 
-type ReviewFinding = {
-	id: string;
-	title: string;
-	severity: Severity;
-	confidence: number;
-	score?: number;
-	scope?: string[];
-	invalidReason?: string;
-	mergedFrom?: string[];
-	mergedFindingIds?: string[];
-};
-
-type ReviewReport = Record<string, { findings: ReviewFinding[] }>;
-
-type AgentUsage = {
-	inputTokens: number;
-	outputTokens: number;
-	totalTokens: number;
-	toolCalls: number;
-};
-
-type WorkflowResult = {
-	output: ReviewReport;
-	telemetry?: {
-		durationMs: number;
-		usage: AgentUsage;
-	};
-};
-
 type MatchValue = string | string[] | null;
 
 type Matches = Record<string, MatchValue>;
-
-const severityOrder: Severity[] = [
-	"CRITICAL",
-	"HIGH",
-	"MEDIUM",
-	"LOW",
-	"INFO",
-];
-
-const severityRank = (severity: Severity): number =>
-	severityOrder.indexOf(severity);
 
 const projectDir = join(import.meta.dirname, "..");
 const diffsRoot = join(projectDir, "test", "fixtures", "diffs");
@@ -119,9 +90,6 @@ const toIdList = (value: MatchValue): string[] => {
 	}
 	return Array.isArray(value) ? value : [value];
 };
-
-const allFindings = (report: ReviewReport): ReviewFinding[] =>
-	Object.values(report).flatMap((review) => review.findings);
 
 const findFinding = (
 	report: ReviewReport,
@@ -181,7 +149,7 @@ type TestResult = {
 const evaluateMode = (
 	manifest: Manifest,
 	mode: Mode,
-	result: WorkflowResult,
+	result: WorkflowResult<ReviewReport>,
 	matches: Matches | undefined,
 ): ModeResult => {
 	const report = result.output;
@@ -202,7 +170,9 @@ const evaluateMode = (
 		const mainTargetDetected =
 			mode === "single"
 				? resolved.some((item) =>
-						(item.finding.scope ?? []).includes(purpose.mainAgent),
+						(item.finding.scope ?? []).some(
+							(scope) => scope === purpose.mainAgent,
+						),
 					)
 				: detectingAgents.includes(purpose.mainAgent);
 		const primaryEntry = resolved[0];
@@ -261,11 +231,13 @@ const evaluateMode = (
 			}),
 		),
 	);
-	const additionalFindings = allFindings(report).filter(
-		(finding) =>
-			finding.invalidReason === undefined &&
-			!matchedFindingIds.has(finding.id),
-	).length;
+	const additionalFindings = Object.values(report)
+		.flatMap((review) => review.findings)
+		.filter(
+			(finding) =>
+				finding.invalidReason === undefined &&
+				!matchedFindingIds.has(finding.id),
+		).length;
 
 	return {
 		mode,
@@ -291,7 +263,7 @@ const evaluateTest = async (
 		const reportPath = join(resultsRoot, manifest.id, `report.${mode}.json`);
 		const matchesPath = join(resultsRoot, manifest.id, `matches.${mode}.json`);
 
-		const result = await readJson<WorkflowResult>(reportPath);
+		const result = await readJson<WorkflowResult<ReviewReport>>(reportPath);
 		if (!result) {
 			console.warn(
 				`Skipping ${manifest.id} ${mode}, no report at ${reportPath}`,

@@ -1,8 +1,9 @@
 import { Type } from "typebox";
-import { severityValues } from "./severity.js";
+import { reviewScopeValues } from "../../agents/review-agents.js";
+import { severityValues } from "../../shared/scoring.js";
 
 export { reviewScopeValues } from "../../agents/review-agents.js";
-export { severityRank, severityValues } from "./severity.js";
+export { severityRank, severityValues } from "../../shared/scoring.js";
 
 export const nextId = (items: { id: string }[], prefix: string): string => {
 	const idPrefix = `${prefix}-`;
@@ -33,6 +34,23 @@ export const reviewFindingGuidelines = [
 	codeChangeGuideline,
 	"Use suggested change to describe the fix. Do not include code.",
 ];
+
+export const scopeDescription =
+	"Every review scope the finding belongs to. Use more than one scope when the finding spans several scopes.";
+
+export const scopeGuideline = `Set scope to ${scopeDescription.charAt(0).toLowerCase()}${scopeDescription.slice(1)}`;
+
+export const scopeParam = Type.Optional(
+	Type.Array(Type.Enum(reviewScopeValues), {
+		minItems: 1,
+		description: scopeDescription,
+	}),
+);
+
+export const requiredScopeParam = Type.Array(Type.Enum(reviewScopeValues), {
+	minItems: 1,
+	description: scopeDescription,
+});
 
 export const reviewFindingSchema = Type.Object({
 	title: Type.String({

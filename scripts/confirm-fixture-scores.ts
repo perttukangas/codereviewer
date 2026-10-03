@@ -1,11 +1,11 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { baseScore, type Severity } from "./fixture-score.ts";
+import { baseScore, ReviewSeverity } from "../src/workflows/review/shared/scoring.ts";
 
 type Purpose = {
 	id: string;
 	mainAgent: string;
-	severity: Severity;
+	severity: ReviewSeverity;
 	confidence: number;
 	score?: number;
 	title?: string;

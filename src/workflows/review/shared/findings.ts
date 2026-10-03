@@ -1,9 +1,9 @@
 import type { ScopedLogger } from "../../../shared/logger.js";
-import {
-	severityRank,
-	severityValues,
-} from "../tools/review-finding/severity.js";
 import type { ReviewFinding, ReviewReport } from "../types.js";
+import { severityRank, severityValues } from "./scoring.js";
+
+export const allFindings = (report: ReviewReport): ReviewFinding[] =>
+	Object.values(report).flatMap((review) => review.findings);
 
 export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
 	const canonical: ReviewFinding = {
@@ -152,7 +152,7 @@ const compareIds = (a: string, b: string): number =>
 export const flagCodeChangeOverlaps = (
 	report: ReviewReport,
 ): ReviewFinding[] => {
-	const findings = Object.values(report).flatMap((review) => review.findings);
+	const findings = allFindings(report);
 
 	for (const finding of findings) {
 		delete finding.codeChangesOverlap;

@@ -3,8 +3,7 @@ import type { WorkflowError } from "../../engine/types.js";
 import type { ChangeSet } from "../../integrations/types.js";
 import type { WorkflowContext } from "../types.js";
 import type { reviewAgents } from "./agents/review-agents.js";
-
-export type ReviewSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+import type { ReviewSeverity } from "./shared/scoring.js";
 
 export type ReviewScope = (typeof reviewAgents)[number]["id"];
 
@@ -29,6 +28,11 @@ export type ReviewFinding = {
 	codeChangesOverlap?: string[];
 	score?: number;
 };
+
+export type ReviewCodeChangeFields = Pick<
+	ReviewFinding,
+	"codeChangeFilePath" | "codeChangeOldText" | "codeChangeNewText"
+>;
 
 export type ReviewError = WorkflowError;
 

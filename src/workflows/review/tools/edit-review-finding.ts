@@ -1,17 +1,17 @@
 import { type Static, type TSchema, Type } from "typebox";
-import { defineTool } from "../../../engine/tools.js";
-import type { ReviewFinding, ReviewScope } from "../types.js";
+import { defineTool, toolResult } from "../../../engine/tools.js";
+import type {
+	ReviewCodeChangeFields,
+	ReviewFinding,
+	ReviewScope,
+} from "../types.js";
 import {
 	reviewFindingGuidelines,
 	reviewFindingSchema,
-	reviewScopeValues,
+	scopeGuideline,
+	scopeParam,
 	validateFinding,
 } from "./review-finding/index.js";
-
-type CodeChangeFields = Pick<
-	ReviewFinding,
-	"codeChangeFilePath" | "codeChangeOldText" | "codeChangeNewText"
->;
 
 type EditFindingParams = Partial<Static<typeof reviewFindingSchema>> & {
 	id: string;
@@ -20,9 +20,9 @@ type EditFindingParams = Partial<Static<typeof reviewFindingSchema>> & {
 };
 
 const resolveCodeChange = (
-	changes: Partial<CodeChangeFields>,
+	changes: Partial<ReviewCodeChangeFields>,
 	base: ReviewFinding,
-): Partial<CodeChangeFields> => {
+): Partial<ReviewCodeChangeFields> => {
 	const provided = [
 		changes.codeChangeFilePath,
 		changes.codeChangeOldText,
@@ -68,9 +68,6 @@ const editGuidelines = [
 	...reviewFindingGuidelines,
 ];
 
-const scopeGuideline =
-	"Set scope to every review scope the finding belongs to. Use more than one scope when the finding spans several scopes.";
-
 const idParam = Type.String({
 	description: "String identifier of the finding.",
 });
@@ -79,14 +76,6 @@ const invalidReasonParam = Type.Optional(
 	Type.String({
 		description:
 			"Reason the finding is invalid. Provide a non-empty reason to mark the finding invalid. Provide an empty string to clear an existing invalidReason. Do not combine with field changes.",
-	}),
-);
-
-const scopeParam = Type.Optional(
-	Type.Array(Type.Enum(reviewScopeValues), {
-		minItems: 1,
-		description:
-			"Every review scope the finding belongs to. Use more than one scope when the finding spans several scopes.",
 	}),
 );
 
@@ -143,15 +132,10 @@ const buildEditTool = (
 				const updated: ReviewFinding = { ...existing, invalidReason };
 				findings[index] = updated;
 
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Review finding ${updated.id} marked invalid.`,
-						},
-					],
-					details: updated,
-				};
+				return toolResult(
+					`Review finding ${updated.id} marked invalid.`,
+					updated,
+				);
 			}
 
 			const base: ReviewFinding = { ...existing };
@@ -162,17 +146,12 @@ const buildEditTool = (
 			if (!hasOtherChanges) {
 				findings[index] = base;
 
-				return {
-					content: [
-						{
-							type: "text",
-							text: clearing
-								? `Review finding ${base.id} invalidReason cleared.`
-								: `Review finding ${base.id} unchanged.`,
-						},
-					],
-					details: base,
-				};
+				return toolResult(
+					clearing
+						? `Review finding ${base.id} invalidReason cleared.`
+						: `Review finding ${base.id} unchanged.`,
+					base,
+				);
 			}
 
 			const codeChange = resolveCodeChange(changes, base);
@@ -195,15 +174,10 @@ const buildEditTool = (
 			};
 			findings[index] = updated;
 
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Review finding ${updated.id} updated. title="${updated.title}", severity=${updated.severity}.`,
-					},
-				],
-				details: updated,
-			};
+			return toolResult(
+				`Review finding ${updated.id} updated. title="${updated.title}", severity=${updated.severity}.`,
+				updated,
+			);
 		},
 	});
 };

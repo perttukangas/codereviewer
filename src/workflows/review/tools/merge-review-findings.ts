@@ -1,6 +1,7 @@
 import { Type } from "typebox";
-import { defineTool } from "../../../engine/tools.js";
+import { defineTool, toolResult } from "../../../engine/tools.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
+import { allFindings } from "../shared/findings.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "../types.js";
 import {
 	codeChangeGuideline,
@@ -53,8 +54,8 @@ export const createMergeReviewFindingsTool = (
 			finding.mergedFindingIds?.includes(id),
 		);
 
-	const allFindings = (): ReviewFinding[] => [
-		...Object.values(report).flatMap((review) => review.findings),
+	const allFindingsInReport = (): ReviewFinding[] => [
+		...allFindings(report),
 		...dedupReview.findings,
 	];
 
@@ -173,7 +174,7 @@ export const createMergeReviewFindingsTool = (
 				),
 			];
 
-			const remaining = allFindings().filter(
+			const remaining = allFindingsInReport().filter(
 				(finding) =>
 					finding.invalidReason === undefined &&
 					!uniqueIds.includes(finding.id),
@@ -201,15 +202,10 @@ export const createMergeReviewFindingsTool = (
 			}
 			dedupReview.findings.push(merged);
 
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Review findings merged into ${merged.id}. Merged ids: ${uniqueIds.join(", ")}. title="${merged.title}".`,
-					},
-				],
-				details: merged,
-			};
+			return toolResult(
+				`Review findings merged into ${merged.id}. Merged ids: ${uniqueIds.join(", ")}. title="${merged.title}".`,
+				merged,
+			);
 		},
 	});
 };
