@@ -135,6 +135,7 @@ type ModeResult = {
 	mode: Mode;
 	purposes: PurposeResult[];
 	additionalFindings: number;
+	invalidFindings: number;
 	missingMatches: boolean;
 	telemetry?: {
 		durationMs: number;
@@ -236,18 +237,23 @@ const evaluateMode = (
 			}),
 		),
 	);
-	const additionalFindings = Object.values(report)
-		.flatMap((review) => review.findings)
-		.filter(
-			(finding) =>
-				finding.invalidReason === undefined &&
-				!matchedFindingIds.has(finding.id),
-		).length;
+	const allFindings = Object.values(report).flatMap(
+		(review) => review.findings,
+	);
+	const additionalFindings = allFindings.filter(
+		(finding) =>
+			finding.invalidReason === undefined &&
+			!matchedFindingIds.has(finding.id),
+	).length;
+	const invalidFindings = allFindings.filter(
+		(finding) => finding.invalidReason !== undefined,
+	).length;
 
 	return {
 		mode,
 		purposes,
 		additionalFindings,
+		invalidFindings,
 		missingMatches: matches === undefined,
 		telemetry: result.telemetry
 			? {
@@ -318,10 +324,10 @@ const buildSummary = (results: TestResult[]): string => {
 	lines.push("## Overall");
 	lines.push("");
 	lines.push(
-		"| Mode | Tests | Recall | Main-target recall | Additional findings | Mean severity error | Mean confidence error | Mean base score error | Mean score error | Mean duration (ms) | Mean total tokens |",
+		"| Mode | Tests | Recall | Main-target recall | Additional findings | Invalid findings | Mean severity error | Mean confidence error | Mean base score error | Mean score error | Mean duration (ms) | Mean total tokens |",
 	);
 	lines.push(
-		"| ---- | ----- | ------ | ------------------ | ------------------- | ------------------- | --------------------- | --------------------- | ---------------- | ----------------- | ----------------- |",
+		"| ---- | ----- | ------ | ------------------ | ------------------- | ---------------- | ------------------- | --------------------- | --------------------- | ---------------- | ----------------- | ----------------- |",
 	);
 	for (const mode of modes) {
 		const modeTests = modeResults(results, mode);
@@ -334,6 +340,10 @@ const buildSummary = (results: TestResult[]): string => {
 			(sum, result) => sum + result.additionalFindings,
 			0,
 		);
+		const invalidFindings = modeTests.reduce(
+			(sum, result) => sum + result.invalidFindings,
+			0,
+		);
 		const durations = defined(
 			modeTests.map((result) => result.telemetry?.durationMs),
 		);
@@ -342,7 +352,7 @@ const buildSummary = (results: TestResult[]): string => {
 		);
 
 		lines.push(
-			`| ${mode} | ${modeTests.length} | ${ratio(detected.length, purposes.length)} | ${ratio(mainDetected.length, purposes.length)} | ${additionalFindings} | ${mean(defined(purposes.map((purpose) => purpose.severityError)))} | ${mean(defined(purposes.map((purpose) => purpose.confidenceError)))} | ${mean(defined(purposes.map((purpose) => purpose.baseScoreError)))} | ${mean(defined(purposes.map((purpose) => purpose.scoreError)))} | ${mean(durations)} | ${mean(tokens)} |`,
+			`| ${mode} | ${modeTests.length} | ${ratio(detected.length, purposes.length)} | ${ratio(mainDetected.length, purposes.length)} | ${additionalFindings} | ${invalidFindings} | ${mean(defined(purposes.map((purpose) => purpose.severityError)))} | ${mean(defined(purposes.map((purpose) => purpose.confidenceError)))} | ${mean(defined(purposes.map((purpose) => purpose.baseScoreError)))} | ${mean(defined(purposes.map((purpose) => purpose.scoreError)))} | ${mean(durations)} | ${mean(tokens)} |`,
 		);
 	}
 	lines.push("");
@@ -401,15 +411,19 @@ const buildSummary = (results: TestResult[]): string => {
 
 	lines.push("## Per test");
 	lines.push("");
-	lines.push("| Test | Difficulty | Mode | Recall | Additional findings |");
-	lines.push("| ---- | ---------- | ---- | ------ | ------------------- |");
+	lines.push(
+		"| Test | Difficulty | Mode | Recall | Additional findings | Invalid findings |",
+	);
+	lines.push(
+		"| ---- | ---------- | ---- | ------ | ------------------- | ---------------- |",
+	);
 	for (const result of results) {
 		for (const modeResult of result.modes) {
 			lines.push(
 				`| ${result.id} | ${result.difficulty} | ${modeResult.mode} | ${ratio(
 					modeResult.purposes.filter((purpose) => purpose.detected).length,
 					modeResult.purposes.length,
-				)} | ${modeResult.additionalFindings} |`,
+				)} | ${modeResult.additionalFindings} | ${modeResult.invalidFindings} |`,
 			);
 		}
 	}
