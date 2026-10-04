@@ -5,6 +5,7 @@ import { allFindings } from "../shared/findings.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "../types.js";
 import {
 	codeChangeGuideline,
+	confidenceRank,
 	mergeCodeChangeGuideline,
 	nextId,
 	relatedFilesGuideline,
@@ -143,14 +144,17 @@ export const createMergeReviewFindingsTool = (
 				);
 			}
 
-			const confidences = sources.map((source) => source.finding.confidence);
+			const confidences = sources.map((source) =>
+				confidenceRank(source.finding.confidence),
+			);
 			const minConfidence = Math.min(...confidences);
 			const maxConfidence = Math.max(...confidences);
+			const mergedConfidence = confidenceRank(mergedFields.confidence);
 			const corroborated =
 				new Set(sources.map((source) => source.agentId)).size > 1;
 			if (
-				mergedFields.confidence < minConfidence ||
-				(!corroborated && mergedFields.confidence > maxConfidence)
+				mergedConfidence > maxConfidence ||
+				(!corroborated && mergedConfidence < minConfidence)
 			) {
 				throw new Error(
 					corroborated

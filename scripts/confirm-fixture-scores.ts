@@ -1,12 +1,16 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { baseScore, type ReviewSeverity } from "../src/workflows/review/shared/scoring.ts";
+import {
+	baseScore,
+	type ReviewConfidence,
+	type ReviewSeverity,
+} from "../src/workflows/review/shared/scoring.ts";
 
 type Purpose = {
 	id: string;
 	mainAgent: string;
 	severity: ReviewSeverity;
-	confidence: number;
+	confidence: ReviewConfidence;
 	score?: number;
 	title?: string;
 	expectedFiles?: string[];

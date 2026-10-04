@@ -21,6 +21,25 @@ export const severityWeights: Record<ReviewSeverity, number> = {
 	INFO: 1,
 };
 
+export const confidenceValues = [
+	"DEMONSTRATED",
+	"STRONG",
+	"PLAUSIBLE",
+	"SPECULATIVE",
+] as const;
+
+export type ReviewConfidence = (typeof confidenceValues)[number];
+
+export const confidenceRank = (confidence: ReviewConfidence): number =>
+	confidenceValues.indexOf(confidence);
+
+export const confidenceWeights: Record<ReviewConfidence, number> = {
+	DEMONSTRATED: 1.0,
+	STRONG: 0.8,
+	PLAUSIBLE: 0.5,
+	SPECULATIVE: 0.2,
+};
+
 export const agentWeights: Record<string, number> = {
 	security: 1.5,
 	correctness: 1.4,
@@ -54,13 +73,13 @@ const agentWeight = (units: string[]): number =>
 
 export const baseScore = (
 	severity: ReviewSeverity,
-	confidence: number,
+	confidence: ReviewConfidence,
 	agent: string,
 	scope?: string[],
 ): number =>
 	round2(
 		severityWeights[severity] *
-			confidence *
+			confidenceWeights[confidence] *
 			(scope && scope.length > 0
 				? Math.max(
 						...scope.map((item) => agentWeights[item] ?? DEFAULT_AGENT_WEIGHT),
@@ -76,7 +95,7 @@ export const scoreFinding = (
 
 	return round2(
 		severityWeights[finding.severity] *
-			finding.confidence *
+			confidenceWeights[finding.confidence] *
 			mergedFactor(units) *
 			agentWeight(units),
 	);

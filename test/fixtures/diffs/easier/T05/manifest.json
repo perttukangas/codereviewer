@@ -17,7 +17,7 @@
         "id": "T05-F01",
         "mainAgent": "maintainability",
         "severity": "MEDIUM",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "The new client job duplicates the server job's checkout, cache, install, and shared-test steps verbatim",
         "expectedFiles": [
           ".github/workflows/smoke-test.yml"
@@ -26,13 +26,13 @@
           44,
           71
         ],
-        "score": 2.56
+        "score": 3.2
       },
       {
         "id": "T05-F02",
         "mainAgent": "performance",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Dockerfile copies the whole monorepo before npm ci, so any source change invalidates the dependency layer and forces a full reinstall",
         "expectedFiles": [
           "services/Dockerfile"
@@ -41,13 +41,13 @@
           10,
           11
         ],
-        "score": 5.6
+        "score": 7
       },
       {
         "id": "T05-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "docker-compose depends_on uses service_started instead of service_healthy, so the app starts before the database is ready",
         "expectedFiles": [
           "docker/docker-compose.all.yml"
@@ -56,13 +56,13 @@
           26,
           28
         ],
-        "score": 6.72
+        "score": 8.4
       },
       {
         "id": "T05-F04",
         "mainAgent": "security",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Dockerfile drops USER node, so the application container runs as root",
         "expectedFiles": [
           "services/Dockerfile"
@@ -71,7 +71,7 @@
           52,
           52
         ],
-        "score": 8.4
+        "score": 10.5
       }
     ]
   }

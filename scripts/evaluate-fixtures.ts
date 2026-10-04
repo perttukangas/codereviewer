@@ -3,8 +3,10 @@ import { join } from "node:path";
 import type { AgentUsage } from "../src/runtime/types.ts";
 import {
 	baseScore,
+	confidenceRank,
 	corroborationUnits,
 	mergedFactor,
+	type ReviewConfidence,
 	type ReviewSeverity,
 	round2,
 	severityRank,
@@ -25,7 +27,7 @@ type Purpose = {
 	id: string;
 	mainAgent: string;
 	severity: ReviewSeverity;
-	confidence: number;
+	confidence: ReviewConfidence;
 	score: number;
 	title?: string;
 	expectedFiles?: string[];
@@ -197,7 +199,10 @@ const evaluateMode = (
 					)
 				: undefined,
 			confidenceError: primary
-				? round2(Math.abs(purpose.confidence - primary.confidence))
+				? Math.abs(
+						confidenceRank(purpose.confidence) -
+							confidenceRank(primary.confidence),
+					)
 				: undefined,
 			baseScoreError: primary
 				? round2(

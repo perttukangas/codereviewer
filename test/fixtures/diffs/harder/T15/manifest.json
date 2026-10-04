@@ -12,7 +12,7 @@
         "id": "T15-F01",
         "mainAgent": "maintainability",
         "severity": "TODO",
-        "confidence": 0,
+        "confidence": "TODO",
         "title": "TODO",
         "score": null
       },
@@ -20,7 +20,7 @@
         "id": "T15-F02",
         "mainAgent": "performance",
         "severity": "TODO",
-        "confidence": 0,
+        "confidence": "TODO",
         "title": "TODO",
         "score": null
       },
@@ -28,7 +28,7 @@
         "id": "T15-F03",
         "mainAgent": "reliability",
         "severity": "TODO",
-        "confidence": 0,
+        "confidence": "TODO",
         "title": "TODO",
         "score": null
       },
@@ -36,7 +36,7 @@
         "id": "T15-F04",
         "mainAgent": "security",
         "severity": "TODO",
-        "confidence": 0,
+        "confidence": "TODO",
         "title": "TODO",
         "score": null
       }

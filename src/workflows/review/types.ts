@@ -3,7 +3,7 @@ import type { WorkflowError } from "../../engine/types.js";
 import type { ChangeSet } from "../../integrations/types.js";
 import type { WorkflowContext } from "../types.js";
 import type { reviewAgents } from "./agents/review-agents.js";
-import type { ReviewSeverity } from "./shared/scoring.js";
+import type { ReviewConfidence, ReviewSeverity } from "./shared/scoring.js";
 
 export type ReviewScope = (typeof reviewAgents)[number]["id"];
 
@@ -11,7 +11,7 @@ export type ReviewFinding = {
 	id: string;
 	title: string;
 	severity: ReviewSeverity;
-	confidence: number;
+	confidence: ReviewConfidence;
 	problem: string;
 	suggestedChange: string;
 	relatedFiles: string[];

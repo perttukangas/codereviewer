@@ -1,5 +1,7 @@
 export {
 	codeChangeGuideline,
+	confidenceRank,
+	confidenceValues,
 	mergeCodeChangeGuideline,
 	nextId,
 	relatedFilesGuideline,

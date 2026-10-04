@@ -1,9 +1,14 @@
 import { Type } from "typebox";
 import { reviewScopeValues } from "../../agents/review-agents.js";
-import { severityValues } from "../../shared/scoring.js";
+import { confidenceValues, severityValues } from "../../shared/scoring.js";
 
 export { reviewScopeValues } from "../../agents/review-agents.js";
-export { severityRank, severityValues } from "../../shared/scoring.js";
+export {
+	confidenceRank,
+	confidenceValues,
+	severityRank,
+	severityValues,
+} from "../../shared/scoring.js";
 
 export const nextId = (items: { id: string }[], prefix: string): string => {
 	const idPrefix = `${prefix}-`;
@@ -60,11 +65,9 @@ export const reviewFindingSchema = Type.Object({
 	severity: Type.Enum(severityValues, {
 		description: "Impact level of the finding.",
 	}),
-	confidence: Type.Number({
-		minimum: 0,
-		maximum: 1,
+	confidence: Type.Enum(confidenceValues, {
 		description:
-			"Probability from 0 to 1 that the finding is a true positive, meaning the issue is real and correctly described.",
+			"Confidence level that the finding is a true positive, meaning the issue is real and correctly described.",
 	}),
 	problem: Type.String({
 		minLength: 1,
@@ -107,6 +110,6 @@ export const reviewFindingSchema = Type.Object({
 	rationale: Type.String({
 		minLength: 1,
 		description:
-			"Why the suggested change and code change are appropriate and what impact they address.",
+			"Why the suggested change and code change are appropriate, what impact they address, and any assumptions the finding relies on.",
 	}),
 });

@@ -21,7 +21,7 @@
         "id": "T03-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "changePassword passes the stored hash and the current password to bcrypt.compare in the wrong order",
         "expectedFiles": [
           "services/server/src/routes/v1/user/index.ts"
@@ -30,13 +30,13 @@
           114,
           117
         ],
-        "score": 7.84
+        "score": 9.8
       },
       {
         "id": "T03-F02",
         "mainAgent": "maintainability",
         "severity": "MEDIUM",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "findById helper is exported but never imported or called",
         "expectedFiles": [
           "services/server/src/routes/v1/user/database.ts"
@@ -45,13 +45,13 @@
           13,
           19
         ],
-        "score": 2.56
+        "score": 3.2
       },
       {
         "id": "T03-F03",
         "mainAgent": "reliability",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "changeEmail calls updateEmail without awaiting it",
         "expectedFiles": [
           "services/server/src/routes/v1/user/index.ts"
@@ -60,13 +60,13 @@
           96,
           96
         ],
-        "score": 6.72
+        "score": 8.4
       },
       {
         "id": "T03-F04",
         "mainAgent": "security",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "changePassword hashes the new password with a bcrypt cost factor of 4",
         "expectedFiles": [
           "services/server/src/routes/v1/user/index.ts"
@@ -75,7 +75,7 @@
           125,
           125
         ],
-        "score": 8.4
+        "score": 10.5
       }
     ]
   }

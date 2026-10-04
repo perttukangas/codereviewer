@@ -19,7 +19,7 @@
         "id": "T01-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Search matches exact titles instead of substrings",
         "expectedFiles": [
           "services/server/src/routes/v1/post/database.ts"
@@ -28,13 +28,13 @@
           77,
           81
         ],
-        "score": 7.84
+        "score": 9.8
       },
       {
         "id": "T01-F02",
         "mainAgent": "maintainability",
         "severity": "MEDIUM",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Duplicated pagination block in search and searchCreator",
         "expectedFiles": [
           "services/server/src/routes/v1/post/index.ts"
@@ -43,13 +43,13 @@
           99,
           134
         ],
-        "score": 2.56
+        "score": 3.2
       },
       {
         "id": "T01-F03",
         "mainAgent": "performance",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Search query loads all matching posts without a limit",
         "expectedFiles": [
           "services/server/src/routes/v1/post/database.ts"
@@ -58,13 +58,13 @@
           54,
           82
         ],
-        "score": 5.6
+        "score": 7
       },
       {
         "id": "T01-F04",
         "mainAgent": "reliability",
         "severity": "MEDIUM",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Seed helper swallows failures with an empty catch",
         "expectedFiles": [
           "services/server/prisma/seed.ts"
@@ -73,7 +73,7 @@
           83,
           85
         ],
-        "score": 3.84
+        "score": 4.8
       }
     ]
   }

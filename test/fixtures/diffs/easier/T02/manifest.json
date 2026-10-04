@@ -19,7 +19,7 @@
         "id": "T02-F01",
         "mainAgent": "correctness",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "CSV header and row column order do not match",
         "expectedFiles": [
           "services/server/src/routes/v1/post/export.ts"
@@ -28,13 +28,13 @@
           16,
           19
         ],
-        "score": 7.84
+        "score": 9.8
       },
       {
         "id": "T02-F02",
         "mainAgent": "maintainability",
         "severity": "MEDIUM",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Export input advertises a format option that is never honored",
         "expectedFiles": [
           "services/shared/src/zod/post.ts"
@@ -43,13 +43,13 @@
           18,
           22
         ],
-        "score": 2.56
+        "score": 3.2
       },
       {
         "id": "T02-F03",
         "mainAgent": "performance",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Export issues one comment count query per post (N+1)",
         "expectedFiles": [
           "services/server/src/routes/v1/post/database.ts"
@@ -58,13 +58,13 @@
           94,
           107
         ],
-        "score": 5.6
+        "score": 7
       },
       {
         "id": "T02-F04",
         "mainAgent": "security",
         "severity": "HIGH",
-        "confidence": 0.8,
+        "confidence": "DEMONSTRATED",
         "title": "Export route is public and trusts a client-supplied userId",
         "expectedFiles": [
           "services/server/src/routes/v1/post/index.ts"
@@ -73,7 +73,7 @@
           100,
           103
         ],
-        "score": 8.4
+        "score": 10.5
       }
     ]
   }
