@@ -68,6 +68,35 @@ export const orderFindingsForPrompt = (
 	findings: ReviewFinding[],
 ): ReviewFinding[] => sortFindings(findings).map(canonicalFinding);
 
+const compareByScore = (a: ReviewFinding, b: ReviewFinding): number => {
+	if (a.score === undefined && b.score === undefined) {
+		return 0;
+	}
+	if (a.score === undefined) {
+		return 1;
+	}
+	if (b.score === undefined) {
+		return -1;
+	}
+
+	return b.score - a.score;
+};
+
+const sortFindingsForLog = (findings: ReviewFinding[]): ReviewFinding[] =>
+	[...findings].sort((a, b) => {
+		const byScore = compareByScore(a, b);
+		if (byScore !== 0) {
+			return byScore;
+		}
+
+		const bySeverity = severityRank(a.severity) - severityRank(b.severity);
+		if (bySeverity !== 0) {
+			return bySeverity;
+		}
+
+		return a.id.localeCompare(b.id, "en", { numeric: true });
+	});
+
 const summarizeFinding = (finding: ReviewFinding): string => {
 	const parts = [
 		finding.id,
@@ -115,13 +144,15 @@ export const logFindingsSnapshot = (
 	label: string,
 	findings: ReviewFinding[],
 ): void => {
+	const ordered = sortFindingsForLog(findings);
+
 	log.info(`${label} ${findings.length}`, severityBreakdown(findings));
 
-	for (const finding of findings) {
+	for (const finding of ordered) {
 		log.info(`- ${summarizeFinding(finding)}`);
 	}
 
-	log.debug(`${label} details`, findings);
+	log.debug(`${label} details`, ordered);
 };
 
 type FindingWithCodeChange = ReviewFinding &
