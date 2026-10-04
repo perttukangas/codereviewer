@@ -1,0 +1,403 @@
+diff --git a/README.md b/README.md
+index c7a9712..fd040ef 100644
+--- a/README.md
++++ b/README.md
+@@ -64,6 +64,19 @@ Functionality of the app can be simplified down to the following
+ |                                             | Only logger in user can create etc. posts and comments | Edit if creator         | Edit if creator                    |
+ |                                             |                                                        | Delete if creator       | Delete if creator or owner of post |
+ 
++### Comment moderation
++
++Post owners can open a moderation queue from the profile page to review the
++comments left on their own posts. Each comment carries a moderation status. The
++queue can be filtered by one of the following statuses:
++
++- `pending`
++- `approved`
++- `rejected`
++
++The owner can select any number of comments in the queue and remove them in one
++action.
++
+ ### Simple usage instructions
+ 
+ 1. Click `profile` icon at footer > signup > enter email and password > changes to login modal > enter email and password used to signup
+diff --git a/services/client/src/pages/_components/Profile/Comment/Moderation.tsx b/services/client/src/pages/_components/Profile/Comment/Moderation.tsx
+new file mode 100644
+index 0000000..92adfa7
+--- /dev/null
++++ b/services/client/src/pages/_components/Profile/Comment/Moderation.tsx
+@@ -0,0 +1,88 @@
++import { useState } from 'react';
++
++import { Button } from '@cc/components/Button';
++import { useToast } from '@cc/hooks/use-toast';
++import { type RouterOutputs, t } from '@cc/lib/trpc';
++
++type InfinitePost = RouterOutputs['post']['infiniteCreator']['posts'][0];
++
++interface ModerationProps {
++  post: InfinitePost;
++}
++
++const statuses = ['pending', 'approved', 'rejected'];
++
++export default function Moderation({ post }: ModerationProps) {
++  const { toast } = useToast();
++  const tUtils = t.useUtils();
++  const [status, setStatus] = useState('pending');
++  const [selected, setSelected] = useState<string[]>([]);
++
++  const queue = t.post.comment.moderationQueue.useQuery({
++    postId: post.id,
++    status,
++  });
++
++  const removeManyMutation = t.post.comment.moderationRemoveMany.useMutation({
++    onSuccess: async () => {
++      await tUtils.post.comment.moderationQueue.invalidate({ postId: post.id });
++      setSelected([]);
++      toast({ description: 'Moderation queue updated' });
++    },
++  });
++
++  const toggle = (id: string) => {
++    setSelected((current) =>
++      current.includes(id)
++        ? current.filter((item) => item !== id)
++        : [...current, id]
++    );
++  };
++
++  return (
++    <div className="flex flex-col gap-2 p-2">
++      <div className="flex items-center justify-between">
++        <h2 className="text-lg font-semibold">
++          Moderation queue ({queue.data?.total ?? 0})
++        </h2>
++        <div className="flex gap-1">
++          {statuses.map((value) => (
++            <Button
++              key={value}
++              variant={value === status ? 'default' : 'outline'}
++              size="sm"
++              onClick={() => setStatus(value)}
++            >
++              {value}
++            </Button>
++          ))}
++        </div>
++      </div>
++      {queue.data?.comments.map((comment) => (
++        <label
++          key={comment.id.toString()}
++          className="flex items-center gap-2 rounded border p-2"
++        >
++          <input
++            type="checkbox"
++            checked={selected.includes(comment.id.toString())}
++            onChange={() => toggle(comment.id.toString())}
++          />
++          <span>{comment.content}</span>
++        </label>
++      ))}
++      <Button
++        variant="destructive"
++        disabled={selected.length === 0}
++        onClick={() =>
++          removeManyMutation.mutate({
++            postId: post.id,
++            ids: selected,
++          })
++        }
++      >
++        Remove selected
++      </Button>
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Profile/Comment/index.tsx b/services/client/src/pages/_components/Profile/Comment/index.tsx
+index f74f866..98ec186 100644
+--- a/services/client/src/pages/_components/Profile/Comment/index.tsx
++++ b/services/client/src/pages/_components/Profile/Comment/index.tsx
+@@ -1,9 +1,11 @@
+-import { useMemo } from 'react';
++import { useMemo, useState } from 'react';
+ 
++import { Button } from '@cc/components/Button';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+ 
+ import { DataTable } from '../DataTable';
+ import columns from './Columns';
++import Moderation from './Moderation';
+ 
+ type InfinitePost = RouterOutputs['post']['infiniteCreator']['posts'][0];
+ 
+@@ -12,6 +14,7 @@ interface IndexProps {
+ }
+ 
+ export default function Index({ post }: IndexProps) {
++  const [moderating, setModerating] = useState(false);
+   const infiniteComments = t.post.comment.infiniteCreator.useInfiniteQuery(
+     { postId: post.id },
+     {
+@@ -27,10 +30,22 @@ export default function Index({ post }: IndexProps) {
+   );
+ 
+   return (
+-    <DataTable
+-      columns={columns({ postId: post.id })}
+-      columnsData={allRows}
+-      {...infiniteComments}
+-    />
++    <>
++      <div className="flex justify-end pb-2">
++        <Button
++          variant="outline"
++          size="sm"
++          onClick={() => setModerating((current) => !current)}
++        >
++          {moderating ? 'Hide moderation' : 'Moderate comments'}
++        </Button>
++      </div>
++      {moderating && <Moderation post={post} />}
++      <DataTable
++        columns={columns({ postId: post.id })}
++        columnsData={allRows}
++        {...infiniteComments}
++      />
++    </>
+   );
+ }
+diff --git a/services/server/prisma/migrations/20250110120000_add_comment_moderation_status/migration.sql b/services/server/prisma/migrations/20250110120000_add_comment_moderation_status/migration.sql
+new file mode 100644
+index 0000000..391ba77
+--- /dev/null
++++ b/services/server/prisma/migrations/20250110120000_add_comment_moderation_status/migration.sql
+@@ -0,0 +1,2 @@
++-- AlterTable
++ALTER TABLE "Comment" ADD COLUMN "status" STRING NOT NULL DEFAULT 'pending';
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..37dc509 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -41,6 +41,7 @@ model PostLikes {
+ model Comment {
+   id      BigInt         @id @default(autoincrement())
+   content String
++  status  String         @default("pending")
+   postId  BigInt
+   post    Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+   userId  BigInt
+diff --git a/services/server/src/routes/v1/post/comment/database.ts b/services/server/src/routes/v1/post/comment/database.ts
+index cf0fe40..3086602 100644
+--- a/services/server/src/routes/v1/post/comment/database.ts
++++ b/services/server/src/routes/v1/post/comment/database.ts
+@@ -1,9 +1,13 @@
++import { Prisma } from '@prisma/client';
++
+ import {
+   EditInput,
+   InfiniteCreatorInput,
+   InfiniteInput,
++  ModerationInput,
+   ProtectedCreateInput,
+   ProtectedLikeUnlikeInput,
++  ProtectedModerationRemoveInput,
+   ProtectedRemoveManyInput,
+   RemoveInput,
+ } from '@shared/zod/comment.js';
+@@ -204,3 +208,75 @@ export const isCreatorOrOwnerOfPost = async ({
+ 
+   return comment.userId === userId || comment.post.userId === userId;
+ };
++
++export const isPostOwner = async ({
++  postId,
++  userId,
++}: {
++  postId: bigint;
++  userId: bigint;
++}) => {
++  const post = await prisma.post.findFirst({
++    where: {
++      id: postId,
++      userId,
++    },
++  });
++
++  return !!post;
++};
++
++export const getModerationQueue = async (
++  client: Prisma.TransactionClient,
++  { postId, status }: ModerationInput
++) => {
++  const comments = await client.comment.findMany({
++    orderBy: { id: 'desc' },
++    select: {
++      id: true,
++      content: true,
++      status: true,
++      userId: true,
++      _count: {
++        select: { likes: true },
++      },
++    },
++    where: {
++      postId,
++    },
++  });
++
++  // Moderation status is stored as a plain string on the comment row.
++  return comments.filter((comment) => comment.status === status);
++};
++
++export const getModerationCount = async (
++  client: Prisma.TransactionClient,
++  { postId, status }: ModerationInput
++) => {
++  return await client.comment.count({
++    where: {
++      postId,
++      status,
++    },
++  });
++};
++
++export const removeManyByPostOwner = async ({
++  ids,
++  userId,
++}: ProtectedModerationRemoveInput) => {
++  // Mirrors removeMany, but scoped to the post owner's moderation queue.
++  return await prisma.comment.deleteMany({
++    where: {
++      id: {
++        in: ids,
++      },
++      OR: [
++        {
++          userId,
++        },
++      ],
++    },
++  });
++};
+diff --git a/services/server/src/routes/v1/post/comment/index.ts b/services/server/src/routes/v1/post/comment/index.ts
+index cfaae1e..d5e1bf9 100644
+--- a/services/server/src/routes/v1/post/comment/index.ts
++++ b/services/server/src/routes/v1/post/comment/index.ts
+@@ -5,10 +5,13 @@ import {
+   editInput,
+   infiniteInput,
+   likeUnlikeInput,
++  moderationInput,
++  moderationRemoveInput,
+   removeInput,
+   removeManyInput,
+ } from '@shared/zod/comment.js';
+ 
++import { prisma } from '@sc/lib/prisma.js';
+ import { StatusCode } from '@sc/utils/status-code.js';
+ 
+ import {
+@@ -22,12 +25,16 @@ import {
+   edit,
+   getInfinite,
+   getInfiniteCreator,
++  getModerationCount,
++  getModerationQueue,
+   hasLiked,
+   isCreator,
+   isCreatorOrOwnerOfPost,
++  isPostOwner,
+   like,
+   remove,
+   removeMany,
++  removeManyByPostOwner,
+   unlike,
+ } from './database.js';
+ 
+@@ -177,4 +184,56 @@ export const commentRouter = router({
+     await edit({ id, content });
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
++  moderationQueue: protectedProcedure
++    .input(moderationInput)
++    .query(async (opts) => {
++      const { postId, status } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const owner = await isPostOwner({ postId, userId });
++      if (!owner) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'You are not the owner of this post',
++        });
++      }
++
++      const { comments, total } = await prisma.$transaction(async (tx) => {
++        const queue = await getModerationQueue(tx, { postId, status, userId });
++        // Total is shown in the moderation header.
++        const total = await getModerationCount(prisma, {
++          postId,
++          status,
++          userId,
++        });
++        return { comments: queue, total };
++      });
++
++      return { comments, total };
++    }),
++  moderationRemoveMany: protectedProcedure
++    .input(moderationRemoveInput)
++    .mutation(async (opts) => {
++      const { postId, ids } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const owner = await isPostOwner({ postId, userId });
++      if (!owner) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'You are not the owner of this post',
++        });
++      }
++
++      const removed = await removeManyByPostOwner({ ids, userId });
++
++      if (removed.count !== ids.length) {
++        throw new TRPCError({
++          code: 'NOT_FOUND',
++          message: `Successfully removed ${removed.count}/${ids.length} of comments`,
++        });
++      }
++
++      opts.ctx.res.status(StatusCode.OK);
++    }),
+ });
+diff --git a/services/shared/src/zod/comment.ts b/services/shared/src/zod/comment.ts
+index 5305f53..2e470fe 100644
+--- a/services/shared/src/zod/comment.ts
++++ b/services/shared/src/zod/comment.ts
+@@ -37,6 +37,21 @@ export const removeManyInput = z.object({ ids: z.array(defaultId) });
+ export type ProtectedRemoveManyInput = z.infer<typeof removeManyInput> &
+   Protected;
+ 
++export const moderationInput = z.object({
++  postId: defaultId,
++  status: z.string().min(1).max(20).default('pending'),
++});
++export type ModerationInput = z.infer<typeof moderationInput> & Protected;
++
++export const moderationRemoveInput = z.object({
++  postId: defaultId,
++  ids: z.array(defaultId),
++});
++export type ProtectedModerationRemoveInput = z.infer<
++  typeof moderationRemoveInput
++> &
++  Protected;
++
+ export const editInput = z.object({
+   id: defaultId,
+   content: z.string().min(10).max(5000),

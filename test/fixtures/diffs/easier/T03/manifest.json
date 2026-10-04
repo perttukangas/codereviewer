@@ -35,7 +35,7 @@
       {
         "id": "T03-F02",
         "mainAgent": "maintainability",
-        "severity": "HIGH",
+        "severity": "MEDIUM",
         "confidence": 0.8,
         "title": "findById helper is exported but never imported or called",
         "expectedFiles": [
@@ -45,7 +45,7 @@
           13,
           19
         ],
-        "score": 4.48
+        "score": 2.56
       },
       {
         "id": "T03-F03",
