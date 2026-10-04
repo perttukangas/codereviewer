@@ -1,0 +1,341 @@
+diff --git a/README.md b/README.md
+index c7a9712..35e0a95 100644
+--- a/README.md
++++ b/README.md
+@@ -64,6 +64,13 @@ Functionality of the app can be simplified down to the following
+ |                                             | Only logger in user can create etc. posts and comments | Edit if creator         | Edit if creator                    |
+ |                                             |                                                        | Delete if creator       | Delete if creator or owner of post |
+ 
++### Post search and trending
++
++The feed page shows a search box that filters posts by title substring. The
++search box is available to every visitor, including non-logged users. Next to
++the feed, a trending sidebar lists the most liked posts so visitors can discover
++popular content.
++
+ ### Simple usage instructions
+ 
+ 1. Click `profile` icon at footer > signup > enter email and password > changes to login modal > enter email and password used to signup
+diff --git a/services/client/src/pages/_components/Post/Search.tsx b/services/client/src/pages/_components/Post/Search.tsx
+new file mode 100644
+index 0000000..6a6c01b
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/Search.tsx
+@@ -0,0 +1,55 @@
++import { useEffect, useMemo, useState } from 'react';
++
++import InfiniteScrollWindow from '@cc/components/InfiniteScrollWindow';
++import { Input } from '@cc/components/Input';
++import { t } from '@cc/lib/trpc';
++
++export default function Search() {
++  const [query, setQuery] = useState('');
++  const [debouncedQuery, setDebouncedQuery] = useState('');
++
++  useEffect(() => {
++    const timer = setTimeout(() => setDebouncedQuery(query), 300);
++    return () => clearTimeout(timer);
++  }, [query]);
++
++  const infiniteSearch = t.post.search.useInfiniteQuery(
++    { query: debouncedQuery },
++    {
++      enabled: debouncedQuery.length > 0,
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++  const { data } = infiniteSearch;
++  const allRows = useMemo(
++    () => (data ? data.pages.flatMap((d) => d.posts) : []),
++    [data]
++  );
++
++  return (
++    <div className="flex flex-col gap-2">
++      <Input
++        placeholder="Search posts by title"
++        value={query}
++        onChange={(event) => setQuery(event.target.value)}
++      />
++      <p className="text-sm text-muted-foreground">
++        {data?.pages[0]?.total ?? 0} results
++      </p>
++      <InfiniteScrollWindow
++        className="infinite-scroll-search"
++        allRows={allRows}
++        renderRow={(row) => (
++          <div className="rounded border p-2">
++            <p className="font-medium">{row.title}</p>
++            <p className="text-sm text-muted-foreground">
++              {row.likes} likes by user {row.creator.toString()}
++            </p>
++          </div>
++        )}
++        estimateSize={200}
++        {...infiniteSearch}
++      />
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Post/Trending.tsx b/services/client/src/pages/_components/Post/Trending.tsx
+new file mode 100644
+index 0000000..a2d9596
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/Trending.tsx
+@@ -0,0 +1,38 @@
++import { useMemo } from 'react';
++
++import InfiniteScrollWindow from '@cc/components/InfiniteScrollWindow';
++import { t } from '@cc/lib/trpc';
++
++export default function Trending() {
++  const infiniteTrending = t.post.trending.useInfiniteQuery(
++    {},
++    {
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++  const { data } = infiniteTrending;
++  const allRows = useMemo(
++    () => (data ? data.pages.flatMap((d) => d.posts) : []),
++    [data]
++  );
++
++  return (
++    <div className="flex flex-col gap-2">
++      <h2 className="text-xl font-bold">Trending posts</h2>
++      <InfiniteScrollWindow
++        className="infinite-scroll-trending"
++        allRows={allRows}
++        renderRow={(row) => (
++          <div className="rounded border p-2">
++            <p className="font-medium">{row.title}</p>
++            <p className="text-sm text-muted-foreground">
++              {row.likes} likes{row.creator ? ' (yours)' : ''}
++            </p>
++          </div>
++        )}
++        estimateSize={200}
++        {...infiniteTrending}
++      />
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Post/index.tsx b/services/client/src/pages/_components/Post/index.tsx
+index 205542b..3cc23e2 100644
+--- a/services/client/src/pages/_components/Post/index.tsx
++++ b/services/client/src/pages/_components/Post/index.tsx
+@@ -1,5 +1,19 @@
+ import List from './List';
++import Search from './Search';
++import Trending from './Trending';
+ 
+ export default function Index() {
+-  return <List />;
++  return (
++    <div className="flex flex-col gap-4">
++      <Search />
++      <div className="flex gap-4">
++        <div className="flex-1">
++          <List />
++        </div>
++        <div className="w-80">
++          <Trending />
++        </div>
++      </div>
++    </div>
++  );
+ }
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..8cb7997 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -6,6 +6,8 @@ import {
+   ProtectedLikeUnlikeInput,
+   ProtectedRemoveManyInput,
+   RemoveInput,
++  SearchInput,
++  TrendingInput,
+ } from '@shared/zod/post.js';
+ 
+ import { prisma } from '@sc/lib/prisma.js';
+@@ -74,6 +76,79 @@ export const getInfiniteCreator = async ({
+   });
+ };
+ 
++export const getSearch = async ({ query, limit, cursor }: SearchInput) => {
++  const posts = await prisma.post.findMany({
++    take: limit + 1,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: { id: 'desc' },
++    select: {
++      id: true,
++      title: true,
++      _count: {
++        select: { likes: true },
++      },
++      user: {
++        select: {
++          id: true,
++        },
++      },
++    },
++    where: {
++      title: {
++        contains: query,
++      },
++    },
++  });
++
++  return posts.map((post: (typeof posts)[number]) => ({
++    id: post.id,
++    title: post.title,
++    likes: post._count.likes,
++    creator: post.user.id,
++  }));
++};
++
++export const getSearchCount = async ({ query }: { query: string }) => {
++  return await prisma.post.count({
++    where: {
++      title: {
++        contains: query,
++      },
++    },
++  });
++};
++
++export const getTrending = async ({
++  limit,
++  cursor,
++  userId,
++}: TrendingInput & { userId?: bigint }) => {
++  const posts = await prisma.post.findMany({
++    take: limit + 1,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: {
++      likes: {
++        _count: 'desc',
++      },
++    },
++    select: {
++      id: true,
++      title: true,
++      userId: true,
++      _count: {
++        select: { likes: true },
++      },
++    },
++  });
++
++  return posts.map((post: (typeof posts)[number]) => ({
++    id: post.id,
++    title: post.title,
++    likes: post._count.likes,
++    creator: post.userId === userId,
++  }));
++};
++
+ export const like = async ({ id, userId }: ProtectedLikeUnlikeInput) => {
+   return await prisma.postLikes.create({
+     data: {
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..91ea5d9 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -7,6 +7,8 @@ import {
+   likeUnlikeInput,
+   removeInput,
+   removeManyInput,
++  searchInput,
++  trendingInput,
+ } from '@shared/zod/post.js';
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+@@ -23,6 +25,9 @@ import {
+   edit,
+   getInfinite,
+   getInfiniteCreator,
++  getSearch,
++  getSearchCount,
++  getTrending,
+   hasLiked,
+   isCreator,
+   like,
+@@ -31,6 +36,18 @@ import {
+   unlike,
+ } from './database.js';
+ 
++// Trim the overflow row and return its id as the next cursor.
++const popNextCursor = <T extends { id: bigint }>(
++  posts: T[],
++  limit: number
++): bigint | undefined => {
++  if (posts.length > limit) {
++    const nextItem = posts.pop();
++    return nextItem?.id;
++  }
++  return undefined;
++};
++
+ export const postRouter = router({
+   comment: commentRouter,
+   infinite: publicProcedure.input(infiniteInput).query(async (opts) => {
+@@ -94,6 +111,36 @@ export const postRouter = router({
+         previousCursor,
+       };
+     }),
++  search: publicProcedure.input(searchInput).query(async (opts) => {
++    const { query, limit, cursor } = opts.input;
++
++    const posts = await getSearch({ query, limit, cursor });
++    const nextCursor = popNextCursor(posts, limit);
++
++    // Total is shown next to the search results header.
++    const total = await getSearchCount({ query });
++
++    return {
++      posts,
++      nextCursor,
++      total,
++    };
++  }),
++  trending: publicProcedure.input(trendingInput).query(async (opts) => {
++    const { limit, cursor } = opts.input;
++    const userId = opts.ctx.userId;
++
++    const posts = await getTrending({ limit, cursor, userId });
++    const nextCursor = popNextCursor(posts, limit);
++
++    // Keep the sidebar ordered from least to most liked.
++    posts.sort((a, b) => a.likes - b.likes);
++
++    return {
++      posts,
++      nextCursor,
++    };
++  }),
+   like: protectedProcedure.input(likeUnlikeInput).mutation(async (opts) => {
+     const { id } = opts.input;
+     const userId = opts.ctx.userId;
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..658d1e3 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -43,3 +43,16 @@ export type UnparsedEditInput = Omit<EditInput, 'id'> & {
+   id: UnparsedDefaultId;
+ };
+ export type ProtectedEditInput = EditInput & Protected;
++
++export const searchInput = z.object({
++  query: z.string().min(1).max(100),
++  limit: z.number().min(1).default(20),
++  cursor: defaultId.nullish(),
++});
++export type SearchInput = z.infer<typeof searchInput> & ProtectedOptional;
++
++export const trendingInput = z.object({
++  limit: z.number().min(1).max(30).default(10),
++  cursor: defaultId.nullish(),
++});
++export type TrendingInput = z.infer<typeof trendingInput>;
