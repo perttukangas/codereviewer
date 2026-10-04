@@ -82,7 +82,7 @@ export const env = cleanEnv(process.env, {
 
 	DEFAULT_SOFT_LIMIT_RATIO: num({
 		desc: "The default ratio of a hard guardrail limit at which a soft warning is issued.",
-		default: 0.8,
+		default: 0.7,
 	}),
 
 	AGENT_MAX_CONCURRENCY: num({

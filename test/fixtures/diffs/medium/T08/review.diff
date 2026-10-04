@@ -1,0 +1,855 @@
+diff --git a/services/client/src/core/components/InfiniteScroll.tsx b/services/client/src/core/components/InfiniteScroll.tsx
+index c52f2d2..237175b 100644
+--- a/services/client/src/core/components/InfiniteScroll.tsx
++++ b/services/client/src/core/components/InfiniteScroll.tsx
+@@ -1,7 +1,8 @@
+ import { useVirtualizer } from '@tanstack/react-virtual';
+-import { useEffect, useRef } from 'react';
++import { useRef } from 'react';
+ 
+ import { Card, CardContent } from '@cc/components/Card';
++import { useInfiniteScrollTrigger } from '@cc/hooks/use-infinite-scroll-trigger';
+ import { cn } from '@cc/lib/tailwind';
+ 
+ import Loader from './Loader';
+@@ -49,27 +50,13 @@ export default function InfiniteScroll<T>({
+ 
+   const virtualItems = virtualizer.getVirtualItems();
+ 
+-  useEffect(() => {
+-    const [lastItem] = [...virtualItems].reverse();
+-
+-    if (!lastItem) {
+-      return;
+-    }
+-
+-    if (
+-      lastItem.index >= allRows.length - 1 &&
+-      hasNextPage &&
+-      !isFetchingNextPage
+-    ) {
+-      void fetchNextPage();
+-    }
+-  }, [
+-    hasNextPage,
+-    fetchNextPage,
++  useInfiniteScrollTrigger(
++    virtualItems,
+     allRows.length,
++    hasNextPage,
+     isFetchingNextPage,
+-    virtualItems,
+-  ]);
++    fetchNextPage
++  );
+ 
+   return (
+     <div
+diff --git a/services/client/src/core/components/InfiniteScrollWindow.tsx b/services/client/src/core/components/InfiniteScrollWindow.tsx
+index a958e6f..7a13402 100644
+--- a/services/client/src/core/components/InfiniteScrollWindow.tsx
++++ b/services/client/src/core/components/InfiniteScrollWindow.tsx
+@@ -1,7 +1,8 @@
+ import { useWindowVirtualizer } from '@tanstack/react-virtual';
+-import { useEffect, useRef } from 'react';
++import { useRef } from 'react';
+ 
+ import { Card, CardContent } from '@cc/components/Card';
++import { useInfiniteScrollTrigger } from '@cc/hooks/use-infinite-scroll-trigger';
+ 
+ import Loader from './Loader';
+ 
+@@ -49,27 +50,13 @@ export default function InfiniteScrollWindow<T>({
+ 
+   const virtualItems = virtualizer.getVirtualItems();
+ 
+-  useEffect(() => {
+-    const [lastItem] = [...virtualItems].reverse();
+-
+-    if (!lastItem) {
+-      return;
+-    }
+-
+-    if (
+-      lastItem.index >= allRows.length - 1 &&
+-      hasNextPage &&
+-      !isFetchingNextPage
+-    ) {
+-      void fetchNextPage();
+-    }
+-  }, [
+-    hasNextPage,
+-    fetchNextPage,
++  useInfiniteScrollTrigger(
++    virtualItems,
+     allRows.length,
++    hasNextPage,
+     isFetchingNextPage,
+-    virtualItems,
+-  ]);
++    fetchNextPage
++  );
+ 
+   return (
+     <div ref={listRef} className={className}>
+diff --git a/services/client/src/core/hooks/use-infinite-list.ts b/services/client/src/core/hooks/use-infinite-list.ts
+new file mode 100644
+index 0000000..ec5efd5
+--- /dev/null
++++ b/services/client/src/core/hooks/use-infinite-list.ts
+@@ -0,0 +1,34 @@
++import { useMemo } from 'react';
++
++interface InfinitePage<TRow> {
++  nextCursor?: bigint | null;
++  posts?: TRow[];
++  comments?: TRow[];
++}
++
++interface InfiniteData<TRow> {
++  pages: InfinitePage<TRow>[];
++}
++
++type RowKey = 'posts' | 'comments';
++
++// Shared options for every infinite list in the app. The lists all page
++// forward through the same cursor, so the options can live in one place.
++export const infiniteListOptions = {
++  getNextPageParam: <TPage extends { nextCursor?: bigint | null }>(
++    lastPage: TPage
++  ) => lastPage.nextCursor ?? undefined,
++};
++
++// Flattens the pages of an infinite query into a single row array.
++export const useInfiniteList = <TRow>(
++  data: InfiniteData<TRow> | undefined,
++  rowKey: RowKey
++) => {
++  const allRows = useMemo(
++    () => (data ? data.pages.flatMap((page) => page[rowKey] ?? []) : []),
++    [data, rowKey]
++  );
++
++  return { allRows };
++};
+diff --git a/services/client/src/core/hooks/use-infinite-scroll-trigger.ts b/services/client/src/core/hooks/use-infinite-scroll-trigger.ts
+new file mode 100644
+index 0000000..5188dbd
+--- /dev/null
++++ b/services/client/src/core/hooks/use-infinite-scroll-trigger.ts
+@@ -0,0 +1,36 @@
++import { useEffect } from 'react';
++
++interface VirtualItem {
++  index: number;
++}
++
++// Fetches the next page once the last virtualized row becomes visible.
++export const useInfiniteScrollTrigger = (
++  virtualItems: VirtualItem[],
++  allRowsLength: number,
++  hasNextPage: boolean,
++  isFetchingNextPage: boolean,
++  fetchNextPage: () => Promise<unknown>
++) => {
++  useEffect(() => {
++    const [lastItem] = [...virtualItems].reverse();
++
++    if (!lastItem) {
++      return;
++    }
++
++    if (
++      lastItem.index >= allRowsLength - 1 &&
++      hasNextPage &&
++      !isFetchingNextPage
++    ) {
++      void fetchNextPage();
++    }
++  }, [
++    hasNextPage,
++    fetchNextPage,
++    allRowsLength,
++    isFetchingNextPage,
++    virtualItems,
++  ]);
++};
+diff --git a/services/client/src/core/utils/infinite-cache.ts b/services/client/src/core/utils/infinite-cache.ts
+new file mode 100644
+index 0000000..9d8e0c3
+--- /dev/null
++++ b/services/client/src/core/utils/infinite-cache.ts
+@@ -0,0 +1,42 @@
++import { produce } from 'immer';
++
++import type { UnparsedDefaultId } from '@shared/zod/common';
++
++import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++
++interface InfinitePage<TRow> {
++  nextCursor?: UnparsedDefaultId | null;
++  posts?: TRow[];
++  comments?: TRow[];
++}
++
++interface InfiniteData<TRow> {
++  pages: InfinitePage<TRow>[];
++}
++
++type RowKey = 'posts' | 'comments';
++
++// Applies a mutation to the cached row with the given id. Every list mutation
++// used to repeat the same produce/compare loop, so it now lives here.
++export const updateInfiniteCache = <TRow extends { id: UnparsedDefaultId }>(
++  data: InfiniteData<TRow> | undefined,
++  rowKey: RowKey,
++  id: UnparsedDefaultId,
++  mutate: (draft: any) => void
++) => {
++  return !data
++    ? data
++    : produce(data, (draft) => {
++        for (const page of draft.pages) {
++          if (compareLessThan(page.nextCursor!, id)) {
++            for (const row of page[rowKey] ?? []) {
++              if (compareEqual(row.id, id)) {
++                mutate(row);
++                break;
++              }
++            }
++            break;
++          }
++        }
++      });
++};
+diff --git a/services/client/src/pages/_components/Comment/Create.tsx b/services/client/src/pages/_components/Comment/Create.tsx
+index 08a742b..0731572 100644
+--- a/services/client/src/pages/_components/Comment/Create.tsx
++++ b/services/client/src/pages/_components/Comment/Create.tsx
+@@ -1,5 +1,4 @@
+ import { zodResolver } from '@hookform/resolvers/zod';
+-import { produce } from 'immer';
+ import { Send } from 'lucide-react';
+ import { useForm } from 'react-hook-form';
+ 
+@@ -17,7 +16,7 @@ import {
+ import { Textarea } from '@cc/components/Textarea';
+ import { useToast } from '@cc/hooks/use-toast';
+ import { t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ interface CreateProps {
+   postId: UnparsedDefaultId;
+@@ -35,26 +34,11 @@ export default function Create({ postId }: CreateProps) {
+   const createMutation = t.post.comment.create.useMutation({
+     onSuccess: async () => {
+       await tUtils.post.comment.infinite.invalidate({ postId });
+-      tUtils.post.infinite.setInfiniteData({}, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (
+-                  !page.nextCursor ||
+-                  compareLessThan(page.nextCursor, postId)
+-                ) {
+-                  for (const post of page.posts) {
+-                    if (compareEqual(post.id, postId)) {
+-                      post.comments += 1;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
++      tUtils.post.infinite.setInfiniteData({}, (oldData) =>
++        updateInfiniteCache(oldData, 'posts', postId, (post) => {
++          post.comments += 1;
++        })
++      );
+       form.reset();
+       toast({ description: 'You have successfully created a new comment!' });
+     },
+diff --git a/services/client/src/pages/_components/Comment/Edit.tsx b/services/client/src/pages/_components/Comment/Edit.tsx
+index d449ba4..d083b32 100644
+--- a/services/client/src/pages/_components/Comment/Edit.tsx
++++ b/services/client/src/pages/_components/Comment/Edit.tsx
+@@ -1,5 +1,4 @@
+ import { zodResolver } from '@hookform/resolvers/zod';
+-import { produce } from 'immer';
+ import { useForm } from 'react-hook-form';
+ 
+ import { type UnparsedEditInput, editInput } from '@shared/zod/comment';
+@@ -18,7 +17,7 @@ import {
+ import { Textarea } from '@cc/components/Textarea';
+ import { useToast } from '@cc/hooks/use-toast';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ type InfiniteComment =
+   RouterOutputs['post']['comment']['infinite']['comments'][0];
+@@ -42,23 +41,11 @@ export default function Edit({ open, setOpen, postId, row }: editProps) {
+   const editMutation = t.post.comment.edit.useMutation({
+     onSuccess: (_, variables) => {
+       const { id } = variables;
+-      tUtils.post.comment.infinite.setInfiniteData({ postId }, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (!page.nextCursor || compareLessThan(page.nextCursor, id)) {
+-                  for (const comment of page.comments) {
+-                    if (compareEqual(comment.id, id)) {
+-                      comment.content = variables.content;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
++      tUtils.post.comment.infinite.setInfiniteData({ postId }, (oldData) =>
++        updateInfiniteCache(oldData, 'comments', id, (comment) => {
++          comment.content = variables.content;
++        })
++      );
+       setOpen(false);
+       toast({ description: 'You have successfully edited your comment!' });
+     },
+diff --git a/services/client/src/pages/_components/Comment/Like.tsx b/services/client/src/pages/_components/Comment/Like.tsx
+index 5075149..3c30970 100644
+--- a/services/client/src/pages/_components/Comment/Like.tsx
++++ b/services/client/src/pages/_components/Comment/Like.tsx
+@@ -1,4 +1,3 @@
+-import { produce } from 'immer';
+ import { Heart } from 'lucide-react';
+ 
+ import { UnparsedDefaultId } from '@shared/zod/common';
+@@ -6,7 +5,7 @@ import { UnparsedDefaultId } from '@shared/zod/common';
+ import { Button } from '@cc/components/Button';
+ import { useSession } from '@cc/hooks/use-session';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ type InfiniteComment =
+   RouterOutputs['post']['comment']['infinite']['comments'][0];
+@@ -24,27 +23,12 @@ export default function Like({ postId, row }: LikeProps) {
+     return t.post.comment[type].useMutation({
+       onSuccess: (_data, variables) => {
+         const { id } = variables;
+-        tUtils.post.comment.infinite.setInfiniteData({ postId }, (oldData) => {
+-          return !oldData
+-            ? oldData
+-            : produce(oldData, (draft) => {
+-                for (const page of draft.pages) {
+-                  if (
+-                    !page.nextCursor ||
+-                    compareLessThan(page.nextCursor, id)
+-                  ) {
+-                    for (const comment of page.comments) {
+-                      if (compareEqual(comment.id, id)) {
+-                        comment.likes += type === 'like' ? 1 : -1;
+-                        comment.liked = type === 'like';
+-                        break;
+-                      }
+-                    }
+-                    break;
+-                  }
+-                }
+-              });
+-        });
++        tUtils.post.comment.infinite.setInfiniteData({ postId }, (oldData) =>
++          updateInfiniteCache(oldData, 'comments', id, (comment) => {
++            comment.likes += type === 'like' ? 1 : -1;
++            comment.liked = type === 'like';
++          })
++        );
+       },
+     });
+   };
+diff --git a/services/client/src/pages/_components/Comment/List.tsx b/services/client/src/pages/_components/Comment/List.tsx
+index 33cb899..9b4bed0 100644
+--- a/services/client/src/pages/_components/Comment/List.tsx
++++ b/services/client/src/pages/_components/Comment/List.tsx
+@@ -1,7 +1,11 @@
+-import { lazy, useMemo } from 'react';
++import { lazy } from 'react';
+ 
+ import DrawerDialog from '@cc/components/DrawerDialog';
+ import InfiniteScroll from '@cc/components/InfiniteScroll';
++import {
++  infiniteListOptions,
++  useInfiniteList,
++} from '@cc/hooks/use-infinite-list';
+ import { useSession } from '@cc/hooks/use-session';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+ 
+@@ -20,15 +24,9 @@ export default function List({ open, setOpen, post }: ListProps) {
+   const { user } = useSession();
+   const infiniteComments = t.post.comment.infinite.useInfiniteQuery(
+     { postId: post.id },
+-    {
+-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+-    }
+-  );
+-  const { data } = infiniteComments;
+-  const allRows = useMemo(
+-    () => (data ? data.pages.flatMap((d) => d.comments) : []),
+-    [data]
++    infiniteListOptions
+   );
++  const { allRows } = useInfiniteList(infiniteComments.data, 'comments');
+ 
+   return (
+     <DrawerDialog
+diff --git a/services/client/src/pages/_components/Comment/Remove.tsx b/services/client/src/pages/_components/Comment/Remove.tsx
+index c683143..2365a78 100644
+--- a/services/client/src/pages/_components/Comment/Remove.tsx
++++ b/services/client/src/pages/_components/Comment/Remove.tsx
+@@ -1,5 +1,3 @@
+-import { produce } from 'immer';
+-
+ import { UnparsedDefaultId } from '@shared/zod/common';
+ 
+ import {
+@@ -14,7 +12,7 @@ import {
+ } from '@cc/components/AlertDialog';
+ import { useToast } from '@cc/hooks/use-toast';
+ import { t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ interface RemoveProps {
+   open: boolean;
+@@ -38,26 +36,11 @@ export default function Remove({
+     onSuccess: async () => {
+       await tUtils.post.comment.infinite.invalidate({ postId });
+       await tUtils.post.comment.infiniteCreator.reset({ postId });
+-      tUtils.post.infinite.setInfiniteData({}, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (
+-                  !page.nextCursor ||
+-                  compareLessThan(page.nextCursor, postId)
+-                ) {
+-                  for (const post of page.posts) {
+-                    if (compareEqual(post.id, postId)) {
+-                      post.comments -= 1;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
++      tUtils.post.infinite.setInfiniteData({}, (oldData) =>
++        updateInfiniteCache(oldData, 'posts', postId, (post) => {
++          post.comments -= 1;
++        })
++      );
+       if (onSuccessFn) onSuccessFn();
+       toast({ description: 'You have successfully removed your comment!' });
+     },
+diff --git a/services/client/src/pages/_components/Comment/RemoveMany.tsx b/services/client/src/pages/_components/Comment/RemoveMany.tsx
+index 8d29472..9379b1e 100644
+--- a/services/client/src/pages/_components/Comment/RemoveMany.tsx
++++ b/services/client/src/pages/_components/Comment/RemoveMany.tsx
+@@ -1,5 +1,3 @@
+-import { produce } from 'immer';
+-
+ import { UnparsedDefaultId } from '@shared/zod/common';
+ 
+ import {
+@@ -14,7 +12,7 @@ import {
+ } from '@cc/components/AlertDialog';
+ import { useToast } from '@cc/hooks/use-toast';
+ import { t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ interface RemoveProps {
+   open: boolean;
+@@ -40,46 +38,16 @@ export default function RemoveMany({
+     onSuccess: async () => {
+       await tUtils.post.comment.infinite.invalidate({ postId });
+       await tUtils.post.comment.infiniteCreator.reset({ postId });
+-      tUtils.post.infinite.setInfiniteData({}, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (
+-                  !page.nextCursor ||
+-                  compareLessThan(page.nextCursor, postId)
+-                ) {
+-                  for (const post of page.posts) {
+-                    if (compareEqual(post.id, postId)) {
+-                      post.comments -= commentAmount;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
+-      tUtils.post.infiniteCreator.setInfiniteData({}, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (
+-                  !page.nextCursor ||
+-                  compareLessThan(page.nextCursor, postId)
+-                ) {
+-                  for (const post of page.posts) {
+-                    if (compareEqual(post.id, postId)) {
+-                      post._count.comments -= commentAmount;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
++      tUtils.post.infinite.setInfiniteData({}, (oldData) =>
++        updateInfiniteCache(oldData, 'posts', postId, (post) => {
++          post.comments -= commentAmount;
++        })
++      );
++      tUtils.post.infiniteCreator.setInfiniteData({}, (oldData) =>
++        updateInfiniteCache(oldData, 'posts', postId, (post) => {
++          post._count.comments -= commentAmount;
++        })
++      );
+       if (onSuccessFn) onSuccessFn();
+       toast({
+         description: `You have successfully removed ${commentAmount} of your comments!`,
+diff --git a/services/client/src/pages/_components/Post/Edit.tsx b/services/client/src/pages/_components/Post/Edit.tsx
+index 8e52fb4..959e95e 100644
+--- a/services/client/src/pages/_components/Post/Edit.tsx
++++ b/services/client/src/pages/_components/Post/Edit.tsx
+@@ -1,5 +1,4 @@
+ import { zodResolver } from '@hookform/resolvers/zod';
+-import { produce } from 'immer';
+ import { useForm } from 'react-hook-form';
+ 
+ import { type UnparsedEditInput, editInput } from '@shared/zod/post';
+@@ -18,7 +17,7 @@ import { Input } from '@cc/components/Input';
+ import { Textarea } from '@cc/components/Textarea';
+ import { useToast } from '@cc/hooks/use-toast';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
+ 
+@@ -40,24 +39,12 @@ export default function Edit({ open, setOpen, row }: EditProps) {
+   const editMutation = t.post.edit.useMutation({
+     onSuccess: (_, variables) => {
+       const { id } = variables;
+-      tUtils.post.infinite.setInfiniteData({}, (oldData) => {
+-        return !oldData
+-          ? oldData
+-          : produce(oldData, (draft) => {
+-              for (const page of draft.pages) {
+-                if (!page.nextCursor || compareLessThan(page.nextCursor, id)) {
+-                  for (const post of page.posts) {
+-                    if (compareEqual(post.id, id)) {
+-                      post.content = variables.content;
+-                      post.title = variables.title;
+-                      break;
+-                    }
+-                  }
+-                  break;
+-                }
+-              }
+-            });
+-      });
++      tUtils.post.infinite.setInfiniteData({}, (oldData) =>
++        updateInfiniteCache(oldData, 'posts', id, (post) => {
++          post.content = variables.content;
++          post.title = variables.title;
++        })
++      );
+       setOpen(false);
+       toast({ description: 'You have successfully edited your post!' });
+     },
+diff --git a/services/client/src/pages/_components/Post/Like.tsx b/services/client/src/pages/_components/Post/Like.tsx
+index 112a1f9..4daf670 100644
+--- a/services/client/src/pages/_components/Post/Like.tsx
++++ b/services/client/src/pages/_components/Post/Like.tsx
+@@ -1,10 +1,9 @@
+-import { produce } from 'immer';
+ import { Heart } from 'lucide-react';
+ 
+ import { Button } from '@cc/components/Button';
+ import { useSession } from '@cc/hooks/use-session';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+-import { compareEqual, compareLessThan } from '@cc/utils/bigint';
++import { updateInfiniteCache } from '@cc/utils/infinite-cache';
+ 
+ type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
+ 
+@@ -20,27 +19,12 @@ export default function Like({ row }: LikeProps) {
+     return t.post[type].useMutation({
+       onSuccess: (_, variables) => {
+         const { id } = variables;
+-        tUtils.post.infinite.setInfiniteData({}, (oldData) => {
+-          return !oldData
+-            ? oldData
+-            : produce(oldData, (draft) => {
+-                for (const page of draft.pages) {
+-                  if (
+-                    !page.nextCursor ||
+-                    compareLessThan(page.nextCursor, id)
+-                  ) {
+-                    for (const post of page.posts) {
+-                      if (compareEqual(post.id, id)) {
+-                        post.likes += type === 'like' ? 1 : -1;
+-                        post.liked = type === 'like';
+-                        break;
+-                      }
+-                    }
+-                    break;
+-                  }
+-                }
+-              });
+-        });
++        tUtils.post.infinite.setInfiniteData({}, (oldData) =>
++          updateInfiniteCache(oldData, 'posts', id, (post) => {
++            post.likes += type === 'like' ? 1 : -1;
++            post.liked = type === 'like';
++          })
++        );
+       },
+     });
+   };
+diff --git a/services/client/src/pages/_components/Post/List.tsx b/services/client/src/pages/_components/Post/List.tsx
+index 3982a17..01396a1 100644
+--- a/services/client/src/pages/_components/Post/List.tsx
++++ b/services/client/src/pages/_components/Post/List.tsx
+@@ -1,6 +1,10 @@
+-import { lazy, useMemo } from 'react';
++import { lazy } from 'react';
+ 
+ import InfiniteScrollWindow from '@cc/components/InfiniteScrollWindow';
++import {
++  infiniteListOptions,
++  useInfiniteList,
++} from '@cc/hooks/use-infinite-list';
+ import { t } from '@cc/lib/trpc';
+ 
+ const PostCard = lazy(() => import('./PostCard'));
+@@ -8,15 +12,9 @@ const PostCard = lazy(() => import('./PostCard'));
+ export default function List() {
+   const infinitePosts = t.post.infinite.useInfiniteQuery(
+     {},
+-    {
+-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+-    }
+-  );
+-  const { data } = infinitePosts;
+-  const allRows = useMemo(
+-    () => (data ? data.pages.flatMap((d) => d.posts) : []),
+-    [data]
++    infiniteListOptions
+   );
++  const { allRows } = useInfiniteList(infinitePosts.data, 'posts');
+ 
+   return (
+     <InfiniteScrollWindow
+diff --git a/services/client/src/pages/_components/Profile/Comment/index.tsx b/services/client/src/pages/_components/Profile/Comment/index.tsx
+index f74f866..fcf02e5 100644
+--- a/services/client/src/pages/_components/Profile/Comment/index.tsx
++++ b/services/client/src/pages/_components/Profile/Comment/index.tsx
+@@ -1,5 +1,7 @@
+-import { useMemo } from 'react';
+-
++import {
++  infiniteListOptions,
++  useInfiniteList,
++} from '@cc/hooks/use-infinite-list';
+ import { type RouterOutputs, t } from '@cc/lib/trpc';
+ 
+ import { DataTable } from '../DataTable';
+@@ -14,17 +16,9 @@ interface IndexProps {
+ export default function Index({ post }: IndexProps) {
+   const infiniteComments = t.post.comment.infiniteCreator.useInfiniteQuery(
+     { postId: post.id },
+-    {
+-      getPreviousPageParam: (onePage) => onePage.previousCursor ?? undefined,
+-      getNextPageParam: (onePage) => onePage.nextCursor ?? undefined,
+-      maxPages: 1,
+-    }
+-  );
+-  const { data } = infiniteComments;
+-  const allRows = useMemo(
+-    () => (data ? data.pages.flatMap((d) => d.comments) : []),
+-    [data]
++    infiniteListOptions
+   );
++  const { allRows } = useInfiniteList(infiniteComments.data, 'comments');
+ 
+   return (
+     <DataTable
+diff --git a/services/client/src/pages/_components/Profile/Post/index.tsx b/services/client/src/pages/_components/Profile/Post/index.tsx
+index d3da5b1..1897895 100644
+--- a/services/client/src/pages/_components/Profile/Post/index.tsx
++++ b/services/client/src/pages/_components/Profile/Post/index.tsx
+@@ -1,5 +1,7 @@
+-import { useMemo } from 'react';
+-
++import {
++  infiniteListOptions,
++  useInfiniteList,
++} from '@cc/hooks/use-infinite-list';
+ import { t } from '@cc/lib/trpc';
+ 
+ import CommentTable from '../Comment';
+@@ -9,17 +11,9 @@ import columns from './Columns';
+ export default function Table() {
+   const infinitePosts = t.post.infiniteCreator.useInfiniteQuery(
+     {},
+-    {
+-      getPreviousPageParam: (onePage) => onePage.previousCursor ?? undefined,
+-      getNextPageParam: (onePage) => onePage.nextCursor ?? undefined,
+-      maxPages: 1,
+-    }
+-  );
+-  const { data } = infinitePosts;
+-  const allRows = useMemo(
+-    () => (data ? data.pages.flatMap((d) => d.posts) : []),
+-    [data]
++    infiniteListOptions
+   );
++  const { allRows } = useInfiniteList(infinitePosts.data, 'posts');
+ 
+   return (
+     <>
+diff --git a/services/server/src/core/lib/pagination.ts b/services/server/src/core/lib/pagination.ts
+new file mode 100644
+index 0000000..6056717
+--- /dev/null
++++ b/services/server/src/core/lib/pagination.ts
+@@ -0,0 +1,12 @@
++// Trims the overflow row from a cursor page and returns its id as the next
++// cursor. Shared by the post and comment infinite routes.
++export const popNextCursor = <T extends { id: bigint }>(
++  rows: T[],
++  limit: number
++): bigint | undefined => {
++  if (rows.length >= limit) {
++    const nextItem = rows.pop();
++    return nextItem?.id;
++  }
++  return undefined;
++};
+diff --git a/services/server/src/routes/v1/post/comment/index.ts b/services/server/src/routes/v1/post/comment/index.ts
+index cfaae1e..e6bf6df 100644
+--- a/services/server/src/routes/v1/post/comment/index.ts
++++ b/services/server/src/routes/v1/post/comment/index.ts
+@@ -11,6 +11,8 @@ import {
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+ 
++import { popNextCursor } from '@sc/lib/pagination.js';
++
+ import {
+   protectedProcedure,
+   publicProcedure,
+@@ -38,11 +40,7 @@ export const commentRouter = router({
+ 
+     const comments = await getInfinite({ postId, limit, cursor, userId });
+ 
+-    let nextCursor = undefined;
+-    if (comments.length > limit) {
+-      const nextItem = comments.pop();
+-      nextCursor = nextItem?.id;
+-    }
++    const nextCursor = popNextCursor(comments, limit);
+ 
+     return {
+       comments,
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..c2dbeed 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -11,6 +11,8 @@ import {
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+ 
++import { popNextCursor } from '@sc/lib/pagination.js';
++
+ import {
+   protectedProcedure,
+   publicProcedure,
+@@ -39,11 +41,7 @@ export const postRouter = router({
+ 
+     const posts = await getInfinite({ cursor, limit, userId });
+ 
+-    let nextCursor = undefined;
+-    if (posts.length > limit) {
+-      const nextItem = posts.pop();
+-      nextCursor = nextItem?.id;
+-    }
++    const nextCursor = popNextCursor(posts, limit);
+ 
+     return {
+       posts,
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 11a9421..8e0ae71 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -16,6 +16,13 @@ import {
+   router,
+ } from '@apiv1/trpc/index.js';
+ 
++// Shared options for the session token cookie so login and logout stay in sync.
++const sessionCookieOptions = {
++  secure: true,
++  sameSite: 'strict' as const,
++  signed: true,
++};
++
+ export const userRouter = router({
+   login: publicProcedure.input(loginSignupInput).mutation(async (opts) => {
+     const { email, password } = opts.input;
+@@ -39,12 +46,7 @@ export const userRouter = router({
+     const tokenContent: SessionSchema = { id: existingUser.id };
+     const token = jwt.sign(tokenContent, AUTH_SECRET);
+ 
+-    opts.ctx.res.cookie(SESSION_TOKEN_COOKIE, token, {
+-      secure: true,
+-      sameSite: 'strict',
+-      signed: true,
+-      httpOnly: true,
+-    });
++    opts.ctx.res.cookie(SESSION_TOKEN_COOKIE, token, sessionCookieOptions);
+ 
+     return tokenContent;
+   }),
+@@ -92,12 +94,7 @@ export const userRouter = router({
+     }
+   }),
+   logout: protectedProcedure.mutation(async (opts) => {
+-    opts.ctx.res.clearCookie(SESSION_TOKEN_COOKIE, {
+-      secure: true,
+-      sameSite: 'strict',
+-      signed: true,
+-      httpOnly: true,
+-    });
++    opts.ctx.res.clearCookie(SESSION_TOKEN_COOKIE, sessionCookieOptions);
+ 
+     opts.ctx.res.status(StatusCode.OK);
+   }),

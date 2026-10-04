@@ -21,6 +21,15 @@ set +a
 : "${MODEL_API_KEY:?Set MODEL_API_KEY to the model API key}"
 : "${DEFAULT_MODEL_NAME:?Set DEFAULT_MODEL_NAME to the model name}"
 
+# In single mode the generalist reviewer and its verifier each cover the work of
+# the five specialized review agents, so scale their guardrail budgets and
+# timeout by the number of specialized agents. Values derive from the effective
+# defaults so a .env override is respected.
+single_mode_multiplier=5
+single_input_token_budget=$(( ${DEFAULT_INPUT_TOKEN_BUDGET:-96000} * single_mode_multiplier ))
+single_output_token_budget=$(( ${DEFAULT_OUTPUT_TOKEN_BUDGET:-32000} * single_mode_multiplier ))
+single_timeout_ms=$(( ${DEFAULT_TIMEOUT_MS:-300000} * single_mode_multiplier ))
+
 echo "Building the CLI"
 npm --prefix "$project_dir" run build
 
@@ -75,11 +84,25 @@ for test_id in "${test_ids[@]}"; do
 		rm -rf "$log_dir"
 		rm -f "$result_dir/report.$mode.json" "$result_dir/matches.$mode.json"
 
+		mode_env=()
+		if [[ "$mode" == "single" ]]; then
+			mode_env+=(
+				"GENERALIST_INPUT_TOKEN_BUDGET=$single_input_token_budget"
+				"GENERALIST_OUTPUT_TOKEN_BUDGET=$single_output_token_budget"
+				"GENERALIST_TIMEOUT_MS=$single_timeout_ms"
+				"VERIFIER_INPUT_TOKEN_BUDGET=$single_input_token_budget"
+				"VERIFIER_OUTPUT_TOKEN_BUDGET=$single_output_token_budget"
+				"VERIFIER_TIMEOUT_MS=$single_timeout_ms"
+			)
+		fi
+
 		echo "Running $mode review for $test_id"
-		REPO_DIR="$scratch_dir" \
+		env \
+			REPO_DIR="$scratch_dir" \
 			GIT_DIFF_PATH="$diff_path" \
 			REVIEW_MODE="$mode" \
 			LOG_DIR="${LOG_DIR:-$log_dir}" \
+			${mode_env[@]+"${mode_env[@]}"} \
 			node "$project_dir/dist/index.js" review --output "$result_dir/report.$mode.json"
 
 		rm -rf "$scratch_dir"
