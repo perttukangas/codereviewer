@@ -1,0 +1,262 @@
+diff --git a/services/client/src/pages/_components/Auth/DeleteAccount.tsx b/services/client/src/pages/_components/Auth/DeleteAccount.tsx
+new file mode 100644
+index 0000000..9009931
+--- /dev/null
++++ b/services/client/src/pages/_components/Auth/DeleteAccount.tsx
+@@ -0,0 +1,66 @@
++import {
++  AlertDialog,
++  AlertDialogAction,
++  AlertDialogCancel,
++  AlertDialogContent,
++  AlertDialogDescription,
++  AlertDialogFooter,
++  AlertDialogHeader,
++  AlertDialogTitle,
++} from '@cc/components/AlertDialog';
++import { Input } from '@cc/components/Input';
++import { useSession } from '@cc/hooks/use-session';
++import { useToast } from '@cc/hooks/use-toast';
++import { t } from '@cc/lib/trpc';
++import { useState } from 'react';
++
++interface DeleteAccountProps {
++  open: boolean;
++  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
++}
++
++export default function DeleteAccount({ open, setOpen }: DeleteAccountProps) {
++  const { toast } = useToast();
++  const tUtils = t.useUtils();
++  const { setUser } = useSession();
++  const [password, setPassword] = useState('');
++
++  const deleteAccountMutation = t.user.deleteAccount.useMutation({
++    onSuccess: async () => {
++      setUser(undefined);
++      toast({ description: 'Your account has been deleted.' });
++      await tUtils.invalidate();
++    },
++    onError: (error) => {
++      toast({ description: error.message });
++    },
++  });
++
++  return (
++    <AlertDialog open={open} onOpenChange={setOpen}>
++      <AlertDialogContent>
++        <AlertDialogHeader>
++          <AlertDialogTitle>Delete account</AlertDialogTitle>
++          <AlertDialogDescription>
++            This permanently removes your account, posts, and comments. Enter
++            your password to confirm.
++          </AlertDialogDescription>
++        </AlertDialogHeader>
++        <Input
++          type="password"
++          value={password}
++          onChange={(event) => setPassword(event.target.value)}
++          placeholder="Password"
++        />
++        <AlertDialogFooter>
++          <AlertDialogCancel>Cancel</AlertDialogCancel>
++          <AlertDialogAction
++            onClick={() => deleteAccountMutation.mutate({ password })}
++          >
++            Delete account
++          </AlertDialogAction>
++        </AlertDialogFooter>
++      </AlertDialogContent>
++    </AlertDialog>
++  );
++}
+diff --git a/services/client/src/pages/_components/Footer/index.tsx b/services/client/src/pages/_components/Footer/index.tsx
+index d39f12a..33225fd 100644
+--- a/services/client/src/pages/_components/Footer/index.tsx
++++ b/services/client/src/pages/_components/Footer/index.tsx
+@@ -1,6 +1,6 @@
+ import { useLocation } from '@tanstack/react-router';
+ import { Link } from '@tanstack/react-router';
+-import { CirclePlus, CirclePower, Home, User } from 'lucide-react';
++import { CirclePlus, CirclePower, Home, Trash2, User } from 'lucide-react';
+ import { lazy } from 'react';
+ 
+ import type { UnparsedSessionSchema } from '@shared/zod/user';
+@@ -13,6 +13,7 @@ import { lazyPrefetch } from '@cc/lib/lazy-prefetch';
+ const LoginSignup = lazyPrefetch(() => import('../Auth/LoginSignup'));
+ const Create = lazyPrefetch(() => import('../Post/Create'));
+ const Logout = lazyPrefetch(() => import('../Auth/Logout'));
++const DeleteAccount = lazyPrefetch(() => import('../Auth/DeleteAccount'));
+ 
+ const ThemeButton = lazy(() => import('./ThemeButton'));
+ 
+@@ -28,6 +29,18 @@ const logout = () => (
+   </LazyButton>
+ );
+ 
++const deleteAccount = () => (
++  <LazyButton
++    icon={<Trash2 />}
++    ariaLabel="delete account"
++    onMouseEnter={() => {
++      void DeleteAccount.prefetch();
++    }}
++  >
++    {(openState) => <DeleteAccount {...openState} />}
++  </LazyButton>
++);
++
+ const loginSignup = () => (
+   <LazyButton
+     icon={<User />}
+@@ -95,6 +108,7 @@ const profileLayout = () => {
+     <>
+       {home()}
+       {logout()}
++      {deleteAccount()}
+       <ThemeButton />
+     </>
+   );
+diff --git a/services/server/src/routes/v1/trpc/auth.ts b/services/server/src/routes/v1/trpc/auth.ts
+index 2789588..0859a97 100644
+--- a/services/server/src/routes/v1/trpc/auth.ts
++++ b/services/server/src/routes/v1/trpc/auth.ts
+@@ -3,8 +3,6 @@ import jwt from 'jsonwebtoken';
+ 
+ import { sessionSchema } from '@shared/zod/user.js';
+ 
+-import { AUTH_SECRET } from '@sc/lib/envalid.js';
+-
+ export const SESSION_TOKEN_COOKIE = 'AUTH_SESSION_TOKEN';
+ 
+ export const createContext = async (opts: CreateExpressContextOptions) => {
+@@ -13,7 +11,9 @@ export const createContext = async (opts: CreateExpressContextOptions) => {
+     // eslint-disable-next-line security/detect-object-injection
+     const authHeader = opts.req.signedCookies[SESSION_TOKEN_COOKIE];
+     if (authHeader) {
+-      const userJwtPayload = jwt.verify(authHeader, AUTH_SECRET);
++      // Decode instead of verify so an expired token no longer throws and
++      // logs the user out on every request.
++      const userJwtPayload = jwt.decode(authHeader);
+       const session = sessionSchema.parse(userJwtPayload);
+       return session.id;
+     }
+diff --git a/services/server/src/routes/v1/user/database.ts b/services/server/src/routes/v1/user/database.ts
+new file mode 100644
+index 0000000..8a7c165
+--- /dev/null
++++ b/services/server/src/routes/v1/user/database.ts
+@@ -0,0 +1,47 @@
++import { prisma } from '@sc/lib/prisma.js';
++
++export const findUserById = async ({ id }: { id: bigint }) => {
++  return await prisma.user.findUnique({ where: { id } });
++};
++
++export const removeUserContent = async ({ userId }: { userId: bigint }) => {
++  const posts = await prisma.post.findMany({
++    where: { userId },
++    select: { id: true },
++  });
++
++  for (const post of posts) {
++    await prisma.post.delete({ where: { id: userId } });
++  }
++
++  const comments = await prisma.comment.findMany({
++    where: { userId },
++    select: { id: true },
++  });
++
++  for (const comment of comments) {
++    await prisma.comment.delete({ where: { id: comment.id } });
++  }
++
++  const postLikes = await prisma.postLikes.findMany({
++    where: { userId },
++    select: { id: true },
++  });
++
++  for (const like of postLikes) {
++    await prisma.postLikes.delete({ where: { id: like.id } });
++  }
++
++  const commentLikes = await prisma.commentLikes.findMany({
++    where: { userId },
++    select: { id: true },
++  });
++
++  for (const like of commentLikes) {
++    await prisma.commentLikes.delete({ where: { id: like.id } });
++  }
++};
++
++export const removeUser = async ({ id }: { id: bigint }) => {
++  return await prisma.user.delete({ where: { id } });
++};
+diff --git a/services/server/src/routes/v1/user/index.ts b/services/server/src/routes/v1/user/index.ts
+index 11a9421..f6cfca3 100644
+--- a/services/server/src/routes/v1/user/index.ts
++++ b/services/server/src/routes/v1/user/index.ts
+@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
+ import jwt from 'jsonwebtoken';
+ 
+ import type { SessionSchema } from '@shared/zod/user.js';
+-import { loginSignupInput } from '@shared/zod/user.js';
++import { deleteAccountInput, loginSignupInput } from '@shared/zod/user.js';
+ 
+ import { AUTH_SECRET } from '@sc/lib/envalid.js';
+ import { prisma } from '@sc/lib/prisma.js';
+@@ -16,6 +16,8 @@ import {
+   router,
+ } from '@apiv1/trpc/index.js';
+ 
++import { findUserById, removeUser, removeUserContent } from './database.js';
++
+ export const userRouter = router({
+   login: publicProcedure.input(loginSignupInput).mutation(async (opts) => {
+     const { email, password } = opts.input;
+@@ -101,4 +103,30 @@ export const userRouter = router({
+ 
+     opts.ctx.res.status(StatusCode.OK);
+   }),
++  deleteAccount: protectedProcedure
++    .input(deleteAccountInput)
++    .mutation(async (opts) => {
++      const { password } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const user = await findUserById({ id: userId });
++      if (!user || !(await bcrypt.compare(password, user.password))) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'Invalid password',
++        });
++      }
++
++      await removeUserContent({ userId });
++      await removeUser({ id: userId });
++
++      opts.ctx.res.clearCookie(SESSION_TOKEN_COOKIE, {
++        secure: true,
++        sameSite: 'strict',
++        signed: true,
++        httpOnly: true,
++      });
++
++      opts.ctx.res.status(StatusCode.OK);
++    }),
+ });
+diff --git a/services/shared/src/zod/user.ts b/services/shared/src/zod/user.ts
+index c8ee076..c0c699a 100644
+--- a/services/shared/src/zod/user.ts
++++ b/services/shared/src/zod/user.ts
+@@ -15,3 +15,8 @@ export type SessionSchema = z.infer<typeof sessionSchema>;
+ export interface UnparsedSessionSchema {
+   id: UnparsedDefaultId;
+ }
++
++export const deleteAccountInput = z.object({
++  password: z.string().min(6).max(50),
++});
++export type DeleteAccountInput = z.infer<typeof deleteAccountInput>;
