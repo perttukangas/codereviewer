@@ -35,6 +35,8 @@ const toRuntimeEvent = (
 			return { type: "turn_start" };
 		case "turn_end":
 			return { type: "turn_end" };
+		case "message_update":
+			return { type: "message_update", role: event.message.role };
 		case "message_end": {
 			const usage = "usage" in event.message ? event.message.usage : undefined;
 			return {

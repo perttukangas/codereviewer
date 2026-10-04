@@ -74,6 +74,10 @@ export const describeAgentEvent = (
 			return {
 				messages: event.messages.length,
 				willRetry: event.willRetry,
+				...(lastMessage?.role === "assistant" &&
+				lastMessage.stopReason === "aborted"
+					? { aborted: true }
+					: {}),
 				...(lastMessage?.role === "assistant" && lastMessage.errorMessage
 					? { error: lastMessage.errorMessage }
 					: {}),

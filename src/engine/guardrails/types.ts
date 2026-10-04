@@ -33,6 +33,7 @@ export type GuardrailContext = {
 		observed: number,
 		toolName?: string,
 	) => void;
+	interrupt: (message: string) => void;
 	terminate: (
 		dimension: GuardrailDimension,
 		limit: number,

@@ -25,7 +25,9 @@ export const logAgentEvent = (
 	}
 	if (event.type === "message_end" && event.message.role === "assistant") {
 		const described = describeAssistantMessage(event.message);
-		if (event.message.errorMessage) {
+		if (event.message.stopReason === "aborted") {
+			log.debug("Agent message aborted", described);
+		} else if (event.message.errorMessage) {
 			log.error("Agent message ended with error", {
 				error: event.message.errorMessage,
 				...described,
@@ -45,7 +47,9 @@ export const logAgentEvent = (
 	}
 
 	const described = describeAgentEvent(event, turnNumber);
-	if (event.type === "agent_end" && "error" in described) {
+	if (event.type === "agent_end" && "aborted" in described) {
+		log.debug("Agent ended (aborted)", described);
+	} else if (event.type === "agent_end" && "error" in described) {
 		log.error("Agent ended with error", described);
 	} else if (event.type === "tool_execution_end") {
 		const input = toolInputs.get(event.toolCallId);

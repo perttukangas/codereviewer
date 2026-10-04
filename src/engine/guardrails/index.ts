@@ -27,11 +27,21 @@ export const createGuardrails = ({
 	const warned = new Set<GuardrailDimension>();
 	let terminated = false;
 	let started = false;
+	let midStream = false;
 	let unsubscribe: (() => void) | undefined;
 
 	const record = (outcome: GuardrailOutcome): void => {
 		outcomes.push(outcome);
 		onOutcome?.(outcome);
+	};
+
+	const interrupt = (message: string): void => {
+		log.info("Guardrail interrupt, aborting stream to deliver warning");
+		void session
+			.steer(message)
+			.catch(() => undefined)
+			.then(() => session.abort())
+			.catch(() => undefined);
 	};
 
 	const warn = (
@@ -48,14 +58,21 @@ export const createGuardrails = ({
 		const message = softWarningMessage(dimension, limit, observed, toolName);
 		log.info("Guardrail soft limit reached", dimension, `${observed}/${limit}`);
 
-		if (session.isStreaming) {
-			void session.steer(message);
-		} else {
+		if (!session.isStreaming) {
 			log.debug(
 				"Guardrail soft warning not delivered (session idle)",
 				dimension,
 			);
+			return;
 		}
+
+		// Only timeout guardrail can interrupt mid-stream, other guardrails will wait until the message is complete
+		if (dimension === "timeout" && midStream) {
+			interrupt(message);
+			return;
+		}
+
+		void session.steer(message);
 	};
 
 	const terminate = (
@@ -115,6 +132,7 @@ export const createGuardrails = ({
 		config,
 		checkBudget,
 		warn,
+		interrupt,
 		terminate,
 		isTerminated: () => terminated,
 	};
@@ -136,26 +154,46 @@ export const createGuardrails = ({
 	};
 
 	const handleEvent = (event: AgentRuntimeEvent): void => {
-		if (event.type === "tool_execution_start") {
-			dispatch((guardrail) =>
-				guardrail.onToolStart?.(event.toolName, event.args),
-			);
-			return;
+		switch (event.type) {
+			case "agent_start":
+			case "agent_end":
+			case "turn_start":
+			case "turn_end":
+				midStream = false;
+				return;
+
+			case "message_update":
+				if (event.role === "assistant") {
+					midStream = true;
+				}
+				return;
+
+			case "tool_execution_start":
+				midStream = false;
+				dispatch((guardrail) =>
+					guardrail.onToolStart?.(event.toolName, event.args),
+				);
+				return;
+
+			case "tool_execution_end":
+				dispatch((guardrail) =>
+					guardrail.onToolEnd?.(event.toolName, event.isError),
+				);
+				return;
+
+			case "message_end": {
+				if (event.role !== "assistant") {
+					return;
+				}
+				midStream = false;
+				const usage = event.usage;
+				if (!usage) {
+					return;
+				}
+				dispatch((guardrail) => guardrail.onUsage?.(usage.input, usage.output));
+				return;
+			}
 		}
-		if (event.type === "tool_execution_end") {
-			dispatch((guardrail) =>
-				guardrail.onToolEnd?.(event.toolName, event.isError),
-			);
-			return;
-		}
-		if (event.type !== "message_end" || event.role !== "assistant") {
-			return;
-		}
-		const usage = event.usage;
-		if (!usage) {
-			return;
-		}
-		dispatch((guardrail) => guardrail.onUsage?.(usage.input, usage.output));
 	};
 
 	const start = (): void => {

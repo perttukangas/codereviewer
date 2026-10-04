@@ -20,12 +20,22 @@ export type AgentUsage = {
 	tools: Record<string, number>;
 };
 
+export type MessageRole =
+	| "bashExecution"
+	| "custom"
+	| "branchSummary"
+	| "compactionSummary"
+	| "user"
+	| "assistant"
+	| "toolResult";
+
 export type AgentRuntimeEvent =
 	| { type: "agent_start" }
 	| { type: "agent_end" }
 	| { type: "turn_start" }
 	| { type: "turn_end" }
-	| { type: "message_end"; role: string; usage?: MessageUsage }
+	| { type: "message_update"; role: MessageRole }
+	| { type: "message_end"; role: MessageRole; usage?: MessageUsage }
 	| { type: "tool_execution_start"; toolName: string; args: unknown }
 	| { type: "tool_execution_end"; toolName: string; isError: boolean };
 
