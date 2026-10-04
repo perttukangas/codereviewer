@@ -55,11 +55,11 @@ export const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 export const corroborationUnits = (
 	agentId: string,
-	scope?: string[],
+	categories?: string[],
 	mergedFrom?: string[],
 ): string[] => {
-	if (scope && scope.length > 0) {
-		return scope;
+	if (categories && categories.length > 0) {
+		return categories;
 	}
 
 	return mergedFrom && mergedFrom.length > 0 ? mergedFrom : [agentId];
@@ -75,14 +75,16 @@ export const baseScore = (
 	severity: ReviewSeverity,
 	confidence: ReviewConfidence,
 	agent: string,
-	scope?: string[],
+	categories?: string[],
 ): number =>
 	round2(
 		severityWeights[severity] *
 			confidenceWeights[confidence] *
-			(scope && scope.length > 0
+			(categories && categories.length > 0
 				? Math.max(
-						...scope.map((item) => agentWeights[item] ?? DEFAULT_AGENT_WEIGHT),
+						...categories.map(
+							(item) => agentWeights[item] ?? DEFAULT_AGENT_WEIGHT,
+						),
 					)
 				: (agentWeights[agent] ?? DEFAULT_AGENT_WEIGHT)),
 	);
@@ -91,7 +93,11 @@ export const scoreFinding = (
 	finding: ReviewFinding,
 	agentId: string,
 ): number => {
-	const units = corroborationUnits(agentId, finding.scope, finding.mergedFrom);
+	const units = corroborationUnits(
+		agentId,
+		finding.categories,
+		finding.mergedFrom,
+	);
 
 	return round2(
 		severityWeights[finding.severity] *

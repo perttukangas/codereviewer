@@ -19,6 +19,7 @@ export type AgentToolDefinition<TParams extends TSchema = TSchema> = {
 	promptSnippet?: string;
 	promptGuidelines?: string[];
 	parameters: TParams;
+	prepareArguments?: (args: unknown) => unknown;
 	executionMode?: ToolExecutionMode;
 	execute: (toolCallId: string, params: Static<TParams>) => Promise<ToolResult>;
 };

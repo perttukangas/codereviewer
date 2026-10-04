@@ -1,8 +1,8 @@
 import { Type } from "typebox";
-import { reviewScopeValues } from "../../agents/review-agents.js";
+import { reviewCategoryValues } from "../../agents/review-agents.js";
 import { confidenceValues, severityValues } from "../../shared/scoring.js";
 
-export { reviewScopeValues } from "../../agents/review-agents.js";
+export { reviewCategoryValues } from "../../agents/review-agents.js";
 export {
 	confidenceRank,
 	confidenceValues,
@@ -34,20 +34,23 @@ export const reviewFindingGuidelines = [
 	codeChangeGuideline,
 ];
 
-export const scopeDescription =
-	"Every review scope the finding belongs to. Use more than one scope when the finding spans several scopes.";
+export const categoriesDescription =
+	"Every review category the finding belongs to. Use more than one category when the finding spans several.";
 
-export const scopeParam = Type.Optional(
-	Type.Array(Type.Enum(reviewScopeValues), {
+export const categoriesParam = Type.Optional(
+	Type.Array(Type.Enum(reviewCategoryValues), {
 		minItems: 1,
-		description: scopeDescription,
+		description: categoriesDescription,
 	}),
 );
 
-export const requiredScopeParam = Type.Array(Type.Enum(reviewScopeValues), {
-	minItems: 1,
-	description: scopeDescription,
-});
+export const requiredCategoriesParam = Type.Array(
+	Type.Enum(reviewCategoryValues),
+	{
+		minItems: 1,
+		description: categoriesDescription,
+	},
+);
 
 export const reviewFindingSchema = Type.Object({
 	title: Type.String({

@@ -17,8 +17,8 @@ export const canonicalFinding = (finding: ReviewFinding): ReviewFinding => {
 		rationale: finding.rationale,
 	};
 
-	if (finding.scope !== undefined) {
-		canonical.scope = finding.scope;
+	if (finding.categories !== undefined) {
+		canonical.categories = finding.categories;
 	}
 	if (finding.codeChangeFilePath !== undefined) {
 		canonical.codeChangeFilePath = finding.codeChangeFilePath;
@@ -117,8 +117,8 @@ const summarizeFinding = (finding: ReviewFinding): string => {
 		parts.push(`score ${finding.score}`);
 	}
 
-	if (finding.scope !== undefined && finding.scope.length > 0) {
-		parts.push(`scope ${finding.scope.join(", ")}`);
+	if (finding.categories !== undefined && finding.categories.length > 0) {
+		parts.push(`categories ${finding.categories.join(", ")}`);
 	}
 
 	if (

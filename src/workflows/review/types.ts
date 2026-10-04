@@ -5,7 +5,7 @@ import type { WorkflowContext } from "../types.js";
 import type { reviewAgents } from "./agents/review-agents.js";
 import type { ReviewConfidence, ReviewSeverity } from "./shared/scoring.js";
 
-export type ReviewScope = (typeof reviewAgents)[number]["id"];
+export type ReviewCategory = (typeof reviewAgents)[number]["id"];
 
 export type ReviewFinding = {
 	id: string;
@@ -15,7 +15,7 @@ export type ReviewFinding = {
 	problem: string;
 	suggestedChange: string;
 	relatedFiles: string[];
-	scope?: ReviewScope[];
+	categories?: ReviewCategory[];
 	codeChangeFilePath?: string;
 	codeChangeOldText?: string;
 	codeChangeNewText?: string;

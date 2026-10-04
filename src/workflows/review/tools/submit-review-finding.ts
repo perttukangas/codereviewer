@@ -1,17 +1,18 @@
 import { type Static, type TSchema, Type } from "typebox";
 import { defineTool, toolResult } from "../../../engine/tools.js";
 import type { Agent } from "../../../engine/types.js";
-import type { ReviewFinding, ReviewScope } from "../types.js";
+import type { ReviewCategory, ReviewFinding } from "../types.js";
 import {
 	nextId,
-	requiredScopeParam,
+	prepareFindingArguments,
+	requiredCategoriesParam,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	validateFinding,
 } from "./review-finding/index.js";
 
 type SubmitFindingParams = Static<typeof reviewFindingSchema> & {
-	scope?: ReviewScope[];
+	categories?: ReviewCategory[];
 };
 
 const submitGuidelines = [
@@ -24,7 +25,7 @@ const buildSubmitTool = (
 	findings: ReviewFinding[],
 	parameters: TSchema,
 	guidelines: string[],
-	withScope: boolean,
+	withCategories: boolean,
 ) => {
 	return defineTool({
 		name: "submit_review_finding",
@@ -33,20 +34,25 @@ const buildSubmitTool = (
 		promptSnippet: "Submit structured review findings",
 		promptGuidelines: guidelines,
 		parameters,
+		prepareArguments: prepareFindingArguments,
 		executionMode: "sequential",
 		async execute(_toolCallId, params) {
-			const { scope, ...findingParams } = params as SubmitFindingParams;
+			const { categories, ...findingParams } = params as SubmitFindingParams;
 			const finding: ReviewFinding = {
 				id: nextId(findings, reviewer.id),
 				...(await validateFinding(findingParams, repoDir, findings)),
-				...(withScope ? { scope: scope as ReviewScope[] } : {}),
+				...(withCategories
+					? { categories: categories as ReviewCategory[] }
+					: {}),
 			};
 			findings.push(finding);
 
-			const scopeText = withScope ? `, scope=${finding.scope?.join(", ")}` : "";
+			const categoriesText = withCategories
+				? `, categories=${finding.categories?.join(", ")}`
+				: "";
 
 			return toolResult(
-				`Review finding submitted. id=${finding.id}, title="${finding.title}", severity=${finding.severity}${scopeText}.`,
+				`Review finding submitted. id=${finding.id}, title="${finding.title}", severity=${finding.severity}${categoriesText}.`,
 				finding,
 			);
 		},
@@ -77,7 +83,7 @@ export const createGeneralistReviewFindingTool = (
 		repoDir,
 		findings,
 		Type.Object({
-			scope: requiredScopeParam,
+			categories: requiredCategoriesParam,
 			...reviewFindingSchema.properties,
 		}),
 		[...submitGuidelines, ...reviewFindingGuidelines],

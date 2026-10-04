@@ -173,8 +173,8 @@ const evaluateMode = (
 		const mainTargetDetected =
 			mode === "single"
 				? resolved.some((item) =>
-						(item.finding.scope ?? []).some(
-							(scope) => scope === purpose.mainAgent,
+						(item.finding.categories ?? []).some(
+							(category) => category === purpose.mainAgent,
 						),
 					)
 				: detectingAgents.includes(purpose.mainAgent);
@@ -183,7 +183,7 @@ const evaluateMode = (
 		const primaryUnits = primaryEntry
 			? corroborationUnits(
 					primaryEntry.agentId,
-					primaryEntry.finding.scope,
+					primaryEntry.finding.categories,
 					primaryEntry.finding.mergedFrom,
 				)
 			: [];
@@ -213,7 +213,7 @@ const evaluateMode = (
 									primary.severity,
 									primary.confidence,
 									purpose.mainAgent,
-									primary.scope,
+									primary.categories,
 								),
 						),
 					)

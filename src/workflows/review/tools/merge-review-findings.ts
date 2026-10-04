@@ -8,6 +8,7 @@ import {
 	confidenceRank,
 	mergeCodeChangeGuideline,
 	nextId,
+	prepareFindingArguments,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	severityRank,
@@ -88,6 +89,7 @@ export const createMergeReviewFindingsTool = (
 			),
 			...Type.Omit(reviewFindingSchema, ["relatedFiles"]).properties,
 		}),
+		prepareArguments: prepareFindingArguments,
 		executionMode: "sequential",
 		async execute(_toolCallId, params) {
 			const { findingIds, ...mergedFields } = params;
@@ -123,8 +125,10 @@ export const createMergeReviewFindingsTool = (
 				),
 			];
 
-			const scope = [
-				...new Set(sources.flatMap((source) => source.finding.scope ?? [])),
+			const categories = [
+				...new Set(
+					sources.flatMap((source) => source.finding.categories ?? []),
+				),
 			];
 
 			const severities = sources.map((source) =>
@@ -189,7 +193,7 @@ export const createMergeReviewFindingsTool = (
 					undefined,
 					sources.map((source) => source.finding),
 				)),
-				...(scope.length > 0 ? { scope } : {}),
+				...(categories.length > 0 ? { categories } : {}),
 				mergedFrom,
 				mergedFindingIds,
 			};

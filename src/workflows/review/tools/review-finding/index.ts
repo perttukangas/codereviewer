@@ -1,15 +1,16 @@
+export { prepareFindingArguments } from "./prepare-arguments.js";
 export {
+	categoriesDescription,
+	categoriesParam,
 	codeChangeGuideline,
 	confidenceRank,
 	confidenceValues,
 	mergeCodeChangeGuideline,
 	nextId,
-	requiredScopeParam,
+	requiredCategoriesParam,
+	reviewCategoryValues,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
-	reviewScopeValues,
-	scopeDescription,
-	scopeParam,
 	severityRank,
 	severityValues,
 } from "./schema.js";

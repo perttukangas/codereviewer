@@ -1,21 +1,22 @@
 import { type Static, type TSchema, Type } from "typebox";
 import { defineTool, toolResult } from "../../../engine/tools.js";
 import type {
+	ReviewCategory,
 	ReviewCodeChangeFields,
 	ReviewFinding,
-	ReviewScope,
 } from "../types.js";
 import {
+	categoriesParam,
+	prepareFindingArguments,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
-	scopeParam,
 	validateFinding,
 } from "./review-finding/index.js";
 
 type EditFindingParams = Partial<Static<typeof reviewFindingSchema>> & {
 	id: string;
 	invalidReason?: string;
-	scope?: ReviewScope[];
+	categories?: ReviewCategory[];
 };
 
 const resolveCodeChange = (
@@ -82,10 +83,10 @@ const buildEditTool = (
 	findings: ReviewFinding[],
 	parameters: TSchema,
 	guidelines: string[],
-	resolveScope: (
+	resolveCategories: (
 		params: EditFindingParams,
 		base: ReviewFinding,
-	) => ReviewScope[] | undefined,
+	) => ReviewCategory[] | undefined,
 ) => {
 	return defineTool({
 		name: "edit_review_finding",
@@ -94,9 +95,10 @@ const buildEditTool = (
 		promptSnippet: "Edit an existing review finding by id",
 		promptGuidelines: guidelines,
 		parameters,
+		prepareArguments: prepareFindingArguments,
 		executionMode: "sequential",
 		async execute(_toolCallId, params) {
-			const { id, invalidReason, scope, ...changes } =
+			const { id, invalidReason, categories, ...changes } =
 				params as EditFindingParams;
 			const index = findings.findIndex((finding) => finding.id === id);
 			if (index === -1) {
@@ -105,7 +107,7 @@ const buildEditTool = (
 
 			const existing = findings[index];
 			const hasOtherChanges =
-				scope !== undefined ||
+				categories !== undefined ||
 				Object.values(changes).some((value) => value !== undefined);
 			const markingInvalid =
 				invalidReason !== undefined && invalidReason.trim() !== "";
@@ -162,7 +164,7 @@ const buildEditTool = (
 				suggestedChange: changes.suggestedChange ?? base.suggestedChange,
 				relatedFiles: changes.relatedFiles ?? base.relatedFiles,
 				rationale: changes.rationale ?? base.rationale,
-				scope: resolveScope(params as EditFindingParams, base),
+				categories: resolveCategories(params as EditFindingParams, base),
 				...codeChange,
 			};
 
@@ -193,7 +195,7 @@ export const createEditReviewFindingTool = (
 			...Type.Partial(reviewFindingSchema).properties,
 		}),
 		editGuidelines,
-		(_params, base) => base.scope,
+		(_params, base) => base.categories,
 	);
 };
 
@@ -207,10 +209,10 @@ export const createGeneralistEditReviewFindingTool = (
 		Type.Object({
 			id: idParam,
 			invalidReason: invalidReasonParam,
-			scope: scopeParam,
+			categories: categoriesParam,
 			...Type.Partial(reviewFindingSchema).properties,
 		}),
 		[...editGuidelines],
-		(params, base) => params.scope ?? base.scope,
+		(params, base) => params.categories ?? base.categories,
 	);
 };
