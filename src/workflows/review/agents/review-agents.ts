@@ -13,6 +13,4 @@ export const reviewAgents = [
 	SecurityAgent,
 ] as const satisfies readonly Agent[];
 
-export const reviewScopeValues: readonly string[] = reviewAgents.map(
-	(agent) => agent.id,
-);
+export const reviewScopeValues = reviewAgents.map((agent) => agent.id);

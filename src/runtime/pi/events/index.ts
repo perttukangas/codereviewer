@@ -83,3 +83,13 @@ export const logAgentDiagnostics = (
 ): void => {
 	log.debug("Agent diagnostics", diagnostics);
 };
+
+export const logAgentToolSchemas = (
+	log: ScopedLogger,
+	tools: { name: string; parameters: unknown }[],
+): void => {
+	log.debug(
+		"Agent tool schemas",
+		tools.map((tool) => ({ name: tool.name, parameters: tool.parameters })),
+	);
+};

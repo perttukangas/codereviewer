@@ -1,0 +1,499 @@
+diff --git a/services/client/src/pages/_components/Bookmarks/index.tsx b/services/client/src/pages/_components/Bookmarks/index.tsx
+new file mode 100644
+index 0000000..181313c
+--- /dev/null
++++ b/services/client/src/pages/_components/Bookmarks/index.tsx
+@@ -0,0 +1,30 @@
++import { useMemo } from 'react';
++
++import InfiniteScrollWindow from '@cc/components/InfiniteScrollWindow';
++import { t } from '@cc/lib/trpc';
++
++import PostCard from '../Post/PostCard';
++
++export default function Bookmarks() {
++  const infiniteBookmarks = t.post.bookmarks.useInfiniteQuery(
++    {},
++    {
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++  const { data } = infiniteBookmarks;
++  const allRows = useMemo(
++    () => (data ? data.pages.flatMap((d) => d.posts) : []),
++    [data]
++  );
++
++  return (
++    <InfiniteScrollWindow
++      className="infinite-scroll-bookmarks"
++      allRows={allRows}
++      renderRow={(row) => <PostCard row={row} />}
++      estimateSize={200}
++      {...infiniteBookmarks}
++    />
++  );
++}
+diff --git a/services/client/src/pages/_components/Footer/index.tsx b/services/client/src/pages/_components/Footer/index.tsx
+index d39f12a..d86f098 100644
+--- a/services/client/src/pages/_components/Footer/index.tsx
++++ b/services/client/src/pages/_components/Footer/index.tsx
+@@ -1,6 +1,6 @@
+ import { useLocation } from '@tanstack/react-router';
+ import { Link } from '@tanstack/react-router';
+-import { CirclePlus, CirclePower, Home, User } from 'lucide-react';
++import { Bookmark, CirclePlus, CirclePower, Home, User } from 'lucide-react';
+ import { lazy } from 'react';
+ 
+ import type { UnparsedSessionSchema } from '@shared/zod/user';
+@@ -68,6 +68,14 @@ const home = () => (
+   </Link>
+ );
+ 
++const bookmarks = () => (
++  <Link to={'/bookmarks'}>
++    <IconButton aria-label={'bookmarks'}>
++      <Bookmark />
++    </IconButton>
++  </Link>
++);
++
+ const homeLayout = (user: UnparsedSessionSchema | undefined) => {
+   if (user) {
+     return (
+@@ -77,6 +85,7 @@ const homeLayout = (user: UnparsedSessionSchema | undefined) => {
+           {logout()}
+         </div>
+         {createPost()}
++        {bookmarks()}
+         <ThemeButton />
+       </>
+     );
+@@ -94,6 +103,7 @@ const profileLayout = () => {
+   return (
+     <>
+       {home()}
++      {bookmarks()}
+       {logout()}
+       <ThemeButton />
+     </>
+diff --git a/services/client/src/pages/_components/Post/Bookmark.tsx b/services/client/src/pages/_components/Post/Bookmark.tsx
+new file mode 100644
+index 0000000..e00ef11
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/Bookmark.tsx
+@@ -0,0 +1,58 @@
++import { Bookmark as BookmarkIcon } from 'lucide-react';
++import { useRef, useState } from 'react';
++
++import { Button } from '@cc/components/Button';
++import { useSession } from '@cc/hooks/use-session';
++import { type RouterOutputs, t } from '@cc/lib/trpc';
++
++type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
++
++interface BookmarkProps {
++  row: InfinitePost;
++}
++
++export default function Bookmark({ row }: BookmarkProps) {
++  const tUtils = t.useUtils();
++  const { user } = useSession();
++  const [bookmarked, setBookmarked] = useState(row.bookmarked);
++  const [bookmarkId, setBookmarkId] = useState(row.bookmarkId);
++  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
++
++  const bookmarkMutation = t.post.bookmark.useMutation({
++    onSuccess: (data) => {
++      setBookmarkId(data.id);
++    },
++  });
++
++  const unbookmarkMutation = t.post.unbookmark.useMutation();
++
++  const toggle = () => {
++    const next = !bookmarked;
++    setBookmarked(next);
++
++    // Debounce the request so rapid clicks only send the final state.
++    timerRef.current = setTimeout(() => {
++      if (next) {
++        bookmarkMutation.mutate({ id: row.id });
++      } else if (bookmarkId) {
++        unbookmarkMutation.mutate({ bookmarkId });
++      }
++      void tUtils.post.infinite.invalidate({});
++    }, 300);
++  };
++
++  return (
++    <>
++      <Button
++        variant="ghost"
++        size="icon"
++        aria-label="bookmark-post"
++        onClick={toggle}
++        disabled={!user}
++      >
++        <BookmarkIcon className={bookmarked ? 'fill-primary' : ''} />
++      </Button>
++      <p>{row.bookmarks}</p>
++    </>
++  );
++}
+diff --git a/services/client/src/pages/_components/Post/PostCard.tsx b/services/client/src/pages/_components/Post/PostCard.tsx
+index 9e90ff9..1c82169 100644
+--- a/services/client/src/pages/_components/Post/PostCard.tsx
++++ b/services/client/src/pages/_components/Post/PostCard.tsx
+@@ -18,6 +18,7 @@ const CommentList = lazyPrefetch(() => import('../Comment/List'));
+ const Edit = lazyPrefetch(() => import('./Edit'));
+ const Remove = lazyPrefetch(() => import('./Remove'));
+ 
++const Bookmark = lazy(() => import('./Bookmark'));
+ const Like = lazy(() => import('./Like'));
+ 
+ type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
+@@ -59,6 +60,7 @@ export default function PostCard({ row }: PostCardProps) {
+       </CardContent>
+       <CardFooter className="flex-row items-center justify-start gap-1">
+         <Like row={row} />
++        <Bookmark row={row} />
+         <LazyButton
+           button={({ setOpen }) => (
+             <>
+diff --git a/services/client/src/pages/bookmarks.tsx b/services/client/src/pages/bookmarks.tsx
+new file mode 100644
+index 0000000..9dd0678
+--- /dev/null
++++ b/services/client/src/pages/bookmarks.tsx
+@@ -0,0 +1,5 @@
++import BookmarksComponent from './_components/Bookmarks';
++
++export default function Bookmarks() {
++  return <BookmarksComponent />;
++}
+diff --git a/services/client/src/routes.gen.tsx b/services/client/src/routes.gen.tsx
+index 5be0d0b..3067013 100644
+--- a/services/client/src/routes.gen.tsx
++++ b/services/client/src/routes.gen.tsx
+@@ -13,9 +13,12 @@ const index = createRoute({ getParentRoute: () => root, path: '/' }).lazy(() =>
+ const profile = createRoute({ getParentRoute: () => root, path: 'profile' }).lazy(() =>
+            import('./pages/profile').then((m) => createLazyRoute('/profile')({ component: m.default }))
+          )
++const bookmarks = createRoute({ getParentRoute: () => root, path: 'bookmarks' }).lazy(() =>
++           import('./pages/bookmarks').then((m) => createLazyRoute('/bookmarks')({ component: m.default }))
++         )
+ 
+ const config = root.addChildren([
+-  index,profile,
++  index,profile,bookmarks,
+   _404,
+ ])
+ 
+diff --git a/services/server/prisma/migrations/20250110120000_add_bookmarks/migration.sql b/services/server/prisma/migrations/20250110120000_add_bookmarks/migration.sql
+new file mode 100644
+index 0000000..d480e60
+--- /dev/null
++++ b/services/server/prisma/migrations/20250110120000_add_bookmarks/migration.sql
+@@ -0,0 +1,17 @@
++-- CreateTable
++CREATE TABLE "Bookmark" (
++    "id" INT8 NOT NULL DEFAULT unique_rowid(),
++    "postId" INT8 NOT NULL,
++    "userId" INT8 NOT NULL,
++
++    CONSTRAINT "Bookmark_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Bookmark_postId_userId_key" ON "Bookmark"("postId", "userId");
++
++-- AddForeignKey
++ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..969b189 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -16,16 +16,28 @@ model User {
+   comments     Comment[]
+   postLikes    PostLikes[]
+   commentLikes CommentLikes[]
++  bookmarks    Bookmark[]
+ }
+ 
+ model Post {
+-  id       BigInt      @id @default(autoincrement())
+-  title    String
+-  content  String
+-  userId   BigInt
+-  user     User        @relation(fields: [userId], references: [id])
+-  comments Comment[]
+-  likes    PostLikes[]
++  id        BigInt      @id @default(autoincrement())
++  title     String
++  content   String
++  userId    BigInt
++  user      User        @relation(fields: [userId], references: [id])
++  comments  Comment[]
++  likes     PostLikes[]
++  bookmarks Bookmark[]
++}
++
++model Bookmark {
++  id     BigInt @id @default(autoincrement())
++  postId BigInt
++  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
++  userId BigInt
++  user   User   @relation(fields: [userId], references: [id])
++
++  @@unique([postId, userId])
+ }
+ 
+ model PostLikes {
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..3a86125 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -1,16 +1,26 @@
+ import {
++  BookmarksInput,
+   EditInput,
+   InfiniteCreatorInput,
+   InfiniteInput,
++  ProtectedBookmarkInput,
+   ProtectedCreateInput,
+   ProtectedLikeUnlikeInput,
+   ProtectedRemoveManyInput,
+   RemoveInput,
++  UnbookmarkInput,
+ } from '@shared/zod/post.js';
+ 
+ import { prisma } from '@sc/lib/prisma.js';
+ 
+ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
++  const ubms = userId
++    ? await prisma.bookmark.findMany({
++        where: { userId },
++        select: { id: true, postId: true },
++      })
++    : [];
++
+   const posts = await prisma.post.findMany({
+     take: limit + 1,
+     cursor: cursor ? { id: cursor } : undefined,
+@@ -20,7 +30,7 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+       title: true,
+       content: true,
+       _count: {
+-        select: { likes: true, comments: true },
++        select: { likes: true, comments: true, bookmarks: true },
+       },
+       userId: true,
+       likes: userId
+@@ -44,8 +54,11 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+     content: post.content,
+     likes: post._count.likes,
+     comments: post._count.comments,
++    bookmarks: post._count.bookmarks,
+     creator: post.userId === userId,
+     liked: post.likes?.length > 0,
++    bookmarked: ubms.some((b) => b.postId === post.id),
++    bookmarkId: ubms.find((b) => b.postId === post.id)?.id ?? null,
+   }));
+ };
+ 
+@@ -163,3 +176,78 @@ export const isCreator = async ({
+ 
+   return !!post;
+ };
++
++export const hasBm = async ({
++  id,
++  userId,
++}: {
++  id: bigint;
++  userId: bigint;
++}) => {
++  const bm = await prisma.bookmark.findFirst({
++    where: {
++      postId: id,
++      userId,
++    },
++  });
++
++  return !!bm;
++};
++
++export const bm = async ({ id, userId }: ProtectedBookmarkInput) => {
++  return await prisma.bookmark.create({
++    data: {
++      postId: id,
++      userId,
++    },
++  });
++};
++
++export const unbm = async ({ bookmarkId }: UnbookmarkInput) => {
++  return await prisma.bookmark.delete({ where: { id: bookmarkId } });
++};
++
++export const getBm = async ({ cursor, userId }: BookmarksInput) => {
++  const posts = await prisma.post.findMany({
++    take: 21,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: { id: 'desc' },
++    where: {
++      bookmarks: {
++        some: { userId },
++      },
++    },
++    select: {
++      id: true,
++      title: true,
++      content: true,
++      _count: {
++        select: { likes: true, comments: true, bookmarks: true },
++      },
++      userId: true,
++      likes: {
++        select: { userId: true },
++        where: { userId },
++        take: 1,
++      },
++      bookmarks: {
++        select: { id: true },
++        where: { userId },
++        take: 1,
++      },
++    },
++  });
++
++  return posts.map((post: (typeof posts)[number]) => ({
++    id: post.id,
++    title: post.title,
++    content: post.content,
++    likes: post._count.likes,
++    comments: post._count.comments,
++    bookmarks: post._count.bookmarks,
++    creator: post.userId === userId,
++    liked: post.likes.length > 0,
++    bookmarked: post.bookmarks.length > 0,
++    bookmarkId: post.bookmarks[0]?.id ?? null,
++  }));
++};
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..c528060 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -1,12 +1,15 @@
+ import { TRPCError } from '@trpc/server';
+ 
+ import {
++  bookmarkInput,
++  bookmarksInput,
+   createInput,
+   editInput,
+   infiniteInput,
+   likeUnlikeInput,
+   removeInput,
+   removeManyInput,
++  unbookmarkInput,
+ } from '@shared/zod/post.js';
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+@@ -19,15 +22,19 @@ import {
+ 
+ import { commentRouter } from './comment/index.js';
+ import {
++  bm,
+   create,
+   edit,
++  getBm,
+   getInfinite,
+   getInfiniteCreator,
++  hasBm,
+   hasLiked,
+   isCreator,
+   like,
+   remove,
+   removeMany,
++  unbm,
+   unlike,
+ } from './database.js';
+ 
+@@ -124,6 +131,50 @@ export const postRouter = router({
+     await unlike({ id, userId });
+     opts.ctx.res.status(StatusCode.OK);
+   }),
++  bookmark: protectedProcedure
++    .input(bookmarkInput)
++    .mutation(async (opts) => {
++      const { id } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const bookmarked = await hasBm({ id, userId });
++      if (bookmarked) {
++        throw new TRPCError({
++          code: 'CONFLICT',
++          message: 'You have already bookmarked this post',
++        });
++      }
++
++      await bm({ id, userId });
++      opts.ctx.res.status(StatusCode.CREATED);
++    }),
++  unbookmark: protectedProcedure
++    .input(unbookmarkInput)
++    .mutation(async (opts) => {
++      const { bookmarkId } = opts.input;
++
++      await unbm({ bookmarkId });
++      opts.ctx.res.status(StatusCode.OK);
++    }),
++  bookmarks: protectedProcedure
++    .input(bookmarksInput)
++    .query(async (opts) => {
++      const { cursor } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const posts = await getBm({ cursor, userId });
++
++      let nextCursor = undefined;
++      if (posts.length > 20) {
++        const nextItem = posts.pop();
++        nextCursor = nextItem?.id;
++      }
++
++      return {
++        posts,
++        nextCursor,
++      };
++    }),
+   create: protectedProcedure.input(createInput).mutation(async (opts) => {
+     const { title, content } = opts.input;
+     const userId = opts.ctx.userId;
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..41713f4 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -33,6 +33,17 @@ export const removeManyInput = z.object({ ids: z.array(defaultId) });
+ export type ProtectedRemoveManyInput = z.infer<typeof removeManyInput> &
+   Protected;
+ 
++export const bookmarkInput = z.object({ id: defaultId });
++export type ProtectedBookmarkInput = z.infer<typeof bookmarkInput> & Protected;
++
++export const unbookmarkInput = z.object({ bookmarkId: defaultId });
++export type UnbookmarkInput = z.infer<typeof unbookmarkInput> & Protected;
++
++export const bookmarksInput = z.object({
++  cursor: defaultId.nullish(),
++});
++export type BookmarksInput = z.infer<typeof bookmarksInput> & Protected;
++
+ export const editInput = z.object({
+   id: defaultId,
+   title: z.string().min(5).max(100),

@@ -19,6 +19,7 @@ import {
 	logAgentDiagnostics,
 	logAgentEvent,
 	logAgentResult,
+	logAgentToolSchemas,
 } from "./events/index.js";
 import { collectAgentUsage } from "./events/usage.js";
 import { toPiTool } from "./tools.js";
@@ -120,6 +121,13 @@ export const createPiRuntime = (): AgentRuntime => ({
 			systemPrompt: session.agent.state.systemPrompt,
 			tools: session.agent.state.tools.map((tool) => tool.name),
 		});
+		logAgentToolSchemas(
+			log,
+			session.getAllTools().map((tool) => ({
+				name: tool.name,
+				parameters: tool.parameters,
+			})),
+		);
 
 		let turnNumber = 0;
 		const toolInputs = new Map<string, unknown>();

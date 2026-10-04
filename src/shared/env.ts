@@ -19,7 +19,7 @@ export const env = cleanEnv(process.env, {
 	}),
 
 	MODEL_PROVIDER: str({
-		choices: ["custom"],
+		choices: ["custom", "openrouter"],
 		default: "custom",
 		desc: "The model provider to use for the agent.",
 	}),
