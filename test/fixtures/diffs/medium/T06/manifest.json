@@ -19,7 +19,7 @@
     "purposes": [
       {
         "id": "T06-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "HIGH",
         "confidence": "STRONG",
         "title": "removeManyByPostOwner drops the post-owner branch from its OR filter, so a post owner cannot remove other users' comments on their own post",
@@ -34,7 +34,7 @@
       },
       {
         "id": "T06-F02",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "Moderation status is a free-form string compared against inline literals in the schema, helper, client, and README instead of a shared enum",
@@ -50,7 +50,7 @@
       },
       {
         "id": "T06-F03",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "getModerationQueue loads every comment for the post and filters by status in JavaScript instead of adding status to the Prisma where clause",
@@ -65,7 +65,7 @@
       },
       {
         "id": "T06-F04",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "moderationQueue reads the queue inside prisma.$transaction but computes the total with the global prisma client, so the count can observe a different snapshot",

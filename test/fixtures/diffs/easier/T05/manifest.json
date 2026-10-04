@@ -15,7 +15,7 @@
     "purposes": [
       {
         "id": "T05-F01",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "The new client job duplicates the server job's checkout, cache, install, and shared-test steps verbatim",
@@ -30,7 +30,7 @@
       },
       {
         "id": "T05-F02",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "Dockerfile copies the whole monorepo before npm ci, so any source change invalidates the dependency layer and forces a full reinstall",
@@ -45,7 +45,7 @@
       },
       {
         "id": "T05-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "docker-compose depends_on uses service_started instead of service_healthy, so the app starts before the database is ready",
@@ -60,7 +60,7 @@
       },
       {
         "id": "T05-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "Dockerfile drops USER node, so the application container runs as root",

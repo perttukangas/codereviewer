@@ -10,7 +10,7 @@
     "purposes": [
       {
         "id": "T15-F01",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "TODO",
         "confidence": "TODO",
         "title": "TODO",
@@ -18,7 +18,7 @@
       },
       {
         "id": "T15-F02",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "TODO",
         "confidence": "TODO",
         "title": "TODO",
@@ -26,7 +26,7 @@
       },
       {
         "id": "T15-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "TODO",
         "confidence": "TODO",
         "title": "TODO",
@@ -34,7 +34,7 @@
       },
       {
         "id": "T15-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "TODO",
         "confidence": "TODO",
         "title": "TODO",

@@ -18,7 +18,7 @@
     "purposes": [
       {
         "id": "T07-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "The trending route re-sorts the query result ascending in JavaScript, undoing the descending likes order from Prisma, so the sidebar shows the least liked posts",
@@ -33,7 +33,7 @@
       },
       {
         "id": "T07-F02",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "getSearch returns creator as a raw user id while the sibling trending endpoint returns creator as a boolean, so the same field name carries two different meanings across the new post lists",
@@ -48,7 +48,7 @@
       },
       {
         "id": "T07-F03",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "The search route runs a separate count query that re-executes the same title contains scan, doubling the work per request",
@@ -63,7 +63,7 @@
       },
       {
         "id": "T07-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "searchInput.limit has no upper bound, so a caller can request an unbounded result set and exhaust the database and response",

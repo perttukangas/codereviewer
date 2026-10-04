@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const ReliabilityAgent = {
-	id: "reliability" as const,
+	id: "RELIABILITY" as const,
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: "You are a reliability review specialist. What happens when the changed code fails or receives unexpected input?",
 	scope: [

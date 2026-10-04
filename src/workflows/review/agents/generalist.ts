@@ -6,7 +6,7 @@ const roleQuestion = (agent: Agent): string =>
 	agent.role.replace(/^You are a .*? specialist\.\s*/, "");
 
 export const GeneralistAgent: Agent = {
-	id: "generalist",
+	id: "GENERALIST",
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: `You are a generalist code review specialist covering every review scope. ${reviewAgents
 		.map(roleQuestion)

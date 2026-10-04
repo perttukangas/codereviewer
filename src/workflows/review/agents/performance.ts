@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const PerformanceAgent = {
-	id: "performance" as const,
+	id: "PERFORMANCE" as const,
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: "You are a performance review specialist. Does the changed code do unnecessary or expensive work?",
 	scope: [

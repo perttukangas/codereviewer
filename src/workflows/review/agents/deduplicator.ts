@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewFindingRubric } from "../shared/prompt.js";
 
 export const DeduplicatorAgent: Agent = {
-	id: "deduplicator",
+	id: "DEDUPLICATOR",
 	tools: ["merge_review_findings"],
 	role: "You are a code review deduplication specialist. Do any findings describe the same underlying issue and need to be merged?",
 	scope: [

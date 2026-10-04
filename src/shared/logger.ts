@@ -101,7 +101,7 @@ class Logger {
 			return;
 		}
 
-		this.writeToFile(join(env.LOG_DIR, "combined.log"), line);
+		this.writeToFile(join(env.LOG_DIR, "COMBINED.log"), line);
 
 		if (context.agentId) {
 			this.writeToFile(

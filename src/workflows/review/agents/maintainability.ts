@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const MaintainabilityAgent = {
-	id: "maintainability" as const,
+	id: "MAINTAINABILITY" as const,
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: "You are a maintainability review specialist. Is the changed code unnecessarily difficult to understand or maintain?",
 	scope: [

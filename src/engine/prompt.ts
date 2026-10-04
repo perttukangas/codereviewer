@@ -11,7 +11,7 @@ export type PromptBlock = {
 export const toTitle = (id: string): string =>
 	id
 		.split("-")
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
 		.join(" ");
 
 export const formatPrompt = (input: {

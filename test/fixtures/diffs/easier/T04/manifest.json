@@ -16,7 +16,7 @@
     "purposes": [
       {
         "id": "T04-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "getTop fetches take: limit but checks posts.length > limit, so nextCursor is never set and pagination never advances",
@@ -31,7 +31,7 @@
       },
       {
         "id": "T04-F02",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "getTop selects the full likes relation and counts with post.likes.length instead of Prisma _count",
@@ -46,7 +46,7 @@
       },
       {
         "id": "T04-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "TopPosts reads data.pages without guarding data undefined, crashing on first render",
@@ -61,7 +61,7 @@
       },
       {
         "id": "T04-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "CRITICAL",
         "confidence": "DEMONSTRATED",
         "title": "getTop selects and returns the creator's email and password hash in the leaderboard response",

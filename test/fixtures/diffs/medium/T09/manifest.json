@@ -17,7 +17,7 @@
     "purposes": [
       {
         "id": "T09-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "CRITICAL",
         "confidence": "DEMONSTRATED",
         "title": "removeUserContent deletes each of the user's posts with where: { id: userId } instead of the post's own id, so it deletes the post whose id equals the user id (another user's post) and leaves the user's own posts in place",
@@ -32,7 +32,7 @@
       },
       {
         "id": "T09-F02",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "removeUserContent loads the user's posts, comments, and likes with findMany and then deletes them one by one in a loop, issuing one delete round-trip per row instead of a single deleteMany",
@@ -47,7 +47,7 @@
       },
       {
         "id": "T09-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "HIGH",
         "confidence": "STRONG",
         "title": "deleteAccount runs removeUserContent and removeUser as separate awaited calls with no transaction, so a failure between them leaves the account partially deleted with orphaned content or a half-removed user",
@@ -62,7 +62,7 @@
       },
       {
         "id": "T09-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "CRITICAL",
         "confidence": "DEMONSTRATED",
         "title": "The session check replaces jwt.verify with jwt.decode to stop throwing on expired tokens, dropping signature verification so a forged or unsigned token is accepted and any user id can be impersonated",

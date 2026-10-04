@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const SecurityAgent = {
-	id: "security" as const,
+	id: "SECURITY" as const,
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: "You are a security review specialist. Can the changed code be abused or bypassed?",
 	scope: [

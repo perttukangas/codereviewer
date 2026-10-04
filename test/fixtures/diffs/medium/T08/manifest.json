@@ -31,7 +31,7 @@
     "purposes": [
       {
         "id": "T08-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "The shared popNextCursor checks rows.length >= limit instead of > limit, so a page that returns exactly limit rows pops a valid row and sets a bogus nextCursor, dropping the last row and paginating incorrectly",
@@ -46,7 +46,7 @@
       },
       {
         "id": "T08-F02",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "updateInfiniteCache types its mutate callback as (draft: any) => void, discarding the InfiniteData and row types so every cache update is no longer type-checked",
@@ -61,7 +61,7 @@
       },
       {
         "id": "T08-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "HIGH",
         "confidence": "STRONG",
         "title": "updateInfiniteCache drops the !page.nextCursor guard, so on the last page compareLessThan(undefined, id) throws and the mutation success path fails",
@@ -76,7 +76,7 @@
       },
       {
         "id": "T08-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "The shared sessionCookieOptions drops httpOnly, so the session token cookie is readable by client-side JavaScript and exposed to XSS",

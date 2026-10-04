@@ -19,7 +19,7 @@
     "purposes": [
       {
         "id": "T03-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "changePassword passes the stored hash and the current password to bcrypt.compare in the wrong order",
@@ -34,7 +34,7 @@
       },
       {
         "id": "T03-F02",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "findById helper is exported but never imported or called",
@@ -49,7 +49,7 @@
       },
       {
         "id": "T03-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "changeEmail calls updateEmail without awaiting it",
@@ -64,7 +64,7 @@
       },
       {
         "id": "T03-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "changePassword hashes the new password with a bcrypt cost factor of 4",

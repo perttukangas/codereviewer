@@ -41,11 +41,11 @@ export const confidenceWeights: Record<ReviewConfidence, number> = {
 };
 
 export const agentWeights: Record<string, number> = {
-	security: 1.5,
-	correctness: 1.4,
-	reliability: 1.2,
-	performance: 1.0,
-	maintainability: 0.8,
+	SECURITY: 1.5,
+	CORRECTNESS: 1.4,
+	RELIABILITY: 1.2,
+	PERFORMANCE: 1.0,
+	MAINTAINABILITY: 0.8,
 };
 
 const DEFAULT_AGENT_WEIGHT = 1.0;

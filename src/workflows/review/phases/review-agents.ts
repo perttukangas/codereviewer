@@ -87,7 +87,7 @@ const reviewAgent = async (
 ): Promise<void> => {
 	const log = createLogger({ agentId: agent.id });
 	const reviewFindingTool =
-		agent.id === "generalist"
+		agent.id === "GENERALIST"
 			? createGeneralistReviewFindingTool(agent, repositoryDir, review.findings)
 			: createReviewFindingTool(agent, repositoryDir, review.findings);
 
@@ -248,7 +248,7 @@ const verifyReview = async (
 	}
 
 	const editFindingTool =
-		reviewer.id === "generalist"
+		reviewer.id === "GENERALIST"
 			? createGeneralistEditReviewFindingTool(repositoryDir, review.findings)
 			: createEditReviewFindingTool(repositoryDir, review.findings);
 

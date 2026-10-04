@@ -17,7 +17,7 @@
     "purposes": [
       {
         "id": "T01-F01",
-        "mainAgent": "correctness",
+        "mainAgent": "CORRECTNESS",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "Search matches exact titles instead of substrings",
@@ -32,7 +32,7 @@
       },
       {
         "id": "T01-F02",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "Duplicated pagination block in search and searchCreator",
@@ -47,7 +47,7 @@
       },
       {
         "id": "T01-F03",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "HIGH",
         "confidence": "DEMONSTRATED",
         "title": "Search query loads all matching posts without a limit",
@@ -62,7 +62,7 @@
       },
       {
         "id": "T01-F04",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "MEDIUM",
         "confidence": "DEMONSTRATED",
         "title": "Seed helper swallows failures with an empty catch",

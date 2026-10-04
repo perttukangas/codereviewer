@@ -3,7 +3,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewFindingRubric } from "../shared/prompt.js";
 
 const baseVerifierAgent: Agent = {
-	id: "verifier",
+	id: "VERIFIER",
 	tools: ["read", "grep", "find", "ls", "edit_review_finding"],
 	role: "You are a code review verification specialist. Are the findings produced by the reviewer valid?",
 	scope: [

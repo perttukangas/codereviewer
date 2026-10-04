@@ -22,7 +22,7 @@
     "purposes": [
       {
         "id": "T10-F01",
-        "mainAgent": "maintainability",
+        "mainAgent": "MAINTAINABILITY",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "The new bookmark helpers are renamed to the cryptic abbreviation bm (getBm, hasBm, bm, unbm) while the tRPC procedures, Zod schemas, and Prisma model keep the full word bookmark, so the same concept is named two ways across layers and the internal names hurt readability",
@@ -38,7 +38,7 @@
       },
       {
         "id": "T10-F02",
-        "mainAgent": "performance",
+        "mainAgent": "PERFORMANCE",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "getInfinite scans the user's bookmark array twice per post (.some then .find), an O(posts x bookmarks) membership test, instead of building a Map or Set once",
@@ -53,7 +53,7 @@
       },
       {
         "id": "T10-F03",
-        "mainAgent": "reliability",
+        "mainAgent": "RELIABILITY",
         "severity": "MEDIUM",
         "confidence": "STRONG",
         "title": "The Bookmark component's debounce setTimeout is never cleared on unmount, so a pending toggle fires after the component unmounts and mutates state on an unmounted component",
@@ -68,7 +68,7 @@
       },
       {
         "id": "T10-F04",
-        "mainAgent": "security",
+        "mainAgent": "SECURITY",
         "severity": "HIGH",
         "confidence": "STRONG",
         "title": "unbookmark deletes a bookmark by the client-supplied bookmarkId with no ownership check, so any authenticated user can delete another user's bookmark (IDOR)",

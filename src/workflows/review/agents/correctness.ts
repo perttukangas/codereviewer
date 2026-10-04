@@ -2,7 +2,7 @@ import type { Agent } from "../../../engine/types.js";
 import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const CorrectnessAgent = {
-	id: "correctness" as const,
+	id: "CORRECTNESS" as const,
 	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
 	role: "You are a correctness review specialist. Does the changed code behave as the application requires?",
 	scope: [
