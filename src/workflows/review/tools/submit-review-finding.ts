@@ -7,7 +7,6 @@ import {
 	requiredScopeParam,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
-	scopeGuideline,
 	validateFinding,
 } from "./review-finding/index.js";
 
@@ -81,6 +80,6 @@ export const createGeneralistReviewFindingTool = (
 			scope: requiredScopeParam,
 			...reviewFindingSchema.properties,
 		}),
-		[...submitGuidelines, scopeGuideline, ...reviewFindingGuidelines],
+		[...submitGuidelines, ...reviewFindingGuidelines],
 		true,
 	);

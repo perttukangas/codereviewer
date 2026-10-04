@@ -8,7 +8,6 @@ import type {
 import {
 	reviewFindingGuidelines,
 	reviewFindingSchema,
-	scopeGuideline,
 	scopeParam,
 	validateFinding,
 } from "./review-finding/index.js";
@@ -62,7 +61,6 @@ const resolveCodeChange = (
 const editGuidelines = [
 	"When using edit_review_finding provide only the fields that need correction. Omitted fields keep their current values.",
 	"To edit code changes, provide codeChangeFilePath, codeChangeOldText, and codeChangeNewText together. To clear it, provide all three as empty strings.",
-	"Mark a finding invalid by providing a non-empty invalidReason. Do not combine invalidReason with field changes.",
 	"A finding already marked invalid cannot be edited. Clear invalidReason with an empty string before editing its fields.",
 	"Use the finding id from the findings under verification. Do not invent identifiers.",
 	...reviewFindingGuidelines,
@@ -212,7 +210,7 @@ export const createGeneralistEditReviewFindingTool = (
 			scope: scopeParam,
 			...Type.Partial(reviewFindingSchema).properties,
 		}),
-		[...editGuidelines, scopeGuideline],
+		[...editGuidelines],
 		(params, base) => params.scope ?? base.scope,
 	);
 };

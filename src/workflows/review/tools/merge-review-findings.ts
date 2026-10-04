@@ -8,7 +8,6 @@ import {
 	confidenceRank,
 	mergeCodeChangeGuideline,
 	nextId,
-	relatedFilesGuideline,
 	reviewFindingGuidelines,
 	reviewFindingSchema,
 	severityRank,
@@ -68,14 +67,11 @@ export const createMergeReviewFindingsTool = (
 		promptSnippet: "Merge duplicate review findings into one",
 		promptGuidelines: [
 			"Use merge_review_findings once for each group of findings that describe the same underlying issue.",
-			"Provide the ids of every finding in the group. At least two distinct ids are required.",
+			"Provide the ids of every finding in the group.",
 			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence.",
-			"Do not provide relatedFiles. The merged finding inherits the union of the source findings' related files.",
 			mergeCodeChangeGuideline,
 			...reviewFindingGuidelines.filter(
-				(guideline) =>
-					guideline !== relatedFilesGuideline &&
-					guideline !== codeChangeGuideline,
+				(guideline) => guideline !== codeChangeGuideline,
 			),
 		],
 		parameters: Type.Object({

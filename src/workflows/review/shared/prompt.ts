@@ -18,8 +18,8 @@ export const reviewFindingRubric = [
 ];
 
 export const reviewAgentConstraints = [
-	"Report only issues caused by the diff. Confirm impact through the diff or read-only investigation.",
-	"Do not report pre-existing issues, unrelated issues, speculative risks, or issues that need assumptions beyond the diff and read-only evidence.",
+	"Report only issues caused by the diff, directly or indirectly. Do not report pre-existing or unrelated issues. Confirm each issue through the diff or read-only investigation.",
+	"Avoid over-speculating. You may rely on well-established language, framework, and library behavior, but not on project-specific assumptions the diff and read-only evidence do not support.",
 	...reviewFindingRubric,
 ];
 
@@ -36,9 +36,9 @@ export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 		title: `${toTitle(agent.id)} Reviewer`,
 		intro: agent.role,
 		sections: [
-			{ heading: "Approach", items: reviewApproach },
 			{ heading: "Scope", items: agent.scope ?? [] },
 			{ heading: "Constraints", items: agent.constraints ?? [] },
+			{ heading: "Approach", items: reviewApproach },
 			{ heading: "Completion", items: [reviewCompletion] },
 		],
 		blocks: [
