@@ -33,13 +33,19 @@ if [[ ! "$run_index" =~ ^[0-9]+$ || "$run_index" -lt 1 ]]; then
 fi
 
 # In single mode the generalist reviewer and its verifier each cover the work of
-# the five specialized review agents, so scale their guardrail budgets and
-# timeout by the number of specialized agents. Values derive from the effective
-# defaults so a .env override is respected.
-single_mode_multiplier=5
+# the specialized review agents, so scale their guardrail budgets and timeout
+single_mode_multiplier=3
 single_input_token_budget=$(( ${DEFAULT_INPUT_TOKEN_BUDGET:-96000} * single_mode_multiplier ))
 single_output_token_budget=$(( ${DEFAULT_OUTPUT_TOKEN_BUDGET:-32000} * single_mode_multiplier ))
 single_timeout_ms=$(( ${DEFAULT_TIMEOUT_MS:-300000} * single_mode_multiplier ))
+
+# Keep the scaled budgets within the model context window. If their sum exceeds
+# the window, scale both down proportionally so input + output <= context window.
+context_window=${DEFAULT_CONTEXT_WINDOW:-262144}
+if (( single_input_token_budget + single_output_token_budget > context_window )); then
+	single_input_token_budget=$(( single_input_token_budget * context_window / (single_input_token_budget + single_output_token_budget) ))
+	single_output_token_budget=$(( context_window - single_input_token_budget ))
+fi
 
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 	echo "Building the CLI"

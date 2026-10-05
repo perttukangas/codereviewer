@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AgentTelemetry } from "../src/engine/types.ts";
+import type { AgentTelemetry, WorkflowError } from "../src/engine/types.ts";
 import type { AgentUsage } from "../src/runtime/types.ts";
 import {
 	baseScore,
@@ -170,6 +170,11 @@ type PurposeResult = {
 	mainTargetDetected: boolean;
 	detectingAgents: string[];
 	corroborationUnits: number;
+	// True when the purpose is matched to more than one distinct finding, which
+	// means the deduplicator failed to merge findings describing the same issue.
+	unmergedDuplicate: boolean;
+	// The distinct reported finding ids the purpose resolved to.
+	matchedFindingIds: string[];
 	expectedSeverity: ReviewSeverity;
 	reportedSeverity?: ReviewSeverity;
 	expectedConfidence: ReviewConfidence;
@@ -190,9 +195,11 @@ type ModeResult = {
 	merges: number;
 	mergedSources: number;
 	findingsBeforeDedup: number;
+	unmergedDuplicates: number;
 	overlappingFindings: number;
 	overlappingPairs: number;
 	missingMatches: boolean;
+	errors: WorkflowError[];
 	telemetry?: {
 		durationMs: number;
 		usage: AgentUsage;
@@ -222,21 +229,22 @@ const evaluateMode = (
 				Boolean(item),
 			);
 
-		const detectingAgents = [
-			...new Set(
-				resolved.flatMap((item) => item.finding.mergedFrom ?? [item.agentId]),
-			),
-		];
-		const mainTargetDetected =
-			mode === "single"
-				? resolved.some((item) =>
-						(item.finding.categories ?? []).some(
-							(category) => category === purpose.mainAgent,
-						),
-					)
-				: detectingAgents.includes(purpose.mainAgent);
-		const primaryEntry = resolved[0];
+		// Pick the single finding that represents the purpose. Prefer one whose
+		// corroboration units include the declared main agent, so a match to several
+		// findings does not inflate the corroboration count. Fall back to the first
+		// resolved finding.
+		const primaryEntry =
+			resolved.find((item) =>
+				corroborationUnits(
+					item.agentId,
+					item.finding.categories,
+					item.finding.mergedFrom,
+				).includes(purpose.mainAgent),
+			) ?? resolved[0];
 		const primary = primaryEntry?.finding;
+		// Corroboration units come from the single primary finding only. A match to
+		// several findings describing the same issue is a deduplicator miss, not
+		// extra corroboration, so it must not raise the merged factor.
 		const primaryUnits = primaryEntry
 			? corroborationUnits(
 					primaryEntry.agentId,
@@ -244,17 +252,24 @@ const evaluateMode = (
 					primaryEntry.finding.mergedFrom,
 				)
 			: [];
-		// Corroboration units are the distinct agents that reported the finding in
-		// multi mode, or the distinct categories the generalist assigned in single
-		// mode. This mirrors the units that drive the scoring merged factor.
-		const corroborationUnitSet = new Set(
-			resolved.flatMap((item) =>
-				corroborationUnits(
-					item.agentId,
-					item.finding.categories,
-					item.finding.mergedFrom,
-				),
+		const detectingAgents = [
+			...new Set(
+				primaryEntry
+					? (primaryEntry.finding.mergedFrom ?? [primaryEntry.agentId])
+					: [],
 			),
+		];
+		const mainTargetDetected =
+			mode === "single"
+				? (primary?.categories ?? []).some(
+						(category) => category === purpose.mainAgent,
+					)
+				: detectingAgents.includes(purpose.mainAgent);
+		// Distinct resolved findings. A match to several source ids that all resolve
+		// to one merged finding collapses to a single id here, so it is not counted
+		// as an unmerged duplicate.
+		const resolvedFindingIds = new Set(
+			resolved.map((item) => item.finding.id),
 		);
 
 		return {
@@ -263,7 +278,9 @@ const evaluateMode = (
 			detected: resolved.length > 0,
 			mainTargetDetected,
 			detectingAgents,
-			corroborationUnits: corroborationUnitSet.size,
+			corroborationUnits: new Set(primaryUnits).size,
+			unmergedDuplicate: resolvedFindingIds.size > 1,
+			matchedFindingIds: [...resolvedFindingIds],
 			expectedSeverity: purpose.severity,
 			reportedSeverity: primary?.severity,
 			expectedConfidence: purpose.confidence,
@@ -286,8 +303,8 @@ const evaluateMode = (
 								baseScore(
 									primary.severity,
 									primary.confidence,
-									purpose.mainAgent,
-									primary.categories,
+									primaryEntry?.agentId ?? purpose.mainAgent,
+									primaryUnits,
 								),
 						),
 					)
@@ -364,9 +381,12 @@ const evaluateMode = (
 		merges,
 		mergedSources,
 		findingsBeforeDedup,
+		unmergedDuplicates: purposes.filter((purpose) => purpose.unmergedDuplicate)
+			.length,
 		overlappingFindings,
 		overlappingPairs,
 		missingMatches: matches === undefined,
+		errors: result.errors,
 		telemetry: result.telemetry
 			? {
 					durationMs: result.telemetry.durationMs,
@@ -483,6 +503,8 @@ type RunMetrics = {
 	overlappingFindings: number;
 	overlappingPairs: number;
 	corroboratedFindings: number;
+	unmergedDuplicates: number;
+	errors: number;
 	severityError: number;
 	confidenceError: number;
 	baseScoreError: number;
@@ -570,6 +592,11 @@ const runMetrics = (tests: TestResult[], mode: Mode): RunMetrics | undefined => 
 			0,
 		),
 		corroboratedFindings: corroborated.length,
+		unmergedDuplicates: modeResults.reduce(
+			(sum, item) => sum + item.unmergedDuplicates,
+			0,
+		),
+		errors: modeResults.reduce((sum, item) => sum + item.errors.length, 0),
 		severityError: average(
 			defined(purposes.map((purpose) => purpose.severityError)),
 		),
@@ -610,37 +637,148 @@ const stats = (values: number[]): Stats | undefined => {
 	};
 };
 
-type MetricKind = "ratio" | "number";
+type MetricKind = "ratio" | "number" | "duration" | "tokens";
+
+// Which findings a metric is computed from. "purpose" means only findings
+// matched to a declared manifest purpose, "findings" means every finding in the
+// report, and "run" means the metric is not finding-scoped at all.
+type MetricScope = "purpose" | "findings" | "run";
 
 type MetricDef = {
 	key: keyof RunMetrics;
 	label: string;
 	kind: MetricKind;
+	scope: MetricScope;
 };
 
 const metricDefs: MetricDef[] = [
-	{ key: "recall", label: "Recall", kind: "ratio" },
-	{ key: "mainTargetRecall", label: "Main-target recall", kind: "ratio" },
-	{ key: "corroboratedFindings", label: "Corroborated findings", kind: "number" },
-	{ key: "actionabilityRate", label: "Actionability rate", kind: "ratio" },
-	{ key: "dedupReductionRate", label: "Dedup reduction rate", kind: "ratio" },
-	{ key: "additionalFindings", label: "Additional findings", kind: "number" },
-	{ key: "invalidFindings", label: "Invalid findings", kind: "number" },
-	{ key: "validFindings", label: "Valid findings", kind: "number" },
-	{ key: "merges", label: "Merges", kind: "number" },
-	{ key: "mergedSources", label: "Merged sources", kind: "number" },
-	{ key: "overlappingFindings", label: "Overlapping findings", kind: "number" },
-	{ key: "overlappingPairs", label: "Overlapping pairs", kind: "number" },
-	{ key: "severityError", label: "Mean severity error", kind: "number" },
-	{ key: "confidenceError", label: "Mean confidence error", kind: "number" },
-	{ key: "baseScoreError", label: "Mean base score error", kind: "number" },
-	{ key: "scoreError", label: "Mean score error", kind: "number" },
-	{ key: "durationMs", label: "Mean duration (ms)", kind: "number" },
-	{ key: "totalTokens", label: "Mean total tokens", kind: "number" },
+	{ key: "recall", label: "Recall", kind: "ratio", scope: "purpose" },
+	{
+		key: "mainTargetRecall",
+		label: "Main-target recall",
+		kind: "ratio",
+		scope: "purpose",
+	},
+	{
+		key: "corroboratedFindings",
+		label: "Corroborated findings",
+		kind: "number",
+		scope: "purpose",
+	},
+	{
+		key: "unmergedDuplicates",
+		label: "Unmerged duplicates",
+		kind: "number",
+		scope: "purpose",
+	},
+	{ key: "errors", label: "Mean errors", kind: "number", scope: "run" },
+	{
+		key: "actionabilityRate",
+		label: "Actionability rate",
+		kind: "ratio",
+		scope: "findings",
+	},
+	{
+		key: "dedupReductionRate",
+		label: "Dedup reduction rate",
+		kind: "ratio",
+		scope: "findings",
+	},
+	{
+		key: "additionalFindings",
+		label: "Additional findings",
+		kind: "number",
+		scope: "findings",
+	},
+	{
+		key: "invalidFindings",
+		label: "Invalid findings",
+		kind: "number",
+		scope: "findings",
+	},
+	{
+		key: "validFindings",
+		label: "Valid findings",
+		kind: "number",
+		scope: "findings",
+	},
+	{ key: "merges", label: "Merges", kind: "number", scope: "findings" },
+	{
+		key: "mergedSources",
+		label: "Merged sources",
+		kind: "number",
+		scope: "findings",
+	},
+	{
+		key: "overlappingFindings",
+		label: "Overlapping findings",
+		kind: "number",
+		scope: "findings",
+	},
+	{
+		key: "overlappingPairs",
+		label: "Overlapping pairs",
+		kind: "number",
+		scope: "findings",
+	},
+	{
+		key: "severityError",
+		label: "Mean severity error",
+		kind: "number",
+		scope: "purpose",
+	},
+	{
+		key: "confidenceError",
+		label: "Mean confidence error",
+		kind: "number",
+		scope: "purpose",
+	},
+	{
+		key: "baseScoreError",
+		label: "Mean base score error",
+		kind: "number",
+		scope: "purpose",
+	},
+	{ key: "scoreError", label: "Mean score error", kind: "number", scope: "purpose" },
+	{
+		key: "durationMs",
+		label: "Mean duration (min)",
+		kind: "duration",
+		scope: "run",
+	},
+	{
+		key: "totalTokens",
+		label: "Mean total tokens (K)",
+		kind: "tokens",
+		scope: "run",
+	},
 ];
 
-const formatValue = (value: number, kind: MetricKind): string =>
-	kind === "ratio" ? `${(value * 100).toFixed(1)}%` : value.toFixed(2);
+// Purpose-scoped metrics are marked so a reader can tell at a glance which
+// columns are computed only from findings matched to a declared purpose.
+const PURPOSE_MARKER = "*";
+
+const metricLabel = (def: MetricDef): string =>
+	def.scope === "purpose" ? `${def.label} ${PURPOSE_MARKER}` : def.label;
+
+const formatValue = (value: number, kind: MetricKind): string => {
+	if (kind === "ratio") {
+		return `${(value * 100).toFixed(1)}%`;
+	}
+	if (kind === "duration") {
+		return (value / 60000).toFixed(2);
+	}
+	if (kind === "tokens") {
+		return (value / 1000).toFixed(2);
+	}
+	return value.toFixed(2);
+};
+
+const formatDuration = (value: number | undefined): string =>
+	value === undefined ? "n/a" : (value / 60000).toFixed(2);
+
+const formatTokens = (value: number | undefined): string =>
+	value === undefined ? "n/a" : (value / 1000).toFixed(2);
 
 const formatStats = (value: Stats | undefined, kind: MetricKind): string =>
 	value === undefined
@@ -793,9 +931,13 @@ const modelModeEfficiency = (
 		const modeResults = run.tests.flatMap((test) =>
 			test.modes.filter((item) => item.mode === mode),
 		);
-		const detected = modeResults
-			.flatMap((item) => item.purposes)
-			.filter((purpose) => purpose.detected).length;
+		// Efficiency is measured against every valid finding in the report, not only
+		// findings matched to a declared purpose, so a model is not credited for
+		// spending less by reporting fewer findings. Invalid findings are excluded.
+		const findings = modeResults.reduce(
+			(sum, item) => sum + item.validFindings,
+			0,
+		);
 		const tokens = defined(
 			modeResults.map((item) => item.telemetry?.usage.totalTokens),
 		);
@@ -806,9 +948,9 @@ const modelModeEfficiency = (
 		const totalDuration = durations.reduce((sum, value) => sum + value, 0);
 
 		return {
-			tokensPerFinding: detected === 0 ? undefined : totalTokens / detected,
+			tokensPerFinding: findings === 0 ? undefined : totalTokens / findings,
 			durationPerFinding:
-				detected === 0 ? undefined : totalDuration / detected,
+				findings === 0 ? undefined : totalDuration / findings,
 		};
 	});
 
@@ -820,6 +962,125 @@ const modelModeEfficiency = (
 			defined(perRun.map((run) => run.durationPerFinding)),
 		),
 	};
+};
+
+type UsageTotals = {
+	tests: number;
+	durationMs: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	totalTokens: number;
+	reportedTotalTokens: number;
+	toolCalls: number;
+};
+
+const emptyUsageTotals = (): UsageTotals => ({
+	tests: 0,
+	durationMs: 0,
+	inputTokens: 0,
+	outputTokens: 0,
+	cacheReadTokens: 0,
+	cacheWriteTokens: 0,
+	totalTokens: 0,
+	reportedTotalTokens: 0,
+	toolCalls: 0,
+});
+
+const addUsageTotals = (totals: UsageTotals, modeResult: ModeResult): void => {
+	const telemetry = modeResult.telemetry;
+	if (!telemetry) {
+		return;
+	}
+	totals.tests += 1;
+	totals.durationMs += telemetry.durationMs;
+	totals.inputTokens += telemetry.usage.inputTokens;
+	totals.outputTokens += telemetry.usage.outputTokens;
+	totals.cacheReadTokens += telemetry.usage.cacheReadTokens;
+	totals.cacheWriteTokens += telemetry.usage.cacheWriteTokens;
+	totals.totalTokens += telemetry.usage.totalTokens;
+	totals.reportedTotalTokens += telemetry.usage.reportedTotalTokens;
+	totals.toolCalls += telemetry.usage.toolCalls;
+};
+
+const usageTotals = (results: TestResult[], mode?: Mode): UsageTotals => {
+	const totals = emptyUsageTotals();
+	for (const result of results) {
+		for (const modeResult of result.modes) {
+			if (mode !== undefined && modeResult.mode !== mode) {
+				continue;
+			}
+			addUsageTotals(totals, modeResult);
+		}
+	}
+	return totals;
+};
+
+type ErrorCounts = {
+	total: number;
+	guardrail: number;
+	unhandled: number;
+};
+
+const errorCounts = (results: TestResult[], mode?: Mode): ErrorCounts => {
+	const counts: ErrorCounts = { total: 0, guardrail: 0, unhandled: 0 };
+	for (const result of results) {
+		for (const modeResult of result.modes) {
+			if (mode !== undefined && modeResult.mode !== mode) {
+				continue;
+			}
+			for (const err of modeResult.errors) {
+				counts.total += 1;
+				if (err.kind === "guardrail") {
+					counts.guardrail += 1;
+				} else {
+					counts.unhandled += 1;
+				}
+			}
+		}
+	}
+	return counts;
+};
+
+type ErrorAggregate = {
+	kind: string;
+	dimension: string;
+	agentId: string;
+	count: number;
+};
+
+const errorAggregates = (
+	results: TestResult[],
+	mode?: Mode,
+): ErrorAggregate[] => {
+	const counts = new Map<string, ErrorAggregate>();
+	for (const result of results) {
+		for (const modeResult of result.modes) {
+			if (mode !== undefined && modeResult.mode !== mode) {
+				continue;
+			}
+			for (const err of modeResult.errors) {
+				const kind = err.kind;
+				const dimension = err.kind === "guardrail" ? err.dimension : "-";
+				const agentId = "agentId" in err ? err.agentId : "-";
+				const key = `${kind}|${dimension}|${agentId}`;
+				const existing = counts.get(key);
+				if (existing) {
+					existing.count += 1;
+				} else {
+					counts.set(key, { kind, dimension, agentId, count: 1 });
+				}
+			}
+		}
+	}
+	return [...counts.values()].sort(
+		(a, b) =>
+			b.count - a.count ||
+			a.kind.localeCompare(b.kind) ||
+			a.dimension.localeCompare(b.dimension) ||
+			a.agentId.localeCompare(b.agentId),
+	);
 };
 
 const renderConfusion = <T extends string>(
@@ -892,11 +1153,18 @@ const buildSummary = (
 	lines.push("## Averages across runs");
 	lines.push("");
 	lines.push(
-		"Per model and mode, the mean and standard deviation across runs. Recall is " +
+		"Per model and mode, the mean and standard deviation across runs. Columns " +
+			`marked ${PURPOSE_MARKER} are computed only from findings matched to a declared ` +
+			"manifest purpose, so they measure how well the declared issues were found and " +
+			"rated. Unmarked columns are computed from every finding in the report, " +
+			"including additional findings that match no declared purpose. Recall is " +
 			"detected purposes over declared purposes. Main-target recall counts a purpose " +
 			"only when its declared main agent detected it. Corroborated findings count " +
 			"detected purposes supported by more than one corroboration unit, which is a " +
 			"distinct agent in multi mode or a distinct category in single mode. " +
+			"Unmerged duplicates count detected purposes matched to more than one distinct " +
+			"finding, which means the deduplicator failed to merge findings describing the " +
+			"same issue. " +
 			"Actionability rate is the " +
 			"share of valid findings with a concrete code change. Dedup reduction rate is " +
 			"the share of findings the deduplicator collapsed. Additional findings are valid " +
@@ -905,14 +1173,18 @@ const buildSummary = (
 			"exclude invalid ones. Merges and merged sources count deduplicator merges and " +
 			"the source findings they absorbed. Overlapping findings and pairs count findings " +
 			"whose code changes touch a shared line range, which is not the same as being " +
-			"duplicates. Severity, confidence, base score, and score " +
-			"errors are mean absolute differences from the manifest. Duration and tokens " +
-			"are per-test totals.",
+			"duplicates. Severity and confidence errors are mean absolute differences from " +
+			"the manifest. Base score is the severity weight times the confidence weight " +
+			"times the agent weight, and score is the base score times the merged factor, " +
+			"which is the number of corroboration units capped at three. Base score error " +
+			"and score error are the mean absolute differences between the manifest's " +
+			"expected value and the reported value. Duration is in minutes " +
+			"and tokens are in thousands (K), both per-test totals.",
 	);
 	lines.push("");
 
 	lines.push(
-		`| Model | Mode | Runs | ${metricDefs.map((def) => def.label).join(" | ")} |`,
+		`| Model | Mode | Runs | ${metricDefs.map((def) => metricLabel(def)).join(" | ")} |`,
 	);
 	lines.push(
 		`| ----- | ---- | ---- | ${metricDefs.map(() => "---").join(" | ")} |`,
@@ -938,17 +1210,20 @@ const buildSummary = (
 	lines.push(
 		"One row per model and mode, joining model size to quality and efficiency. " +
 			"Total params is the model's full parameter count and active params is the " +
-			"per-token compute, which differ for mixture-of-experts models. The remaining " +
-			"columns are the same quality metrics as above, plus tokens and duration per " +
-			"detected finding so a larger model is not credited for quality that comes only " +
-			"from spending more.",
+			"per-token compute, which differ for mixture-of-experts models. Recall, " +
+			"main-target recall, and severity error are computed only from findings matched " +
+			"to a declared purpose, while actionability rate, dedup reduction rate, and the " +
+			"per-finding efficiency columns are computed from every valid finding in the " +
+			"report. Tokens and duration per finding divide the run's total tokens and " +
+			"duration by every valid finding the model reported, so a larger model is not " +
+			"credited for quality that comes only from spending more.",
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Total params (B) | Active params (B) | Mode | Recall | Main-target recall | Actionability rate | Dedup reduction rate | Severity error | Tokens/finding | Duration/finding (ms) |",
+		`| Model | Total params (B) | Active params (B) | Mode | Recall ${PURPOSE_MARKER} | Main-target recall ${PURPOSE_MARKER} | Actionability rate | Dedup reduction rate | Severity error ${PURPOSE_MARKER} | Tokens/finding (K) | Duration/finding (min) |`,
 	);
 	lines.push(
-		"| ----- | ---------------- | ----------------- | ---- | ------ | ------------------ | ------------------ | -------------------- | -------------- | -------------- | --------------------- |",
+		"| ----- | ---------------- | ----------------- | ---- | ------ | ------------------ | ------------------ | -------------------- | -------------- | ------------------ | ---------------------- |",
 	);
 	for (const model of models) {
 		const info = modelInfo[model.model];
@@ -959,7 +1234,7 @@ const buildSummary = (
 			}
 			const efficiency = modelModeEfficiency(model, mode);
 			lines.push(
-				`| ${model.model} | ${info?.parameters ?? "n/a"} | ${info?.activeParameters ?? "n/a"} | ${mode} | ${formatStats(statsByMetric.get("recall"), "ratio")} | ${formatStats(statsByMetric.get("mainTargetRecall"), "ratio")} | ${formatStats(statsByMetric.get("actionabilityRate"), "ratio")} | ${formatStats(statsByMetric.get("dedupReductionRate"), "ratio")} | ${formatStats(statsByMetric.get("severityError"), "number")} | ${formatStats(efficiency.tokensPerFinding, "number")} | ${formatStats(efficiency.durationPerFinding, "number")} |`,
+				`| ${model.model} | ${info?.parameters ?? "n/a"} | ${info?.activeParameters ?? "n/a"} | ${mode} | ${formatStats(statsByMetric.get("recall"), "ratio")} | ${formatStats(statsByMetric.get("mainTargetRecall"), "ratio")} | ${formatStats(statsByMetric.get("actionabilityRate"), "ratio")} | ${formatStats(statsByMetric.get("dedupReductionRate"), "ratio")} | ${formatStats(statsByMetric.get("severityError"), "number")} | ${formatStats(efficiency.tokensPerFinding, "tokens")} | ${formatStats(efficiency.durationPerFinding, "duration")} |`,
 			);
 		}
 	}
@@ -969,11 +1244,21 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Recall and main-target recall split by fixture difficulty tier, as the mean " +
-			"and standard deviation across runs. Tier 1 issues are visible in one part of " +
-			"the diff, tier 2 need the surrounding file, and tier 3 need reasoning across files.",
+			"and standard deviation across runs. Both are purpose-scoped, computed only " +
+			"from findings matched to a declared purpose. Tier describes how hard an issue is to " +
+			"spot and is separate from severity, which describes its impact. Tier 1 issues " +
+			"are visible in one part of the diff, need no file to confirm, and have one " +
+			"obvious correct fix. Tier 2 issues are visible in the diff but their impact " +
+			"depends on how the changed code is used elsewhere in the same file, so a " +
+			"reviewer may read that file outside the changed hunks but need not reason " +
+			"across other files. Tier 3 issues need reasoning across several files or a " +
+			"subtle interaction such as concurrency, a transaction boundary, an " +
+			"authorization gap, or a hidden N+1 query, and the code looks correct at a glance.",
 	);
 	lines.push("");
-	lines.push("| Model | Mode | Tier | Recall | Main-target recall |");
+	lines.push(
+		`| Model | Mode | Tier | Recall ${PURPOSE_MARKER} | Main-target recall ${PURPOSE_MARKER} |`,
+	);
 	lines.push("| ----- | ---- | ---- | ------ | ------------------ |");
 	for (const model of models) {
 		for (const mode of modes) {
@@ -1005,11 +1290,14 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Recall and main-target recall split by the agent declared as each purpose's " +
-			"main target, as the mean and standard deviation across runs. Main-target " +
-			"recall counts a purpose only when that agent detected it.",
+			"main target, as the mean and standard deviation across runs. Both are " +
+			"purpose-scoped, computed only from findings matched to a declared purpose. " +
+			"Main-target recall counts a purpose only when that agent detected it.",
 	);
 	lines.push("");
-	lines.push("| Model | Mode | Agent | Recall | Main-target recall |");
+	lines.push(
+		`| Model | Mode | Agent | Recall ${PURPOSE_MARKER} | Main-target recall ${PURPOSE_MARKER} |`,
+	);
 	lines.push("| ----- | ---- | ----- | ------ | ------------------ |");
 	for (const model of models) {
 		for (const mode of modes) {
@@ -1042,9 +1330,10 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"For each detected purpose, the manifest's expected severity (rows) against the " +
-			"reported severity (columns), pooled across runs. A diagonal-heavy matrix means " +
-			"the model rates severity consistently with the manifest, and off-diagonal cells " +
-			"show the direction of any bias.",
+			"reported severity (columns), pooled across runs. This is purpose-scoped, so " +
+			"only findings matched to a declared purpose are counted. A diagonal-heavy matrix " +
+			"means the model rates severity consistently with the manifest, and off-diagonal " +
+			"cells show the direction of any bias.",
 	);
 	lines.push("");
 	for (const model of models) {
@@ -1059,7 +1348,7 @@ const buildSummary = (
 			lines.push(
 				...renderConfusion(
 					confusionMatrix(severityValues, pairs),
-					"Severity",
+					`Severity ${PURPOSE_MARKER}`,
 				),
 			);
 		}
@@ -1069,8 +1358,9 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"For each detected purpose, the manifest's expected confidence (rows) against " +
-			"the reported confidence (columns), pooled across runs. A diagonal-heavy matrix " +
-			"means the model rates confidence consistently with the manifest.",
+			"the reported confidence (columns), pooled across runs. This is purpose-scoped, " +
+			"so only findings matched to a declared purpose are counted. A diagonal-heavy " +
+			"matrix means the model rates confidence consistently with the manifest.",
 	);
 	lines.push("");
 	for (const model of models) {
@@ -1085,7 +1375,7 @@ const buildSummary = (
 			lines.push(
 				...renderConfusion(
 					confusionMatrix(confidenceValues, pairs),
-					"Confidence",
+					`Confidence ${PURPOSE_MARKER}`,
 				),
 			);
 		}
@@ -1095,14 +1385,18 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Recall, additional findings, and invalid findings for each test, run, and mode, " +
-			"so individual tests can be inspected.",
+			"so individual tests can be inspected. Recall is purpose-scoped, computed only " +
+			"from findings matched to a declared purpose, while additional and invalid " +
+			"findings are computed from every finding in the report. Unmerged duplicates " +
+			"counts purposes matched to more than one distinct finding, which means the " +
+			"deduplicator failed to merge findings describing the same issue.",
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Run | Test | Tier | Mode | Recall | Additional findings | Invalid findings |",
+		`| Model | Run | Test | Tier | Mode | Recall ${PURPOSE_MARKER} | Additional findings | Invalid findings | Unmerged duplicates ${PURPOSE_MARKER} |`,
 	);
 	lines.push(
-		"| ----- | --- | ---- | ---- | ---- | ------ | ------------------- | ---------------- |",
+		"| ----- | --- | ---- | ---- | ---- | ------ | ------------------- | ---------------- | --------------------------- |",
 	);
 	for (const model of models) {
 		for (const run of model.runs) {
@@ -1117,7 +1411,7 @@ const buildSummary = (
 							? "n/a"
 							: `${detected}/${total} (${((detected / total) * 100).toFixed(1)}%)`;
 					lines.push(
-						`| ${model.model} | ${run.runIndex} | ${result.id} | ${result.tier} | ${modeResult.mode} | ${recall} | ${modeResult.additionalFindings} | ${modeResult.invalidFindings} |`,
+						`| ${model.model} | ${run.runIndex} | ${result.id} | ${result.tier} | ${modeResult.mode} | ${recall} | ${modeResult.additionalFindings} | ${modeResult.invalidFindings} | ${modeResult.unmergedDuplicates} |`,
 					);
 				}
 			}
@@ -1125,10 +1419,50 @@ const buildSummary = (
 	}
 	lines.push("");
 
+	lines.push("## Unmerged duplicates (deduplicator misses)");
+	lines.push("");
+	lines.push(
+		"A purpose matched to more than one distinct finding means several findings " +
+			"describe the same issue but the deduplicator did not merge them. This is a " +
+			"deduplicator failure, not a reviewer failure. A match to several source ids " +
+			"that all resolve to one merged finding is not counted here, because the " +
+			"deduplicator did merge them. Each row lists the distinct finding ids the " +
+			"purpose resolved to.",
+	);
+	lines.push("");
+	lines.push(
+		`| Model | Run | Test | Mode | Purpose | Main agent | Findings |`,
+	);
+	lines.push("| ----- | --- | ---- | ---- | ------- | ---------- | -------- |");
+	let unmergedDuplicateRows = 0;
+	for (const model of models) {
+		for (const run of model.runs) {
+			for (const result of run.tests) {
+				for (const modeResult of result.modes) {
+					for (const purpose of modeResult.purposes) {
+						if (!purpose.unmergedDuplicate) {
+							continue;
+						}
+						unmergedDuplicateRows += 1;
+						lines.push(
+							`| ${model.model} | ${run.runIndex} | ${result.id} | ${modeResult.mode} | ${purpose.purposeId} | ${purpose.mainAgent} | ${purpose.matchedFindingIds.join(", ")} |`,
+						);
+					}
+				}
+			}
+		}
+	}
+	if (unmergedDuplicateRows === 0) {
+		lines.push("| - | - | - | - | - | - | - |");
+	}
+	lines.push("");
+
 	lines.push("## Deduplication and overlap per test");
 	lines.push("");
 	lines.push(
-		"Deduplication and overlap for each test, run, and mode. Merges is the number of " +
+		"Deduplication and overlap for each test, run, and mode, computed from every " +
+			"finding in the report rather than only purpose-matched findings. Merges is the " +
+			"number of " +
 			"merged findings, merged sources is the number of source findings they absorbed, " +
 			"and findings before dedup is the count before merging. Dedup reduction rate is " +
 			"the share collapsed. Overlapping findings and pairs count findings whose code " +
@@ -1168,14 +1502,16 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"For each test, whether multi mode detected more (win), the same (tie), or fewer " +
-			"(loss) purposes than single mode, pooled across runs. Win rate is wins over " +
+			"(loss) purposes than single mode, pooled across runs. This section is " +
+			"purpose-scoped, so only findings matched to a declared purpose are counted. " +
+			"Win rate is wins over " +
 			"decided pairs. Corroborated counts detected purposes supported by more than one " +
 			"corroboration unit, which is a distinct agent in multi mode or a distinct " +
 			"category in single mode.",
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Wins | Ties | Losses | Win rate (decided) | Corroborated (multi) | Corroborated (single) |",
+		`| Model | Wins | Ties | Losses | Win rate (decided) ${PURPOSE_MARKER} | Corroborated (multi) ${PURPOSE_MARKER} | Corroborated (single) ${PURPOSE_MARKER} |`,
 	);
 	lines.push(
 		"| ----- | ---- | ---- | ------ | ------------------ | -------------------- | --------------------- |",
@@ -1203,10 +1539,10 @@ const buildSummary = (
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Run | Test | Multi duration (ms) | Single duration (ms) | Multi tokens | Single tokens | Multi continuations | Single continuations |",
+		"| Model | Run | Test | Multi duration (min) | Single duration (min) | Multi tokens (K) | Single tokens (K) | Multi continuations | Single continuations |",
 	);
 	lines.push(
-		"| ----- | --- | ---- | ------------------- | -------------------- | ------------ | ------------- | ------------------- | -------------------- |",
+		"| ----- | --- | ---- | -------------------- | --------------------- | ---------------- | ----------------- | ------------------- | -------------------- |",
 	);
 	for (const model of models) {
 		for (const run of model.runs) {
@@ -1214,7 +1550,7 @@ const buildSummary = (
 				const multi = result.modes.find((item) => item.mode === "multi");
 				const single = result.modes.find((item) => item.mode === "single");
 				lines.push(
-					`| ${model.model} | ${run.runIndex} | ${result.id} | ${multi?.telemetry?.durationMs ?? "n/a"} | ${single?.telemetry?.durationMs ?? "n/a"} | ${multi?.telemetry?.usage.totalTokens ?? "n/a"} | ${single?.telemetry?.usage.totalTokens ?? "n/a"} | ${totalContinuations(multi)} | ${totalContinuations(single)} |`,
+					`| ${model.model} | ${run.runIndex} | ${result.id} | ${formatDuration(multi?.telemetry?.durationMs)} | ${formatDuration(single?.telemetry?.durationMs)} | ${formatTokens(multi?.telemetry?.usage.totalTokens)} | ${formatTokens(single?.telemetry?.usage.totalTokens)} | ${totalContinuations(multi)} | ${totalContinuations(single)} |`,
 				);
 			}
 		}
@@ -1257,6 +1593,108 @@ const buildSummary = (
 				).length;
 				lines.push(
 					`| ${model.model} | ${mode} | ${agentModel} | ${modelEntries.length} | ${total} | ${withContinuations} |`,
+				);
+			}
+		}
+	}
+	lines.push("");
+
+	lines.push("## Total usage");
+	lines.push("");
+	lines.push(
+		"Total tokens and duration spent across every test, run, and mode, summed " +
+			"rather than averaged. Tests is the number of test-mode runs included. " +
+			"Input, output, cache read, and cache write tokens are summed across agents. " +
+			"Total tokens is the sum of those four, and reported total tokens is the " +
+			"provider-reported figure, which can differ when caching is involved. Tool " +
+			"calls is the total number of tool invocations. The final row is the grand " +
+			"total across all models and modes.",
+	);
+	lines.push("");
+	lines.push(
+		"| Model | Mode | Tests | Duration (min) | Input tokens (K) | Output tokens (K) | Cache read tokens (K) | Cache write tokens (K) | Total tokens (K) | Reported total tokens (K) | Tool calls |",
+	);
+	lines.push(
+		"| ----- | ---- | ----- | -------------- | ---------------- | ----------------- | --------------------- | ---------------------- | ---------------- | ------------------------- | ---------- |",
+	);
+	const grandTotal = emptyUsageTotals();
+	for (const model of models) {
+		for (const mode of modes) {
+			const totals = usageTotals(modelTests(model), mode);
+			if (totals.tests === 0) {
+				continue;
+			}
+			grandTotal.tests += totals.tests;
+			grandTotal.durationMs += totals.durationMs;
+			grandTotal.inputTokens += totals.inputTokens;
+			grandTotal.outputTokens += totals.outputTokens;
+			grandTotal.cacheReadTokens += totals.cacheReadTokens;
+			grandTotal.cacheWriteTokens += totals.cacheWriteTokens;
+			grandTotal.totalTokens += totals.totalTokens;
+			grandTotal.reportedTotalTokens += totals.reportedTotalTokens;
+			grandTotal.toolCalls += totals.toolCalls;
+			lines.push(
+				`| ${model.model} | ${mode} | ${totals.tests} | ${formatDuration(totals.durationMs)} | ${formatTokens(totals.inputTokens)} | ${formatTokens(totals.outputTokens)} | ${formatTokens(totals.cacheReadTokens)} | ${formatTokens(totals.cacheWriteTokens)} | ${formatTokens(totals.totalTokens)} | ${formatTokens(totals.reportedTotalTokens)} | ${totals.toolCalls} |`,
+			);
+		}
+	}
+	lines.push(
+		`| **Total** | all | ${grandTotal.tests} | ${formatDuration(grandTotal.durationMs)} | ${formatTokens(grandTotal.inputTokens)} | ${formatTokens(grandTotal.outputTokens)} | ${formatTokens(grandTotal.cacheReadTokens)} | ${formatTokens(grandTotal.cacheWriteTokens)} | ${formatTokens(grandTotal.totalTokens)} | ${formatTokens(grandTotal.reportedTotalTokens)} | ${grandTotal.toolCalls} |`,
+	);
+	lines.push("");
+
+	lines.push("## Errors");
+	lines.push("");
+	lines.push(
+		"Workflow errors recorded per model and mode, summed across runs. Guardrail " +
+			"errors mean an agent was terminated for hitting a limit, and the dimension " +
+			"breakdown below shows which limit. A model that repeatedly hits output_tokens " +
+			"tends to overthink, while input_tokens suggests it reads too much context and " +
+			"tool_loop or tool_failure suggests it gets stuck. Unhandled errors are " +
+			"exceptions that escaped the workflow. The final row is the grand total.",
+	);
+	lines.push("");
+	lines.push(
+		"| Model | Mode | Total errors | Guardrail errors | Unhandled errors |",
+	);
+	lines.push(
+		"| ----- | ---- | ------------ | ---------------- | ---------------- |",
+	);
+	const grandErrors: ErrorCounts = { total: 0, guardrail: 0, unhandled: 0 };
+	for (const model of models) {
+		for (const mode of modes) {
+			const counts = errorCounts(modelTests(model), mode);
+			if (counts.total === 0) {
+				continue;
+			}
+			grandErrors.total += counts.total;
+			grandErrors.guardrail += counts.guardrail;
+			grandErrors.unhandled += counts.unhandled;
+			lines.push(
+				`| ${model.model} | ${mode} | ${counts.total} | ${counts.guardrail} | ${counts.unhandled} |`,
+			);
+		}
+	}
+	lines.push(
+		`| **Total** | all | ${grandErrors.total} | ${grandErrors.guardrail} | ${grandErrors.unhandled} |`,
+	);
+	lines.push("");
+
+	lines.push("## Errors by dimension and agent");
+	lines.push("");
+	lines.push(
+		"Guardrail and unhandled errors grouped by kind, dimension, and agent, pooled " +
+			"across runs and sorted by count. Dimension is the guardrail limit that was " +
+			"hit, and agent is the agent that was terminated.",
+	);
+	lines.push("");
+	lines.push("| Model | Mode | Kind | Dimension | Agent | Count |");
+	lines.push("| ----- | ---- | ---- | --------- | ----- | ----- |");
+	for (const model of models) {
+		for (const mode of modes) {
+			for (const aggregate of errorAggregates(modelTests(model), mode)) {
+				lines.push(
+					`| ${model.model} | ${mode} | ${aggregate.kind} | ${aggregate.dimension} | ${aggregate.agentId} | ${aggregate.count} |`,
 				);
 			}
 		}

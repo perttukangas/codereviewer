@@ -47,12 +47,12 @@ export const env = cleanEnv(process.env, {
 
 	DEFAULT_CONTEXT_WINDOW: num({
 		desc: "The default model context window for agents.",
-		default: 131072,
+		default: 262144,
 	}),
 
 	DEFAULT_MAX_OUTPUT_TOKENS: num({
 		desc: "The default maximum model output tokens for agents.",
-		default: 16384,
+		default: 32768,
 	}),
 
 	DEFAULT_TIMEOUT_MS: num({
