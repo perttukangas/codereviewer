@@ -1,6 +1,7 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
+import { completionTool } from "../../../engine/tools/index.js";
 import { env } from "../../../shared/env.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { Phase } from "../../pipeline.js";
@@ -61,11 +62,12 @@ const runDeduplication = async (state: ReviewPipelineState): Promise<void> => {
 		dedupReview,
 	);
 
+	const config = getAgentConfig(DeduplicatorAgent);
 	const response = await runGuardedSession({
 		agent: DeduplicatorAgent,
 		runtime: context.runtime,
-		config: getAgentConfig(DeduplicatorAgent),
-		customTools: [mergeTool],
+		config,
+		customTools: [mergeTool, completionTool],
 		output: dedupReview,
 		prompt: formatDeduplicationPrompt(DeduplicatorAgent, eligible),
 	});
@@ -74,6 +76,8 @@ const runDeduplication = async (state: ReviewPipelineState): Promise<void> => {
 		DeduplicatorAgent.id,
 		response.durationMs,
 		response.usage,
+		config.model.name,
+		response.completion.continuations,
 	);
 
 	logFindingsSnapshot(log, "Deduplicated findings", dedupReview.findings);

@@ -225,5 +225,6 @@ export const createGuardrails = ({
 		stop,
 		dispose,
 		getOutcomes: () => [...outcomes],
+		isTerminated: () => terminated,
 	};
 };

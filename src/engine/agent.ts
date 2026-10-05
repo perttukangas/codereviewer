@@ -1,8 +1,14 @@
 import type { AgentRuntime } from "../runtime/types.js";
 import { env } from "../shared/env.js";
+import { createLogger } from "../shared/logger.js";
 import { createSemaphore } from "../shared/semaphore.js";
 import { createGuardrails } from "./guardrails/index.js";
-import type { AgentToolDefinition } from "./tools.js";
+import {
+	findCompletionTool,
+	runCompletionLoop,
+	trackCompletion,
+} from "./tools/completion.js";
+import type { AgentToolDefinition } from "./tools/index.js";
 import type {
 	Agent,
 	AgentConfig,
@@ -24,6 +30,10 @@ export const createAgent = async <TOutput>(
 	options: CreateAgentOptions<TOutput>,
 ): Promise<GuardedAgentSession<TOutput>> => {
 	const { config, customTools = [], output } = options;
+	const log = createLogger({ agentId: agent.id });
+
+	const completionTool = findCompletionTool(agent.id, customTools);
+	const { tools, isCompleted } = trackCompletion(customTools, completionTool);
 
 	const releaseSlot = await sessionSlots.acquire();
 	let slotReleased = false;
@@ -40,7 +50,7 @@ export const createAgent = async <TOutput>(
 		session = await runtime.createSession(agent, {
 			model: config.model,
 			limits: config.limits,
-			customTools,
+			customTools: tools,
 		});
 	} catch (cause) {
 		release();
@@ -57,8 +67,19 @@ export const createAgent = async <TOutput>(
 		prompt: async (prompt): Promise<AgentResponse<TOutput>> => {
 			guardrails.start();
 			const startedAt = Date.now();
+			let continuations = 0;
 			try {
 				await session.prompt(prompt);
+
+				if (completionTool) {
+					continuations = await runCompletionLoop({
+						session,
+						completionTool,
+						isCompleted,
+						isTerminated: () => guardrails.isTerminated(),
+						log,
+					});
+				}
 			} finally {
 				guardrails.stop();
 			}
@@ -67,6 +88,7 @@ export const createAgent = async <TOutput>(
 				guardrails: guardrails.getOutcomes(),
 				durationMs: Date.now() - startedAt,
 				usage: session.getUsage(),
+				completion: { completed: isCompleted(), continuations },
 			};
 		},
 		dispose: () => {

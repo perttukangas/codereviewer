@@ -78,6 +78,8 @@ export type WorkflowError = WorkflowGuardrailError | WorkflowUnhandledError;
 export type AgentTelemetry = {
 	durationMs: number;
 	usage: AgentUsage;
+	model: string;
+	continuations: number;
 };
 
 export type WorkflowTelemetry = {
@@ -91,6 +93,12 @@ export type AgentResponse<TOutput> = {
 	guardrails: GuardrailOutcome[];
 	durationMs: number;
 	usage: AgentUsage;
+	completion: AgentCompletionOutcome;
+};
+
+export type AgentCompletionOutcome = {
+	completed: boolean;
+	continuations: number;
 };
 
 export interface GuardedAgentSession<TOutput> {

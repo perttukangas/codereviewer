@@ -1,7 +1,7 @@
 import type { AgentRuntime } from "../runtime/types.js";
 import { createLogger } from "../shared/logger.js";
 import { createAgent } from "./agent.js";
-import type { AgentToolDefinition } from "./tools.js";
+import type { AgentToolDefinition } from "./tools/index.js";
 import type {
 	Agent,
 	AgentConfig,

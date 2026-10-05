@@ -1,4 +1,4 @@
-import type { AgentToolDefinition } from "../engine/tools.js";
+import type { AgentToolDefinition } from "../engine/tools/index.js";
 import type { Agent, AgentLimits, AgentModel } from "../engine/types.js";
 
 export type MessageUsage = {

@@ -3,14 +3,9 @@ import type { Agent } from "../../../engine/types.js";
 import type { ReviewFinding } from "../types.js";
 import { orderFindingsForPrompt } from "./findings.js";
 
-const reviewCompletion =
-	'When you are done, reply with exactly "Review complete". Do not add a summary or any other text.';
-
-const verificationCompletion =
-	'When you are done, reply with exactly "Verification complete". Do not add a summary or any other text.';
-
-const deduplicationCompletion =
-	'When you are done, reply with exactly "Deduplication complete". Do not add a summary or any other text.';
+const completionInstruction = [
+	"When you are done, call the complete_task tool as your final action. Do not add a summary or any other text.",
+];
 
 export const reviewFindingRubric = [
 	"Severity rubric. CRITICAL blocks release or immediate merge. HIGH should be fixed before release or in the current change window. MEDIUM is important but not release-blocking alone. LOW is minor but actionable. INFO is an improvement note with minimal risk.",
@@ -39,7 +34,7 @@ export const formatReviewPrompt = (agent: Agent, diff?: string): string =>
 			{ heading: "Scope", items: agent.scope ?? [] },
 			{ heading: "Constraints", items: agent.constraints ?? [] },
 			{ heading: "Approach", items: reviewApproach },
-			{ heading: "Completion", items: [reviewCompletion] },
+			{ heading: "Completion", items: completionInstruction },
 		],
 		blocks: [
 			...(diff ? [{ heading: "Git Diff Under Review", body: diff }] : []),
@@ -58,7 +53,7 @@ export const formatVerificationPrompt = (
 		sections: [
 			{ heading: "Scope", items: verifier.scope ?? [] },
 			{ heading: "Constraints", items: verifier.constraints ?? [] },
-			{ heading: "Completion", items: [verificationCompletion] },
+			{ heading: "Completion", items: completionInstruction },
 		],
 		blocks: [
 			{
@@ -81,7 +76,7 @@ export const formatDeduplicationPrompt = (
 		sections: [
 			{ heading: "Scope", items: deduplicator.scope ?? [] },
 			{ heading: "Constraints", items: deduplicator.constraints ?? [] },
-			{ heading: "Completion", items: [deduplicationCompletion] },
+			{ heading: "Completion", items: completionInstruction },
 		],
 		blocks: [
 			{

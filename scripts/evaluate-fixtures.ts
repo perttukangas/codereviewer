@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { AgentTelemetry } from "../src/engine/types.ts";
 import type { AgentUsage } from "../src/runtime/types.ts";
 import {
 	baseScore,
@@ -140,6 +141,7 @@ type ModeResult = {
 	telemetry?: {
 		durationMs: number;
 		usage: AgentUsage;
+		agents: Record<string, AgentTelemetry>;
 	};
 };
 
@@ -259,6 +261,7 @@ const evaluateMode = (
 			? {
 					durationMs: result.telemetry.durationMs,
 					usage: result.telemetry.usage,
+					agents: result.telemetry.agents,
 				}
 			: undefined,
 	};
@@ -315,6 +318,31 @@ const modePurposes = (results: TestResult[], mode: Mode): PurposeResult[] =>
 
 const defined = (values: (number | undefined)[]): number[] =>
 	values.filter((value): value is number => value !== undefined);
+
+const totalContinuations = (modeResult: ModeResult | undefined): number =>
+	Object.values(modeResult?.telemetry?.agents ?? {}).reduce(
+		(sum, agent) => sum + agent.continuations,
+		0,
+	);
+
+type AgentContinuation = {
+	mode: Mode;
+	model: string;
+	continuations: number;
+};
+
+const agentContinuations = (results: TestResult[]): AgentContinuation[] =>
+	results.flatMap((result) =>
+		result.modes.flatMap((modeResult) =>
+			Object.entries(modeResult.telemetry?.agents ?? {}).map(
+				([, agent]) => ({
+					mode: modeResult.mode,
+					model: agent.model,
+					continuations: agent.continuations,
+				}),
+			),
+		),
+	);
 
 const buildSummary = (results: TestResult[]): string => {
 	const lines: string[] = [];
@@ -432,17 +460,46 @@ const buildSummary = (results: TestResult[]): string => {
 	lines.push("## Telemetry (multi vs single)");
 	lines.push("");
 	lines.push(
-		"| Test | Multi duration (ms) | Single duration (ms) | Multi tokens | Single tokens |",
+		"| Test | Multi duration (ms) | Single duration (ms) | Multi tokens | Single tokens | Multi continuations | Single continuations |",
 	);
 	lines.push(
-		"| ---- | ------------------- | -------------------- | ------------ | ------------- |",
+		"| ---- | ------------------- | -------------------- | ------------ | ------------- | ------------------- | -------------------- |",
 	);
 	for (const result of results) {
 		const multi = result.modes.find((item) => item.mode === "multi");
 		const single = result.modes.find((item) => item.mode === "single");
 		lines.push(
-			`| ${result.id} | ${multi?.telemetry?.durationMs ?? "n/a"} | ${single?.telemetry?.durationMs ?? "n/a"} | ${multi?.telemetry?.usage.totalTokens ?? "n/a"} | ${single?.telemetry?.usage.totalTokens ?? "n/a"} |`,
+			`| ${result.id} | ${multi?.telemetry?.durationMs ?? "n/a"} | ${single?.telemetry?.durationMs ?? "n/a"} | ${multi?.telemetry?.usage.totalTokens ?? "n/a"} | ${single?.telemetry?.usage.totalTokens ?? "n/a"} | ${totalContinuations(multi)} | ${totalContinuations(single)} |`,
 		);
+	}
+	lines.push("");
+
+	lines.push("## Completion continuations by model");
+	lines.push("");
+	lines.push(
+		"| Mode | Model | Runs | Total continuations | Runs with continuations |",
+	);
+	lines.push(
+		"| ---- | ----- | ---- | ------------------- | ----------------------- |",
+	);
+	for (const mode of modes) {
+		const entries = agentContinuations(results).filter(
+			(entry) => entry.mode === mode,
+		);
+		const models = [...new Set(entries.map((entry) => entry.model))].sort();
+		for (const model of models) {
+			const modelEntries = entries.filter((entry) => entry.model === model);
+			const total = modelEntries.reduce(
+				(sum, entry) => sum + entry.continuations,
+				0,
+			);
+			const withContinuations = modelEntries.filter(
+				(entry) => entry.continuations > 0,
+			).length;
+			lines.push(
+				`| ${mode} | ${model} | ${modelEntries.length} | ${total} | ${withContinuations} |`,
+			);
+		}
 	}
 	lines.push("");
 

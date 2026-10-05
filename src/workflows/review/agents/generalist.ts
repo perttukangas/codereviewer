@@ -7,7 +7,14 @@ const roleQuestion = (agent: Agent): string =>
 
 export const GeneralistAgent: Agent = {
 	id: "GENERALIST",
-	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
+	tools: [
+		"read",
+		"grep",
+		"find",
+		"ls",
+		"submit_review_finding",
+		"complete_task",
+	],
 	role: `You are a generalist code review specialist covering every review scope. ${reviewAgents
 		.map(roleQuestion)
 		.join(" ")}`,

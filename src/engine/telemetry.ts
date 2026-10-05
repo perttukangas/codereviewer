@@ -31,7 +31,13 @@ export const addUsage = (left: AgentUsage, right: AgentUsage): AgentUsage => {
 };
 
 export type TelemetryCollector = {
-	record: (agentId: string, durationMs: number, usage: AgentUsage) => void;
+	record: (
+		agentId: string,
+		durationMs: number,
+		usage: AgentUsage,
+		model: string,
+		continuations: number,
+	) => void;
 	build: (durationMs: number) => WorkflowTelemetry;
 };
 
@@ -42,14 +48,20 @@ export const createTelemetryCollector = (): TelemetryCollector => {
 		agentId: string,
 		durationMs: number,
 		usage: AgentUsage,
+		model: string,
+		continuations: number,
 	): void => {
 		const agent = agents.get(agentId) ?? {
 			durationMs: 0,
 			usage: emptyUsage(),
+			model,
+			continuations: 0,
 		};
 
 		agent.durationMs += durationMs;
 		agent.usage = addUsage(agent.usage, usage);
+		agent.model = model;
+		agent.continuations += continuations;
 		agents.set(agentId, agent);
 	};
 

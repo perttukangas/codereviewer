@@ -4,7 +4,7 @@ import { reviewFindingRubric } from "../shared/prompt.js";
 
 const baseVerifierAgent: Agent = {
 	id: "VERIFIER",
-	tools: ["read", "grep", "find", "ls", "edit_review_finding"],
+	tools: ["read", "grep", "find", "ls", "edit_review_finding", "complete_task"],
 	role: "You are a code review verification specialist. Are the findings produced by the reviewer valid?",
 	scope: [
 		"Focus on whether each finding is supported by the diff or read-only evidence, and whether its severity and confidence match the rubric. Cover other validity concerns within your expertise beyond these examples.",

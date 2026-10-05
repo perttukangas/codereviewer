@@ -137,7 +137,7 @@ export const createPiRuntime = (): AgentRuntime => ({
 
 		return {
 			prompt: async (prompt): Promise<void> => {
-				log.debug("Initial agent prompt", prompt);
+				log.debug("Agent prompt", prompt);
 				await session.prompt(prompt);
 				logAgentResult(log, session);
 			},

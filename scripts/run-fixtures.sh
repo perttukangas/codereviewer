@@ -105,6 +105,8 @@ for test_id in "${test_ids[@]}"; do
 			${mode_env[@]+"${mode_env[@]}"} \
 			node "$project_dir/dist/index.js" review --output "$result_dir/report.$mode.json"
 
+		jq '(.diff.purposes | map({(.id): null}) | add) // {}' "$manifest" >"$result_dir/matches.$mode.json"
+
 		rm -rf "$scratch_dir"
 	done
 done

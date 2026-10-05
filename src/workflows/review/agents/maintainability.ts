@@ -3,7 +3,14 @@ import { reviewAgentConstraints } from "../shared/prompt.js";
 
 export const MaintainabilityAgent = {
 	id: "MAINTAINABILITY" as const,
-	tools: ["read", "grep", "find", "ls", "submit_review_finding"],
+	tools: [
+		"read",
+		"grep",
+		"find",
+		"ls",
+		"submit_review_finding",
+		"complete_task",
+	],
 	role: "You are a maintainability review specialist. Is the changed code unnecessarily difficult to understand or maintain?",
 	scope: [
 		"Focus on unclear naming, duplicated logic, dead code, and missing or misleading abstractions. Cover other maintainability issues within your expertise beyond these examples.",

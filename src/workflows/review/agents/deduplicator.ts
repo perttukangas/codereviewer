@@ -3,7 +3,7 @@ import { reviewFindingRubric } from "../shared/prompt.js";
 
 export const DeduplicatorAgent: Agent = {
 	id: "DEDUPLICATOR",
-	tools: ["merge_review_findings"],
+	tools: ["merge_review_findings", "complete_task"],
 	role: "You are a code review deduplication specialist. Do any findings describe the same underlying issue and need to be merged?",
 	scope: [
 		"Focus on findings that describe the same underlying issue, including findings from different review agents.",

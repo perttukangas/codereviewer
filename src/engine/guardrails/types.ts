@@ -17,6 +17,7 @@ export type AgentGuardrailsHandle = {
 	stop: () => void;
 	dispose: () => void;
 	getOutcomes: () => GuardrailOutcome[];
+	isTerminated: () => boolean;
 };
 
 export type GuardrailContext = {

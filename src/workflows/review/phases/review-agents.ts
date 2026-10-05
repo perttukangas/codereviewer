@@ -1,6 +1,7 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
 import { toGuardrailError } from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
+import { completionTool } from "../../../engine/tools/index.js";
 import type { Agent } from "../../../engine/types.js";
 import { createLogger } from "../../../shared/logger.js";
 import type { Phase } from "../../pipeline.js";
@@ -91,16 +92,23 @@ const reviewAgent = async (
 			? createGeneralistReviewFindingTool(agent, repositoryDir, review.findings)
 			: createReviewFindingTool(agent, repositoryDir, review.findings);
 
+	const config = getAgentConfig(agent);
 	const response = await runGuardedSession({
 		agent,
 		runtime: context.runtime,
-		config: getAgentConfig(agent),
-		customTools: [reviewFindingTool],
+		config,
+		customTools: [reviewFindingTool, completionTool],
 		output: review,
 		prompt: formatReviewPrompt(agent, diff),
 	});
 
-	run.telemetry.record(agent.id, response.durationMs, response.usage);
+	run.telemetry.record(
+		agent.id,
+		response.durationMs,
+		response.usage,
+		config.model.name,
+		response.completion.continuations,
+	);
 
 	logFindingsSnapshot(log, "Reviewer findings", review.findings);
 
@@ -258,11 +266,12 @@ const verifyReview = async (
 		review.findings,
 	);
 
+	const config = getAgentConfig(verifier);
 	const response = await runGuardedSession({
 		agent: verifier,
 		runtime: context.runtime,
-		config: getAgentConfig(verifier),
-		customTools: [editFindingTool],
+		config,
+		customTools: [editFindingTool, completionTool],
 		output: review,
 		prompt: formatVerificationPrompt(
 			verifier,
@@ -272,7 +281,13 @@ const verifyReview = async (
 		),
 	});
 
-	run.telemetry.record(verifier.id, response.durationMs, response.usage);
+	run.telemetry.record(
+		verifier.id,
+		response.durationMs,
+		response.usage,
+		config.model.name,
+		response.completion.continuations,
+	);
 
 	logFindingsSnapshot(log, "Verified findings", review.findings);
 
