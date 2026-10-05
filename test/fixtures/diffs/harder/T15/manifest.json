@@ -3,42 +3,87 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "harder",
-  "mr": "TODO",
+  "mr": "Add outbound webhooks so users can subscribe to post events, with a Webhook and WebhookDelivery model, enqueueing on post create/edit/remove, a background delivery worker, and a profile settings UI.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "README.md",
+      "services/client/src/pages/_components/Profile/index.tsx",
+      "services/client/src/pages/_components/Webhook/Settings.tsx",
+      "services/client/src/pages/_components/Webhook/index.tsx",
+      "services/server/prisma/migrations/20250124120000_add_webhooks/migration.sql",
+      "services/server/prisma/schema.prisma",
+      "services/server/prisma/seed.ts",
+      "services/server/src/index.ts",
+      "services/server/src/routes/v1/index.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/webhook/database.ts",
+      "services/server/src/routes/v1/webhook/index.ts",
+      "services/server/src/routes/v1/webhook/worker.ts",
+      "services/shared/src/zod/webhook.ts"
+    ],
     "purposes": [
       {
         "id": "T15-F01",
         "mainAgent": "MAINTAINABILITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The webhook payload is assembled in two places, the enqueue path and the delivery worker, and the two builders emit different field names for the same event (postId versus id), so consumers receive two shapes for one event type",
+        "expectedFiles": [
+          "services/server/src/routes/v1/webhook/database.ts",
+          "services/server/src/routes/v1/webhook/worker.ts"
+        ],
+        "expectedLines": [
+          50,
+          55
+        ],
+        "score": 2.56
       },
       {
         "id": "T15-F02",
         "mainAgent": "PERFORMANCE",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The delivery worker loads every pending delivery with no batch limit and fans them all out through a single unbounded Promise.all, so a large backlog opens one outbound request per queued event at once",
+        "expectedFiles": [
+          "services/server/src/routes/v1/webhook/worker.ts",
+          "services/server/src/routes/v1/webhook/database.ts"
+        ],
+        "expectedLines": [
+          7,
+          36
+        ],
+        "score": 3.2
       },
       {
         "id": "T15-F03",
         "mainAgent": "RELIABILITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The delivery worker marks the delivery as delivered before awaiting the outbound fetch, so a failed delivery is permanently lost and never retried",
+        "expectedFiles": [
+          "services/server/src/routes/v1/webhook/worker.ts"
+        ],
+        "expectedLines": [
+          17,
+          20
+        ],
+        "score": 6.72
       },
       {
         "id": "T15-F04",
         "mainAgent": "SECURITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "HIGH",
+        "confidence": "DEMONSTRATED",
+        "title": "The delivery worker fetches the subscriber-supplied webhook URL with no host validation, so a subscriber can point it at an internal address such as the cloud metadata endpoint and read the response through the delivery result",
+        "expectedFiles": [
+          "services/server/src/routes/v1/webhook/worker.ts"
+        ],
+        "expectedLines": [
+          29,
+          36
+        ],
+        "score": 10.5
       }
     ]
   }

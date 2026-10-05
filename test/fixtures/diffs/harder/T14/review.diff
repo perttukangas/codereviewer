@@ -1,0 +1,459 @@
+diff --git a/services/client/src/pages/_components/Post/Moderation.tsx b/services/client/src/pages/_components/Post/Moderation.tsx
+new file mode 100644
+index 0000000..daf567e
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/Moderation.tsx
+@@ -0,0 +1,26 @@
++import { lazy } from 'react';
++
++import { t } from '@cc/lib/trpc';
++
++const ModerationCard = lazy(() => import('./ModerationCard'));
++
++export default function Moderation() {
++  const queue = t.post.moderationQueue.useInfiniteQuery(
++    {},
++    {
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++
++  const posts = queue.data?.pages.flatMap((page) => page.posts) ?? [];
++
++  return (
++    <div className="flex flex-col gap-2">
++      <h2 className="text-lg font-semibold">Moderation queue</h2>
++      {posts.length === 0 && <p>No posts awaiting moderation.</p>}
++      {posts.map((post) => (
++        <ModerationCard key={post.id.toString()} post={post} />
++      ))}
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/_components/Post/ModerationCard.tsx b/services/client/src/pages/_components/Post/ModerationCard.tsx
+new file mode 100644
+index 0000000..d6809d2
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/ModerationCard.tsx
+@@ -0,0 +1,18 @@
++import { Card, CardHeader, CardTitle } from '@cc/components/Card';
++import { type RouterOutputs } from '@cc/lib/trpc';
++
++type QueuePost = RouterOutputs['post']['moderationQueue']['posts'][0];
++
++interface ModerationCardProps {
++  post: QueuePost;
++}
++
++export default function ModerationCard({ post }: ModerationCardProps) {
++  return (
++    <Card className="rounded-none">
++      <CardHeader>
++        <CardTitle>{post.title}</CardTitle>
++      </CardHeader>
++    </Card>
++  );
++}
+diff --git a/services/client/src/pages/_components/Post/Remove.tsx b/services/client/src/pages/_components/Post/Remove.tsx
+index ce5ce83..0d75a46 100644
+--- a/services/client/src/pages/_components/Post/Remove.tsx
++++ b/services/client/src/pages/_components/Post/Remove.tsx
+@@ -44,8 +44,8 @@ export default function Remove({
+         <AlertDialogHeader>
+           <AlertDialogTitle>Confirm post deletion</AlertDialogTitle>
+           <AlertDialogDescription>
+-            Are you sure you want to delete this post? This action is
+-            irreversible and the post will be permanently removed.
++            Are you sure you want to delete this post? The post is moved to the
++            moderation queue and can be restored by a moderator.
+           </AlertDialogDescription>
+         </AlertDialogHeader>
+         <AlertDialogFooter>
+diff --git a/services/server/prisma/migrations/20250123120000_add_soft_delete/migration.sql b/services/server/prisma/migrations/20250123120000_add_soft_delete/migration.sql
+new file mode 100644
+index 0000000..8d326ba
+--- /dev/null
++++ b/services/server/prisma/migrations/20250123120000_add_soft_delete/migration.sql
+@@ -0,0 +1,11 @@
++-- AlterTable
++ALTER TABLE "User" ADD COLUMN "role" STRING NOT NULL DEFAULT 'user';
++
++-- AlterTable
++ALTER TABLE "Post" ADD COLUMN "deletedAt" TIMESTAMP;
++
++-- AlterTable
++ALTER TABLE "Comment" ADD COLUMN "deletedAt" TIMESTAMP;
++
++-- AlterTable
++ALTER TABLE "PostLikes" ADD COLUMN "deletedAt" TIMESTAMP;
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..863d353 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -12,6 +12,7 @@ model User {
+   id           BigInt         @id @default(autoincrement())
+   password     String
+   email        String
++  role         String         @default("user")
+   posts        Post[]
+   comments     Comment[]
+   postLikes    PostLikes[]
+@@ -19,33 +20,36 @@ model User {
+ }
+ 
+ model Post {
+-  id       BigInt      @id @default(autoincrement())
+-  title    String
+-  content  String
+-  userId   BigInt
+-  user     User        @relation(fields: [userId], references: [id])
+-  comments Comment[]
+-  likes    PostLikes[]
++  id        BigInt      @id @default(autoincrement())
++  title     String
++  content   String
++  userId    BigInt
++  user      User        @relation(fields: [userId], references: [id])
++  comments  Comment[]
++  likes     PostLikes[]
++  deletedAt DateTime?
+ }
+ 
+ model PostLikes {
+-  id     BigInt @id @default(autoincrement())
+-  postId BigInt
+-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+-  userId BigInt
+-  user   User   @relation(fields: [userId], references: [id])
++  id        BigInt    @id @default(autoincrement())
++  postId    BigInt
++  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
++  userId    BigInt
++  user      User      @relation(fields: [userId], references: [id])
++  deletedAt DateTime?
+ 
+   @@unique([postId, userId])
+ }
+ 
+ model Comment {
+-  id      BigInt         @id @default(autoincrement())
+-  content String
+-  postId  BigInt
+-  post    Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+-  userId  BigInt
+-  user    User           @relation(fields: [userId], references: [id])
+-  likes   CommentLikes[]
++  id        BigInt         @id @default(autoincrement())
++  content   String
++  postId    BigInt
++  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
++  userId    BigInt
++  user      User           @relation(fields: [userId], references: [id])
++  likes     CommentLikes[]
++  deletedAt DateTime?
+ }
+ 
+ model CommentLikes {
+diff --git a/services/server/prisma/seed.ts b/services/server/prisma/seed.ts
+index b3ab5db..f03db3c 100644
+--- a/services/server/prisma/seed.ts
++++ b/services/server/prisma/seed.ts
+@@ -60,6 +60,21 @@ const userActions = async (user: User) => {
+       // Fail silently if already liked
+     }
+   }
++
++  // Soft-delete a couple of rows so the moderation queue has content
++  const softDeletedPost =
++    allPosts[faker.number.int({ min: 0, max: allPosts.length - 1 })];
++  await prisma.post.update({
++    data: { deletedAt: faker.date.recent() },
++    where: { id: softDeletedPost.id },
++  });
++
++  const softDeletedComment =
++    allComments[faker.number.int({ min: 0, max: allComments.length - 1 })];
++  await prisma.comment.update({
++    data: { deletedAt: faker.date.recent() },
++    where: { id: softDeletedComment.id },
++  });
+ };
+ 
+ export async function main() {
+@@ -72,6 +87,7 @@ export async function main() {
+       data: {
+         email: userEmail,
+         password: userPassword,
++        role: i === 1 ? 'moderator' : 'user',
+       },
+     });
+ 
+diff --git a/services/server/src/routes/v1/post/comment/database.ts b/services/server/src/routes/v1/post/comment/database.ts
+index cf0fe40..4733513 100644
+--- a/services/server/src/routes/v1/post/comment/database.ts
++++ b/services/server/src/routes/v1/post/comment/database.ts
+@@ -41,6 +41,7 @@ export const getInfinite = async ({
+     },
+     where: {
+       postId,
++      deletedAt: null,
+     },
+   });
+ 
+@@ -130,7 +131,10 @@ export const create = async ({
+ };
+ 
+ export const remove = async ({ id }: RemoveInput) => {
+-  return await prisma.comment.delete({ where: { id } });
++  return await prisma.comment.update({
++    data: { deletedAt: new Date() },
++    where: { id },
++  });
+ };
+ 
+ export const removeMany = async ({ ids, userId }: ProtectedRemoveManyInput) => {
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..7689998 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -2,10 +2,13 @@ import {
+   EditInput,
+   InfiniteCreatorInput,
+   InfiniteInput,
++  ModerationQueueInput,
+   ProtectedCreateInput,
+   ProtectedLikeUnlikeInput,
+   ProtectedRemoveManyInput,
++  PurgeInput,
+   RemoveInput,
++  RestoreInput,
+ } from '@shared/zod/post.js';
+ 
+ import { prisma } from '@sc/lib/prisma.js';
+@@ -15,6 +18,9 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+     take: limit + 1,
+     cursor: cursor ? { id: cursor } : undefined,
+     orderBy: { id: 'desc' },
++    where: {
++      deletedAt: null,
++    },
+     select: {
+       id: true,
+       title: true,
+@@ -126,9 +132,60 @@ export const create = async ({
+ };
+ 
+ export const remove = async ({ id }: RemoveInput) => {
++  return await prisma.post.update({
++    data: { deletedAt: new Date() },
++    where: { id },
++  });
++};
++
++export const restore = async ({ id }: RestoreInput) => {
++  return await prisma.post.update({
++    data: { deletedAt: null },
++    where: { id },
++  });
++};
++
++export const purge = async ({ id }: PurgeInput) => {
+   return await prisma.post.delete({ where: { id } });
+ };
+ 
++export const getUserRole = async (userId: bigint) => {
++  const user = await prisma.user.findUnique({
++    where: { id: userId },
++    select: { role: true },
++  });
++
++  return user?.role;
++};
++
++export const getModerationQueue = async ({
++  limit,
++  cursor,
++}: ModerationQueueInput) => {
++  return await prisma.post.findMany({
++    take: limit + 1,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: { deletedAt: 'desc' },
++    where: {
++      deletedAt: { not: null },
++    },
++    include: {
++      user: {
++        select: {
++          id: true,
++          email: true,
++        },
++      },
++      comments: {
++        include: {
++          likes: true,
++        },
++      },
++      likes: true,
++    },
++  });
++};
++
+ export const removeMany = async ({ ids, userId }: ProtectedRemoveManyInput) => {
+   return await prisma.post.deleteMany({
+     where: {
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..a732d89 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -5,8 +5,11 @@ import {
+   editInput,
+   infiniteInput,
+   likeUnlikeInput,
++  moderationQueueInput,
++  purgeInput,
+   removeInput,
+   removeManyInput,
++  restoreInput,
+ } from '@shared/zod/post.js';
+ 
+ import { StatusCode } from '@sc/utils/status-code.js';
+@@ -23,11 +26,15 @@ import {
+   edit,
+   getInfinite,
+   getInfiniteCreator,
++  getModerationQueue,
++  getUserRole,
+   hasLiked,
+   isCreator,
+   like,
++  purge,
+   remove,
+   removeMany,
++  restore,
+   unlike,
+ } from './database.js';
+ 
+@@ -177,4 +184,52 @@ export const postRouter = router({
+     await edit({ title, content, id });
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
++  moderationQueue: protectedProcedure
++    .input(moderationQueueInput)
++    .query(async (opts) => {
++      const { limit, cursor } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const role = await getUserRole(userId);
++      if (role !== 'moderator') {
++        throw new TRPCError({
++          code: 'FORBIDDEN',
++          message: 'Only moderators can view the moderation queue',
++        });
++      }
++
++      const posts = await getModerationQueue({ limit, cursor });
++
++      let nextCursor = undefined;
++      if (posts.length > limit) {
++        const nextItem = posts.pop();
++        nextCursor = nextItem?.id;
++      }
++
++      return {
++        posts,
++        nextCursor,
++      };
++    }),
++  restore: protectedProcedure.input(restoreInput).mutation(async (opts) => {
++    const { id } = opts.input;
++    const userId = opts.ctx.userId;
++
++    const role = await getUserRole(userId);
++    if (role !== 'moderator') {
++      throw new TRPCError({
++        code: 'FORBIDDEN',
++        message: 'Only moderators can restore posts',
++      });
++    }
++
++    await restore({ id });
++    opts.ctx.res.status(StatusCode.OK);
++  }),
++  purge: protectedProcedure.input(purgeInput).mutation(async (opts) => {
++    const { id } = opts.input;
++
++    await purge({ id });
++    opts.ctx.res.status(StatusCode.OK);
++  }),
+ });
+diff --git a/services/server/src/routes/v1/post/purge.ts b/services/server/src/routes/v1/post/purge.ts
+new file mode 100644
+index 0000000..1d6479d
+--- /dev/null
++++ b/services/server/src/routes/v1/post/purge.ts
+@@ -0,0 +1,34 @@
++import { prisma } from '@sc/lib/prisma.js';
++
++const RETENTION_DAYS = 30;
++
++/**
++ * Permanently remove posts that have been soft-deleted for longer than the
++ * retention window. Runs on a schedule from the server entrypoint.
++ */
++export const purgeExpiredPosts = async () => {
++  const cutoff = new Date(
++    Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000
++  );
++
++  const expired = await prisma.post.findMany({
++    where: {
++      deletedAt: { lt: cutoff },
++    },
++    select: { id: true },
++  });
++
++  if (expired.length === 0) {
++    return 0;
++  }
++
++  const ids = expired.map((post) => post.id);
++
++  const removed = await prisma.post.deleteMany({
++    where: {
++      id: { in: ids },
++    },
++  });
++
++  return removed.count;
++};
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..3a5ac64 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -43,3 +43,15 @@ export type UnparsedEditInput = Omit<EditInput, 'id'> & {
+   id: UnparsedDefaultId;
+ };
+ export type ProtectedEditInput = EditInput & Protected;
++
++export const moderationQueueInput = z.object({
++  limit: z.number().min(5).max(30).default(20),
++  cursor: defaultId.nullish(),
++});
++export type ModerationQueueInput = z.infer<typeof moderationQueueInput>;
++
++export const restoreInput = z.object({ id: defaultId });
++export type RestoreInput = z.infer<typeof restoreInput>;
++
++export const purgeInput = z.object({ id: defaultId });
++export type PurgeInput = z.infer<typeof purgeInput>;
+diff --git a/services/shared/src/zod/role.ts b/services/shared/src/zod/role.ts
+new file mode 100644
+index 0000000..a04c811
+--- /dev/null
++++ b/services/shared/src/zod/role.ts
+@@ -0,0 +1,5 @@
++import { z } from 'zod';
++
++export const roleValues = ['user', 'moderator'] as const;
++export const roleSchema = z.enum(roleValues);
++export type Role = z.infer<typeof roleSchema>;

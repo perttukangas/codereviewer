@@ -1,0 +1,575 @@
+diff --git a/README.md b/README.md
+index c7a9712..b5e4188 100644
+--- a/README.md
++++ b/README.md
+@@ -64,6 +64,10 @@ Functionality of the app can be simplified down to the following
+ |                                             | Only logger in user can create etc. posts and comments | Edit if creator         | Edit if creator                    |
+ |                                             |                                                        | Delete if creator       | Delete if creator or owner of post |
+ 
++### Webhooks
++
++Users can register outbound webhooks from their profile page. Each webhook subscribes to one post event (`post.created`, `post.edited`, `post.removed`) and receives a JSON payload when that event occurs. Deliveries are queued in the database and sent by a background worker.
++
+ ### Simple usage instructions
+ 
+ 1. Click `profile` icon at footer > signup > enter email and password > changes to login modal > enter email and password used to signup
+diff --git a/services/client/src/pages/_components/Profile/index.tsx b/services/client/src/pages/_components/Profile/index.tsx
+index c9c736f..6afbfc5 100644
+--- a/services/client/src/pages/_components/Profile/index.tsx
++++ b/services/client/src/pages/_components/Profile/index.tsx
+@@ -1,9 +1,11 @@
+ import PostComponent from './Post';
++import WebhookComponent from '../Webhook';
+ 
+ export default function Index() {
+   return (
+     <div className="p-4">
+       <PostComponent />
++      <WebhookComponent />
+     </div>
+   );
+ }
+diff --git a/services/client/src/pages/_components/Webhook/Settings.tsx b/services/client/src/pages/_components/Webhook/Settings.tsx
+new file mode 100644
+index 0000000..208cfeb
+--- /dev/null
++++ b/services/client/src/pages/_components/Webhook/Settings.tsx
+@@ -0,0 +1,89 @@
++import { useState } from 'react';
++
++import { webhookEventValues } from '@shared/zod/webhook';
++
++import { Button } from '@cc/components/Button';
++import { Card, CardContent, CardHeader, CardTitle } from '@cc/components/Card';
++import { Input } from '@cc/components/Input';
++import { useToast } from '@cc/hooks/use-toast';
++import { t } from '@cc/lib/trpc';
++
++export default function Settings() {
++  const { toast } = useToast();
++  const tUtils = t.useUtils();
++  const [url, setUrl] = useState('');
++  const [event, setEvent] = useState<(typeof webhookEventValues)[number]>(
++    webhookEventValues[0]
++  );
++
++  const webhooks = t.webhook.list.useQuery();
++
++  const createMutation = t.webhook.create.useMutation({
++    onSuccess: async () => {
++      setUrl('');
++      await tUtils.webhook.list.invalidate();
++      toast({ description: 'Webhook added.' });
++    },
++  });
++
++  const removeMutation = t.webhook.remove.useMutation({
++    onSuccess: async () => {
++      await tUtils.webhook.list.invalidate();
++      toast({ description: 'Webhook removed.' });
++    },
++  });
++
++  return (
++    <Card className="rounded-none">
++      <CardHeader>
++        <CardTitle>Webhooks</CardTitle>
++      </CardHeader>
++      <CardContent className="flex flex-col gap-3">
++        <div className="flex flex-col gap-2 md:flex-row">
++          <Input
++            placeholder="https://example.com/hooks/posts"
++            value={url}
++            onChange={(e) => setUrl(e.target.value)}
++          />
++          <select
++            className="rounded border px-2"
++            value={event}
++            onChange={(e) =>
++              setEvent(e.target.value as (typeof webhookEventValues)[number])
++            }
++          >
++            {webhookEventValues.map((value) => (
++              <option key={value} value={value}>
++                {value}
++              </option>
++            ))}
++          </select>
++          <Button
++            disabled={createMutation.isPending}
++            onClick={() => createMutation.mutate({ url, event })}
++          >
++            Add
++          </Button>
++        </div>
++        <ul className="flex flex-col gap-1">
++          {webhooks.data?.map((webhook) => (
++            <li
++              key={webhook.id.toString()}
++              className="flex items-center justify-between gap-2"
++            >
++              <span className="truncate text-sm">
++                {webhook.event} {webhook.url}
++              </span>
++              <Button
++                variant="outline"
++                onClick={() => removeMutation.mutate({ id: webhook.id })}
++              >
++                Remove
++              </Button>
++            </li>
++          ))}
++        </ul>
++      </CardContent>
++    </Card>
++  );
++}
+diff --git a/services/client/src/pages/_components/Webhook/index.tsx b/services/client/src/pages/_components/Webhook/index.tsx
+new file mode 100644
+index 0000000..8ee77ea
+--- /dev/null
++++ b/services/client/src/pages/_components/Webhook/index.tsx
+@@ -0,0 +1,5 @@
++import Settings from './Settings';
++
++export default function Index() {
++  return <Settings />;
++}
+diff --git a/services/server/prisma/migrations/20250124120000_add_webhooks/migration.sql b/services/server/prisma/migrations/20250124120000_add_webhooks/migration.sql
+new file mode 100644
+index 0000000..e9837d6
+--- /dev/null
++++ b/services/server/prisma/migrations/20250124120000_add_webhooks/migration.sql
+@@ -0,0 +1,32 @@
++-- CreateTable
++CREATE TABLE "Webhook" (
++    "id" BIGINT NOT NULL DEFAULT unique_rowid(),
++    "userId" BIGINT NOT NULL,
++    "url" STRING NOT NULL,
++    "secret" STRING NOT NULL,
++    "event" STRING NOT NULL,
++    "active" BOOL NOT NULL DEFAULT true,
++
++    CONSTRAINT "Webhook_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "WebhookDelivery" (
++    "id" BIGINT NOT NULL DEFAULT unique_rowid(),
++    "webhookId" BIGINT NOT NULL,
++    "event" STRING NOT NULL,
++    "postId" BIGINT NOT NULL,
++    "title" STRING NOT NULL,
++    "payload" JSONB NOT NULL,
++    "status" STRING NOT NULL DEFAULT 'pending',
++    "attempts" INT NOT NULL DEFAULT 0,
++    "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
++
++    CONSTRAINT "WebhookDelivery_pkey" PRIMARY KEY ("id")
++);
++
++-- AddForeignKey
++ALTER TABLE "Webhook" ADD CONSTRAINT "Webhook_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_webhookId_fkey" FOREIGN KEY ("webhookId") REFERENCES "Webhook"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..7a233b8 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -16,6 +16,7 @@ model User {
+   comments     Comment[]
+   postLikes    PostLikes[]
+   commentLikes CommentLikes[]
++  webhooks     Webhook[]
+ }
+ 
+ model Post {
+@@ -57,3 +58,27 @@ model CommentLikes {
+ 
+   @@unique([commentId, userId])
+ }
++
++model Webhook {
++  id         BigInt            @id @default(autoincrement())
++  userId     BigInt
++  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
++  url        String
++  secret     String
++  event      String
++  active     Boolean           @default(true)
++  deliveries WebhookDelivery[]
++}
++
++model WebhookDelivery {
++  id        BigInt   @id @default(autoincrement())
++  webhookId BigInt
++  webhook   Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
++  event     String
++  postId    BigInt
++  title     String
++  payload   Json
++  status    String   @default("pending")
++  attempts  Int      @default(0)
++  createdAt DateTime @default(now())
++}
+diff --git a/services/server/prisma/seed.ts b/services/server/prisma/seed.ts
+index b3ab5db..d5e44a4 100644
+--- a/services/server/prisma/seed.ts
++++ b/services/server/prisma/seed.ts
+@@ -15,6 +15,17 @@ const userActions = async (user: User) => {
+     });
+   }
+ 
++  for (const event of ['post.created', 'post.edited', 'post.removed']) {
++    await prisma.webhook.create({
++      data: {
++        userId: user.id,
++        url: faker.internet.url(),
++        secret: faker.string.hexadecimal({ length: 48 }),
++        event,
++      },
++    });
++  }
++
+   const allPosts = await prisma.post.findMany();
+ 
+   for (let k = 0; k < faker.number.int({ min: 15, max: 30 }); k++) {
+diff --git a/services/server/src/index.ts b/services/server/src/index.ts
+index b5a2278..0fb4292 100644
+--- a/services/server/src/index.ts
++++ b/services/server/src/index.ts
+@@ -22,6 +22,7 @@ import { resetDatabase, simpleSeed } from '@sc/lib/prisma.js';
+ import { LogLevel, error, info, shouldLog } from '@sc/utils/logger.js';
+ 
+ import { trpcMiddleware } from '@apiv1/trpc/middleware.js';
++import { startWebhookWorker } from '@apiv1/webhook/worker.js';
+ 
+ async function main() {
+   info('Starting server...');
+@@ -133,6 +134,8 @@ async function main() {
+   app.listen(PORT, () => {
+     info(`Server is running on port ${PORT}`);
+   });
++
++  startWebhookWorker();
+ }
+ 
+ void main();
+diff --git a/services/server/src/routes/v1/index.ts b/services/server/src/routes/v1/index.ts
+index 08821d7..45455eb 100644
+--- a/services/server/src/routes/v1/index.ts
++++ b/services/server/src/routes/v1/index.ts
+@@ -1,10 +1,12 @@
+ import { postRouter } from './post/index.js';
+ import { router } from './trpc/index.js';
+ import { userRouter } from './user/index.js';
++import { webhookRouter } from './webhook/index.js';
+ 
+ export const appRouter = router({
+   post: postRouter,
+   user: userRouter,
++  webhook: webhookRouter,
+ });
+ 
+ export type AppRouter = typeof appRouter;
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..7fb3417 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -30,6 +30,7 @@ import {
+   removeMany,
+   unlike,
+ } from './database.js';
++import { enqueueDelivery } from '../webhook/database.js';
+ 
+ export const postRouter = router({
+   comment: commentRouter,
+@@ -127,7 +128,15 @@ export const postRouter = router({
+   create: protectedProcedure.input(createInput).mutation(async (opts) => {
+     const { title, content } = opts.input;
+     const userId = opts.ctx.userId;
+-    await create({ title, content, userId });
++    const post = await create({ title, content, userId });
++
++    await enqueueDelivery({
++      event: 'post.created',
++      postId: post.id,
++      title: post.title,
++      userId,
++    });
++
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
+   remove: protectedProcedure.input(removeInput).mutation(async (opts) => {
+@@ -142,7 +151,15 @@ export const postRouter = router({
+       });
+     }
+ 
+-    await remove({ id });
++    const post = await remove({ id });
++
++    await enqueueDelivery({
++      event: 'post.removed',
++      postId: post.id,
++      title: post.title,
++      userId,
++    });
++
+     opts.ctx.res.status(StatusCode.OK);
+   }),
+   removeMany: protectedProcedure
+@@ -174,7 +191,15 @@ export const postRouter = router({
+       });
+     }
+ 
+-    await edit({ title, content, id });
++    const post = await edit({ title, content, id });
++
++    await enqueueDelivery({
++      event: 'post.edited',
++      postId: post.id,
++      title: post.title,
++      userId,
++    });
++
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
+ });
+diff --git a/services/server/src/routes/v1/webhook/database.ts b/services/server/src/routes/v1/webhook/database.ts
+new file mode 100644
+index 0000000..a35d275
+--- /dev/null
++++ b/services/server/src/routes/v1/webhook/database.ts
+@@ -0,0 +1,96 @@
++import { randomBytes } from 'node:crypto';
++
++import {
++  ProtectedRemoveWebhookInput,
++  ProtectedWebhookInput,
++  WebhookEvent,
++} from '@shared/zod/webhook.js';
++
++import { prisma } from '@sc/lib/prisma.js';
++
++export const createWebhook = async ({
++  url,
++  event,
++  userId,
++}: ProtectedWebhookInput) => {
++  return await prisma.webhook.create({
++    data: {
++      url,
++      event,
++      userId,
++      secret: randomBytes(24).toString('hex'),
++    },
++  });
++};
++
++export const removeWebhook = async ({
++  id,
++  userId,
++}: ProtectedRemoveWebhookInput) => {
++  return await prisma.webhook.deleteMany({
++    where: {
++      id,
++      userId,
++    },
++  });
++};
++
++export const listWebhooks = async (userId: bigint) => {
++  return await prisma.webhook.findMany({
++    where: { userId },
++    orderBy: { id: 'desc' },
++  });
++};
++
++export const enqueueDelivery = async ({
++  event,
++  postId,
++  title,
++  userId,
++}: {
++  event: WebhookEvent;
++  postId: bigint;
++  title: string;
++  userId: bigint;
++}) => {
++  const webhooks = await prisma.webhook.findMany({
++    where: { userId, event, active: true },
++  });
++
++  if (webhooks.length === 0) {
++    return;
++  }
++
++  // Build the payload once per subscriber so the delivery row is self-contained.
++  const payload = {
++    event,
++    postId,
++    title,
++    occurredAt: new Date().toISOString(),
++  };
++
++  await prisma.webhookDelivery.createMany({
++    data: webhooks.map((webhook) => ({
++      webhookId: webhook.id,
++      event,
++      postId,
++      title,
++      payload,
++    })),
++  });
++};
++
++export const listPendingDeliveries = async () => {
++  return await prisma.webhookDelivery.findMany({
++    where: { status: 'pending' },
++    orderBy: { id: 'asc' },
++    include: { webhook: true },
++  });
++};
++
++export const markDeliveryDelivered = async (id: bigint) => {
++  return await prisma.webhookDelivery.update({
++    where: { id },
++    data: { status: 'delivered' },
++  });
++};
+diff --git a/services/server/src/routes/v1/webhook/index.ts b/services/server/src/routes/v1/webhook/index.ts
+new file mode 100644
+index 0000000..54e6f16
+--- /dev/null
++++ b/services/server/src/routes/v1/webhook/index.ts
+@@ -0,0 +1,27 @@
++import { removeWebhookInput, webhookInput } from '@shared/zod/webhook.js';
++
++import { StatusCode } from '@sc/utils/status-code.js';
++
++import { protectedProcedure, router } from '@apiv1/trpc/index.js';
++
++import { createWebhook, listWebhooks, removeWebhook } from './database.js';
++
++export const webhookRouter = router({
++  list: protectedProcedure.query(async (opts) => {
++    return await listWebhooks(opts.ctx.userId);
++  }),
++  create: protectedProcedure.input(webhookInput).mutation(async (opts) => {
++    const { url, event } = opts.input;
++
++    await createWebhook({ url, event, userId: opts.ctx.userId });
++    opts.ctx.res.status(StatusCode.CREATED);
++  }),
++  remove: protectedProcedure
++    .input(removeWebhookInput)
++    .mutation(async (opts) => {
++      const { id } = opts.input;
++
++      await removeWebhook({ id, userId: opts.ctx.userId });
++      opts.ctx.res.status(StatusCode.OK);
++    }),
++});
+diff --git a/services/server/src/routes/v1/webhook/worker.ts b/services/server/src/routes/v1/webhook/worker.ts
+new file mode 100644
+index 0000000..d4aba6a
+--- /dev/null
++++ b/services/server/src/routes/v1/webhook/worker.ts
+@@ -0,0 +1,68 @@
++import { info } from '@sc/utils/logger.js';
++
++import { listPendingDeliveries, markDeliveryDelivered } from './database.js';
++
++const DELIVERY_INTERVAL_MS = 30_000;
++
++const deliverPending = async () => {
++  const pending = await listPendingDeliveries();
++
++  if (pending.length === 0) {
++    return;
++  }
++
++  await Promise.all(
++    pending.map(async (delivery) => {
++      // Mark the delivery as handled before the network call so a slow
++      // endpoint cannot cause the same event to be picked up twice.
++      await markDeliveryDelivered(delivery.id);
++
++      const payload = {
++        id: delivery.postId,
++        event: delivery.event,
++        title: delivery.title,
++        occurredAt: delivery.createdAt.toISOString(),
++      };
++
++      await fetch(delivery.webhook.url, {
++        method: 'POST',
++        headers: {
++          'content-type': 'application/json',
++          'x-webhook-secret': delivery.webhook.secret,
++        },
++        body: JSON.stringify(payload),
++      });
++    })
++  );
++
++  info(`Delivered ${pending.length} webhook event(s)`);
++};
++
++let timer: NodeJS.Timeout | undefined;
++let running = false;
++
++export const runDeliveryTick = async () => {
++  if (running) {
++    return;
++  }
++
++  running = true;
++  try {
++    await deliverPending();
++  } finally {
++    running = false;
++  }
++};
++
++export const startWebhookWorker = () => {
++  timer = setInterval(() => {
++    void runDeliveryTick();
++  }, DELIVERY_INTERVAL_MS);
++};
++
++export const stopWebhookWorker = () => {
++  if (timer) {
++    clearInterval(timer);
++    timer = undefined;
++  }
++};
+diff --git a/services/shared/src/zod/webhook.ts b/services/shared/src/zod/webhook.ts
+new file mode 100644
+index 0000000..ac1e020
+--- /dev/null
++++ b/services/shared/src/zod/webhook.ts
+@@ -0,0 +1,22 @@
++import { z } from 'zod';
++
++import { type Protected, defaultId } from './common.js';
++
++export const webhookEventValues = [
++  'post.created',
++  'post.edited',
++  'post.removed',
++] as const;
++export const webhookEvent = z.enum(webhookEventValues);
++export type WebhookEvent = z.infer<typeof webhookEvent>;
++
++export const webhookInput = z.object({
++  url: z.string().url().max(500),
++  event: webhookEvent,
++});
++export type WebhookInput = z.infer<typeof webhookInput>;
++export type ProtectedWebhookInput = WebhookInput & Protected;
++
++export const removeWebhookInput = z.object({ id: defaultId });
++export type RemoveWebhookInput = z.infer<typeof removeWebhookInput>;
++export type ProtectedRemoveWebhookInput = RemoveWebhookInput & Protected;
