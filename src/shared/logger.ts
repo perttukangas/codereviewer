@@ -35,7 +35,7 @@ const parseLogLevel = (level: string): LogLevel => {
 };
 
 const sanitizeAgentId = (agentId: string): string =>
-	agentId.replace(/[^a-zA-Z0-9._-]/g, "-");
+	agentId.toLowerCase().replace(/[^a-zA-Z0-9._-]/g, "-");
 
 const formatMessage = (
 	level: LogLevel,
@@ -101,7 +101,7 @@ class Logger {
 			return;
 		}
 
-		this.writeToFile(join(env.LOG_DIR, "COMBINED.log"), line);
+		this.writeToFile(join(env.LOG_DIR, "combined.log"), line);
 
 		if (context.agentId) {
 			this.writeToFile(

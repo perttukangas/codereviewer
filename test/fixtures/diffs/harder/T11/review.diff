@@ -1,0 +1,489 @@
+diff --git a/services/client/src/pages/_components/Footer/index.tsx b/services/client/src/pages/_components/Footer/index.tsx
+index d39f12a..46818b2 100644
+--- a/services/client/src/pages/_components/Footer/index.tsx
++++ b/services/client/src/pages/_components/Footer/index.tsx
+@@ -1,6 +1,6 @@
+ import { useLocation } from '@tanstack/react-router';
+ import { Link } from '@tanstack/react-router';
+-import { CirclePlus, CirclePower, Home, User } from 'lucide-react';
++import { CirclePlus, CirclePower, Home, Tag, User } from 'lucide-react';
+ import { lazy } from 'react';
+ 
+ import type { UnparsedSessionSchema } from '@shared/zod/user';
+@@ -68,6 +68,14 @@ const home = () => (
+   </Link>
+ );
+ 
++const tags = () => (
++  <Link to={'/tags'}>
++    <IconButton aria-label={'tags'}>
++      <Tag />
++    </IconButton>
++  </Link>
++);
++
+ const homeLayout = (user: UnparsedSessionSchema | undefined) => {
+   if (user) {
+     return (
+@@ -77,6 +85,7 @@ const homeLayout = (user: UnparsedSessionSchema | undefined) => {
+           {logout()}
+         </div>
+         {createPost()}
++        {tags()}
+         <ThemeButton />
+       </>
+     );
+@@ -94,6 +103,7 @@ const profileLayout = () => {
+   return (
+     <>
+       {home()}
++      {tags()}
+       {logout()}
+       <ThemeButton />
+     </>
+diff --git a/services/client/src/pages/_components/Post/PostCard.tsx b/services/client/src/pages/_components/Post/PostCard.tsx
+index 9e90ff9..c77cbe4 100644
+--- a/services/client/src/pages/_components/Post/PostCard.tsx
++++ b/services/client/src/pages/_components/Post/PostCard.tsx
+@@ -19,6 +19,7 @@ const Edit = lazyPrefetch(() => import('./Edit'));
+ const Remove = lazyPrefetch(() => import('./Remove'));
+ 
+ const Like = lazy(() => import('./Like'));
++const Tags = lazy(() => import('./Tags'));
+ 
+ type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
+ 
+@@ -59,6 +60,7 @@ export default function PostCard({ row }: PostCardProps) {
+       </CardContent>
+       <CardFooter className="flex-row items-center justify-start gap-1">
+         <Like row={row} />
++        <Tags row={row} />
+         <LazyButton
+           button={({ setOpen }) => (
+             <>
+diff --git a/services/client/src/pages/_components/Post/Tags.tsx b/services/client/src/pages/_components/Post/Tags.tsx
+new file mode 100644
+index 0000000..a6ba90d
+--- /dev/null
++++ b/services/client/src/pages/_components/Post/Tags.tsx
+@@ -0,0 +1,40 @@
++import { Tag as TagIcon } from 'lucide-react';
++import { useNavigate } from '@tanstack/react-router';
++
++import { type RouterOutputs } from '@cc/lib/trpc';
++
++type InfinitePost = RouterOutputs['post']['infinite']['posts'][0];
++
++interface TagsProps {
++  row: InfinitePost;
++}
++
++// Tags are shown in upper case so they stand out from the post body.
++const displayTag = (tag: string) => tag.trim().toUpperCase();
++
++export default function Tags({ row }: TagsProps) {
++  const navigate = useNavigate();
++
++  if (!row.tags || row.tags.length === 0) {
++    return null;
++  }
++
++  return (
++    <div className="flex flex-wrap items-center gap-1">
++      {row.tags.map((tag) => (
++        <button
++          key={tag}
++          type="button"
++          className="rounded-full bg-secondary px-2 py-0.5 text-xs"
++          onClick={() => {
++            const search: Record<string, unknown> = { tag: displayTag(tag) };
++            void navigate({ to: '/tags', search });
++          }}
++        >
++          <TagIcon className="mr-1 inline h-3 w-3" />
++          {displayTag(tag)}
++        </button>
++      ))}
++    </div>
++  );
++}
+diff --git a/services/client/src/pages/tags.tsx b/services/client/src/pages/tags.tsx
+new file mode 100644
+index 0000000..827dbdf
+--- /dev/null
++++ b/services/client/src/pages/tags.tsx
+@@ -0,0 +1,35 @@
++import { useMemo } from 'react';
++import { useSearch } from '@tanstack/react-router';
++
++import InfiniteScrollWindow from '@cc/components/InfiniteScrollWindow';
++import { t } from '@cc/lib/trpc';
++
++import PostCard from './_components/Post/PostCard';
++
++export default function Tags() {
++  const search = useSearch({ strict: false });
++  const tag = String(search.tag ?? '');
++
++  const infinitePosts = t.post.byTag.useInfiniteQuery(
++    { tag },
++    {
++      enabled: tag.length > 0,
++      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
++    }
++  );
++  const { data } = infinitePosts;
++  const allRows = useMemo(
++    () => (data ? data.pages.flatMap((d) => d.posts) : []),
++    [data]
++  );
++
++  return (
++    <InfiniteScrollWindow
++      className="infinite-scroll-tags"
++      allRows={allRows}
++      renderRow={(row) => <PostCard row={row} />}
++      estimateSize={200}
++      {...infinitePosts}
++    />
++  );
++}
+diff --git a/services/client/src/routes.gen.tsx b/services/client/src/routes.gen.tsx
+index 5be0d0b..344e4f7 100644
+--- a/services/client/src/routes.gen.tsx
++++ b/services/client/src/routes.gen.tsx
+@@ -13,9 +13,12 @@ const index = createRoute({ getParentRoute: () => root, path: '/' }).lazy(() =>
+ const profile = createRoute({ getParentRoute: () => root, path: 'profile' }).lazy(() =>
+            import('./pages/profile').then((m) => createLazyRoute('/profile')({ component: m.default }))
+          )
++const tags = createRoute({ getParentRoute: () => root, path: 'tags' }).lazy(() =>
++           import('./pages/tags').then((m) => createLazyRoute('/tags')({ component: m.default }))
++         )
+ 
+ const config = root.addChildren([
+-  index,profile,
++  index,profile,tags,
+   _404,
+ ])
+ 
+diff --git a/services/server/prisma/migrations/20250115120000_add_tags/migration.sql b/services/server/prisma/migrations/20250115120000_add_tags/migration.sql
+new file mode 100644
+index 0000000..59589f2
+--- /dev/null
++++ b/services/server/prisma/migrations/20250115120000_add_tags/migration.sql
+@@ -0,0 +1,28 @@
++-- CreateTable
++CREATE TABLE "Tag" (
++    "id" INT8 NOT NULL DEFAULT unique_rowid(),
++    "name" STRING NOT NULL,
++
++    CONSTRAINT "Tag_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "PostTag" (
++    "id" INT8 NOT NULL DEFAULT unique_rowid(),
++    "postId" INT8 NOT NULL,
++    "tagId" INT8 NOT NULL,
++
++    CONSTRAINT "PostTag_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Tag_name_key" ON "Tag"("name");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "PostTag_postId_tagId_key" ON "PostTag"("postId", "tagId");
++
++-- AddForeignKey
++ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..7a7547f 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -26,6 +26,7 @@ model Post {
+   user     User        @relation(fields: [userId], references: [id])
+   comments Comment[]
+   likes    PostLikes[]
++  tags     PostTag[]
+ }
+ 
+ model PostLikes {
+@@ -57,3 +58,19 @@ model CommentLikes {
+ 
+   @@unique([commentId, userId])
+ }
++
++model Tag {
++  id    BigInt    @id @default(autoincrement())
++  name  String    @unique
++  posts PostTag[]
++}
++
++model PostTag {
++  id     BigInt @id @default(autoincrement())
++  postId BigInt
++  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
++  tagId  BigInt
++  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
++
++  @@unique([postId, tagId])
++}
+diff --git a/services/server/prisma/seed.ts b/services/server/prisma/seed.ts
+index b3ab5db..3009223 100644
+--- a/services/server/prisma/seed.ts
++++ b/services/server/prisma/seed.ts
+@@ -4,15 +4,36 @@ import bcrypt from 'bcrypt';
+ 
+ import { prisma, resetDatabase } from '../src/core/lib/prisma';
+ 
++const tagNames = ['typescript', 'react', 'prisma', 'testing', 'design'];
++
++const tagActions = async (postId: bigint) => {
++  const shuffled = [...tagNames].sort(() => Math.random() - 0.5);
++  const count = faker.number.int({ min: 1, max: 3 });
++
++  for (const name of shuffled.slice(0, count)) {
++    const tag = await prisma.tag.upsert({
++      where: { name },
++      update: {},
++      create: { name },
++    });
++
++    await prisma.postTag.create({
++      data: { postId, tagId: tag.id },
++    });
++  }
++};
++
+ const userActions = async (user: User) => {
+   for (let j = 0; j < faker.number.int({ min: 1, max: 3 }); j++) {
+-    await prisma.post.create({
++    const post = await prisma.post.create({
+       data: {
+         title: faker.lorem.sentence(),
+         content: faker.lorem.paragraphs(),
+         userId: user.id,
+       },
+     });
++
++    await tagActions(post.id);
+   }
+ 
+   const allPosts = await prisma.post.findMany();
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..679bf92 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -1,4 +1,6 @@
+ import {
++  AttachTagsInput,
++  ByTagInput,
+   EditInput,
+   InfiniteCreatorInput,
+   InfiniteInput,
+@@ -34,6 +36,13 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+             take: 1,
+           }
+         : undefined,
++      tags: {
++        select: {
++          tag: {
++            select: { name: true },
++          },
++        },
++      },
+     },
+   });
+ 
+@@ -46,6 +55,7 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+     comments: post._count.comments,
+     creator: post.userId === userId,
+     liked: post.likes?.length > 0,
++    tags: post.tags.map((postTag) => postTag.tag.name),
+   }));
+ };
+ 
+@@ -163,3 +173,92 @@ export const isCreator = async ({
+ 
+   return !!post;
+ };
++
++export const getByTag = async ({
++  tag,
++  limit,
++  cursor,
++  userId,
++}: ByTagInput & { userId?: bigint }) => {
++  const posts = await prisma.post.findMany({
++    take: limit + 1,
++    cursor: cursor ? { id: cursor } : undefined,
++    orderBy: { likes: { _count: 'desc' } },
++    select: {
++      id: true,
++      title: true,
++      content: true,
++      _count: {
++        select: { likes: true, comments: true },
++      },
++      userId: true,
++      likes: userId
++        ? {
++            select: {
++              userId: true,
++            },
++            where: {
++              userId,
++            },
++            take: 1,
++          }
++        : undefined,
++      tags: {
++        select: {
++          tag: {
++            select: { name: true },
++          },
++        },
++      },
++    },
++    where: {
++      tags: {
++        some: {
++          tag: {
++            name: tag,
++          },
++        },
++      },
++    },
++  });
++
++  return posts.map((post: (typeof posts)[number]) => ({
++    id: post.id,
++    title: post.title,
++    content: post.content,
++    likes: post._count.likes,
++    comments: post._count.comments,
++    creator: post.userId === userId,
++    liked: post.likes?.length > 0,
++    tags: post.tags.map((postTag) => postTag.tag.name),
++  }));
++};
++
++export const attachTags = async ({
++  postId,
++  tags,
++}: AttachTagsInput) => {
++  for (const raw of tags) {
++    const name = raw.toLowerCase();
++
++    const tag = await prisma.tag.upsert({
++      where: { name },
++      update: {},
++      create: { name },
++    });
++
++    let linked = false;
++    let attempts = 0;
++    while (!linked && attempts < 3) {
++      try {
++        await prisma.postTag.create({
++          data: { postId, tagId: tag.id },
++        });
++        linked = true;
++        attempts += 1;
++      } catch {
++        // Retry until the link is created.
++      }
++    }
++  }
++};
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..1f5ede0 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -1,6 +1,8 @@
+ import { TRPCError } from '@trpc/server';
+ 
+ import {
++  attachTagsInput,
++  byTagInput,
+   createInput,
+   editInput,
+   infiniteInput,
+@@ -19,8 +21,10 @@ import {
+ 
+ import { commentRouter } from './comment/index.js';
+ import {
++  attachTags,
+   create,
+   edit,
++  getByTag,
+   getInfinite,
+   getInfiniteCreator,
+   hasLiked,
+@@ -177,4 +181,38 @@ export const postRouter = router({
+     await edit({ title, content, id });
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
++  byTag: publicProcedure.input(byTagInput).query(async (opts) => {
++    const { tag, limit, cursor } = opts.input;
++    const userId = opts.ctx.userId;
++
++    const posts = await getByTag({ tag, limit, cursor, userId });
++
++    let nextCursor = undefined;
++    if (posts.length > limit) {
++      const nextItem = posts.pop();
++      nextCursor = nextItem?.id;
++    }
++
++    return {
++      posts,
++      nextCursor,
++    };
++  }),
++  attachTags: protectedProcedure
++    .input(attachTagsInput)
++    .mutation(async (opts) => {
++      const { postId, tags } = opts.input;
++      const userId = opts.ctx.userId;
++
++      const creator = await isCreator({ id: postId, userId });
++      if (!creator) {
++        throw new TRPCError({
++          code: 'UNAUTHORIZED',
++          message: 'You are not the creator of this post',
++        });
++      }
++
++      await attachTags({ postId, tags });
++      opts.ctx.res.status(StatusCode.CREATED);
++    }),
+ });
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..33c75c9 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -43,3 +43,19 @@ export type UnparsedEditInput = Omit<EditInput, 'id'> & {
+   id: UnparsedDefaultId;
+ };
+ export type ProtectedEditInput = EditInput & Protected;
++
++export const tagInput = z.string().min(1).max(30).trim();
++
++export const attachTagsInput = z.object({
++  postId: defaultId,
++  tags: z.array(tagInput).max(5),
++});
++export type AttachTagsInput = z.infer<typeof attachTagsInput>;
++export type ProtectedAttachTagsInput = AttachTagsInput & Protected;
++
++export const byTagInput = z.object({
++  tag: z.string().min(1).max(30),
++  limit: z.number().min(5).max(30).default(20),
++  cursor: defaultId.nullish(),
++});
++export type ByTagInput = z.infer<typeof byTagInput>;
