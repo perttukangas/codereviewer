@@ -1,0 +1,336 @@
+diff --git a/services/client/src/pages/_components/Post/Create.tsx b/services/client/src/pages/_components/Post/Create.tsx
+index 3eaef9e..19879b6 100644
+--- a/services/client/src/pages/_components/Post/Create.tsx
++++ b/services/client/src/pages/_components/Post/Create.tsx
+@@ -41,6 +41,15 @@ export default function Create({ open, setOpen }: CreateProps) {
+     },
+   });
+ 
++  const draftMutation = t.post.createDraft.useMutation({
++    onSuccess: async () => {
++      form.reset();
++      setOpen(false);
++      await tUtils.post.drafts.invalidate();
++      toast({ description: 'Draft saved. It will publish at the scheduled time.' });
++    },
++  });
++
+   return (
+     <DrawerDialog
+       title="Create post"
+@@ -58,6 +67,18 @@ export default function Create({ open, setOpen }: CreateProps) {
+           >
+             Submit
+           </Button>
++          <Button
++            variant="outline"
++            className="mt-2 w-full"
++            disabled={form.formState.isSubmitting}
++            onClick={(e) => {
++              void form.handleSubmit((data) =>
++                draftMutation.mutate({ ...data, publishAt: undefined })
++              )(e);
++            }}
++          >
++            Save as draft
++          </Button>
+         </div>
+       }
+     >
+diff --git a/services/client/src/pages/_components/Post/PostCard.tsx b/services/client/src/pages/_components/Post/PostCard.tsx
+index 9e90ff9..3e5df78 100644
+--- a/services/client/src/pages/_components/Post/PostCard.tsx
++++ b/services/client/src/pages/_components/Post/PostCard.tsx
+@@ -31,6 +31,9 @@ export default function PostCard({ row }: PostCardProps) {
+     <Card className="rounded-none">
+       <CardHeader className="flex-row items-center justify-between gap-1">
+         <CardTitle>{row.title}</CardTitle>
++        {row.isDraft && (
++          <span className="rounded bg-muted px-2 py-1 text-xs">Draft</span>
++        )}
+         {row.creator && (
+           <div className="flex items-center gap-1">
+             <LazyButton
+diff --git a/services/server/prisma/migrations/20250122120000_add_post_drafts/migration.sql b/services/server/prisma/migrations/20250122120000_add_post_drafts/migration.sql
+new file mode 100644
+index 0000000..61bd5af
+--- /dev/null
++++ b/services/server/prisma/migrations/20250122120000_add_post_drafts/migration.sql
+@@ -0,0 +1,3 @@
++-- AlterTable
++ALTER TABLE "Post" ADD COLUMN "isDraft" BOOL NOT NULL DEFAULT false;
++ALTER TABLE "Post" ADD COLUMN "publishedAt" TIMESTAMP;
+diff --git a/services/server/prisma/schema.prisma b/services/server/prisma/schema.prisma
+index e465c81..7cfa49d 100644
+--- a/services/server/prisma/schema.prisma
++++ b/services/server/prisma/schema.prisma
+@@ -19,13 +19,15 @@ model User {
+ }
+ 
+ model Post {
+-  id       BigInt      @id @default(autoincrement())
+-  title    String
+-  content  String
+-  userId   BigInt
+-  user     User        @relation(fields: [userId], references: [id])
+-  comments Comment[]
+-  likes    PostLikes[]
++  id          BigInt      @id @default(autoincrement())
++  title       String
++  content     String
++  userId      BigInt
++  user        User        @relation(fields: [userId], references: [id])
++  comments    Comment[]
++  likes       PostLikes[]
++  isDraft     Boolean     @default(false)
++  publishedAt DateTime?
+ }
+ 
+ model PostLikes {
+diff --git a/services/server/prisma/seed.ts b/services/server/prisma/seed.ts
+index b3ab5db..05139e3 100644
+--- a/services/server/prisma/seed.ts
++++ b/services/server/prisma/seed.ts
+@@ -15,6 +15,18 @@ const userActions = async (user: User) => {
+     });
+   }
+ 
++  for (let d = 0; d < faker.number.int({ min: 0, max: 2 }); d++) {
++    await prisma.post.create({
++      data: {
++        title: faker.lorem.sentence(),
++        content: faker.lorem.paragraphs(),
++        userId: user.id,
++        isDraft: true,
++        publishedAt: faker.date.future(),
++      },
++    });
++  }
++
+   const allPosts = await prisma.post.findMany();
+ 
+   for (let k = 0; k < faker.number.int({ min: 15, max: 30 }); k++) {
+diff --git a/services/server/src/routes/v1/post/database.ts b/services/server/src/routes/v1/post/database.ts
+index 06ec4f9..c1c28ca 100644
+--- a/services/server/src/routes/v1/post/database.ts
++++ b/services/server/src/routes/v1/post/database.ts
+@@ -3,7 +3,9 @@ import {
+   InfiniteCreatorInput,
+   InfiniteInput,
+   ProtectedCreateInput,
++  ProtectedDraftInput,
+   ProtectedLikeUnlikeInput,
++  ProtectedPublishNowInput,
+   ProtectedRemoveManyInput,
+   RemoveInput,
+ } from '@shared/zod/post.js';
+@@ -15,10 +17,13 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+     take: limit + 1,
+     cursor: cursor ? { id: cursor } : undefined,
+     orderBy: { id: 'desc' },
++    // Hide drafts from logged-out visitors.
++    where: userId ? undefined : { isDraft: false },
+     select: {
+       id: true,
+       title: true,
+       content: true,
++      isDraft: true,
+       _count: {
+         select: { likes: true, comments: true },
+       },
+@@ -42,6 +47,7 @@ export const getInfinite = async ({ limit, cursor, userId }: InfiniteInput) => {
+     id: post.id,
+     title: post.title,
+     content: post.content,
++    isDraft: post.isDraft,
+     likes: post._count.likes,
+     comments: post._count.comments,
+     creator: post.userId === userId,
+@@ -163,3 +169,51 @@ export const isCreator = async ({
+ 
+   return !!post;
+ };
++
++export const createDraft = async ({
++  title,
++  content,
++  publishAt,
++  userId,
++}: ProtectedDraftInput) => {
++  return await prisma.post.create({
++    data: {
++      title,
++      content,
++      userId,
++      isDraft: true,
++      publishedAt: publishAt,
++    },
++  });
++};
++
++export const getDrafts = async (userId: bigint) => {
++  return await prisma.post.findMany({
++    where: { userId, isDraft: true },
++    orderBy: { id: 'desc' },
++  });
++};
++
++export const findDueDrafts = async (now: Date) => {
++  return await prisma.post.findMany({
++    where: {
++      isDraft: true,
++      publishedAt: { lte: now },
++    },
++    select: { id: true },
++  });
++};
++
++export const markDraftsPublished = async (ids: bigint[]) => {
++  return await prisma.post.updateMany({
++    where: { id: { in: ids } },
++    data: { isDraft: false },
++  });
++};
++
++export const publishNow = async ({ id }: ProtectedPublishNowInput) => {
++  return await prisma.post.update({
++    where: { id },
++    data: { isDraft: false, publishedAt: new Date() },
++  });
++};
+diff --git a/services/server/src/routes/v1/post/index.ts b/services/server/src/routes/v1/post/index.ts
+index 64b77d4..cb5dd5d 100644
+--- a/services/server/src/routes/v1/post/index.ts
++++ b/services/server/src/routes/v1/post/index.ts
+@@ -2,9 +2,11 @@ import { TRPCError } from '@trpc/server';
+ 
+ import {
+   createInput,
++  draftInput,
+   editInput,
+   infiniteInput,
+   likeUnlikeInput,
++  publishNowInput,
+   removeInput,
+   removeManyInput,
+ } from '@shared/zod/post.js';
+@@ -20,16 +22,20 @@ import {
+ import { commentRouter } from './comment/index.js';
+ import {
+   create,
++  createDraft,
+   edit,
++  getDrafts,
+   getInfinite,
+   getInfiniteCreator,
+   hasLiked,
+   isCreator,
+   like,
++  publishNow,
+   remove,
+   removeMany,
+   unlike,
+ } from './database.js';
++import { startScheduler } from './scheduler.js';
+ 
+ export const postRouter = router({
+   comment: commentRouter,
+@@ -177,4 +183,26 @@ export const postRouter = router({
+     await edit({ title, content, id });
+     opts.ctx.res.status(StatusCode.CREATED);
+   }),
++  createDraft: protectedProcedure.input(draftInput).mutation(async (opts) => {
++    const { title, content, publishAt } = opts.input;
++    const userId = opts.ctx.userId;
++
++    await createDraft({ title, content, publishAt, userId });
++    opts.ctx.res.status(StatusCode.CREATED);
++  }),
++  drafts: protectedProcedure.query(async (opts) => {
++    const userId = opts.ctx.userId;
++
++    return await getDrafts(userId);
++  }),
++  publishNow: protectedProcedure
++    .input(publishNowInput)
++    .mutation(async (opts) => {
++      const { id } = opts.input;
++
++      await publishNow({ id, userId: opts.ctx.userId });
++      opts.ctx.res.status(StatusCode.OK);
++    }),
+ });
++
++startScheduler();
+diff --git a/services/server/src/routes/v1/post/scheduler.ts b/services/server/src/routes/v1/post/scheduler.ts
+new file mode 100644
+index 0000000..ba6acfa
+--- /dev/null
++++ b/services/server/src/routes/v1/post/scheduler.ts
+@@ -0,0 +1,46 @@
++import { prisma } from '@sc/lib/prisma.js';
++import { info } from '@sc/utils/logger.js';
++
++import { findDueDrafts, markDraftsPublished } from './database.js';
++
++const PUBLISH_INTERVAL_MS = 60_000;
++
++const notifyAuthor = async (userId: bigint, title: string) => {
++  info(`Scheduled post "${title}" for user ${userId} is now live`);
++};
++
++export const runPublishTick = async () => {
++  const now = new Date();
++  const due = await findDueDrafts(now);
++
++  if (due.length === 0) {
++    return;
++  }
++
++  await markDraftsPublished(due.map((post) => post.id));
++
++  // Read the rows back so we can notify each author.
++  const published = await prisma.post.findMany({
++    where: { publishedAt: { gte: now } },
++    select: { id: true, userId: true, title: true },
++  });
++
++  for (const post of published) {
++    await notifyAuthor(post.userId, post.title);
++  }
++};
++
++let timer: NodeJS.Timeout | undefined;
++
++export const startScheduler = () => {
++  timer = setInterval(async () => {
++    await runPublishTick();
++  }, PUBLISH_INTERVAL_MS);
++};
++
++export const stopScheduler = () => {
++  if (timer) {
++    clearInterval(timer);
++    timer = undefined;
++  }
++};
+diff --git a/services/shared/src/zod/post.ts b/services/shared/src/zod/post.ts
+index d29d7ec..3fc33e5 100644
+--- a/services/shared/src/zod/post.ts
++++ b/services/shared/src/zod/post.ts
+@@ -43,3 +43,15 @@ export type UnparsedEditInput = Omit<EditInput, 'id'> & {
+   id: UnparsedDefaultId;
+ };
+ export type ProtectedEditInput = EditInput & Protected;
++
++export const draftInput = z.object({
++  title: z.string().min(5).max(100),
++  content: z.string().min(10).max(5000),
++  publishAt: z.coerce.date().optional(),
++});
++export type DraftInput = z.infer<typeof draftInput>;
++export type ProtectedDraftInput = DraftInput & Protected;
++
++export const publishNowInput = z.object({ id: defaultId });
++export type PublishNowInput = z.infer<typeof publishNowInput>;
++export type ProtectedPublishNowInput = PublishNowInput & Protected;

@@ -3,42 +3,82 @@
   "repository": "fullstack-harjoitustyo",
   "revision": "757891693c61990afd973107389a60902e96de7d",
   "difficulty": "harder",
-  "mr": "TODO",
+  "mr": "Add post drafts with scheduled publish so authors can save a post as a draft, schedule it to publish at a future time, and have the server publish due drafts automatically.",
   "diff": {
     "path": "review.diff",
-    "changedFiles": [],
+    "changedFiles": [
+      "services/client/src/pages/_components/Post/Create.tsx",
+      "services/client/src/pages/_components/Post/PostCard.tsx",
+      "services/server/prisma/migrations/20250122120000_add_post_drafts/migration.sql",
+      "services/server/prisma/schema.prisma",
+      "services/server/prisma/seed.ts",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/post/scheduler.ts",
+      "services/shared/src/zod/post.ts"
+    ],
     "purposes": [
       {
         "id": "T13-F01",
         "mainAgent": "CORRECTNESS",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The scheduler flips due drafts with updateMany that sets only isDraft false and never stamps publishedAt, while the read-back filters publishedAt gte now, so the read-back returns nothing and the notification step silently skips every scheduled post",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts",
+          "services/server/src/routes/v1/post/scheduler.ts"
+        ],
+        "expectedLines": [
+          204,
+          209
+        ],
+        "score": 7.84
       },
       {
         "id": "T13-F02",
         "mainAgent": "MAINTAINABILITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The scheduler is started as a module side effect with a bare startScheduler call at the top level of the post route module instead of from the entrypoint main, so importing the router starts a live timer and no place owns the scheduler lifecycle",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts",
+          "services/server/src/routes/v1/post/scheduler.ts"
+        ],
+        "expectedLines": [
+          205,
+          205
+        ],
+        "score": 2.56
       },
       {
         "id": "T13-F03",
         "mainAgent": "RELIABILITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The scheduler's setInterval callback is async and not awaited and the interval is never cleared on shutdown, so overlapping ticks can select and publish the same draft concurrently and notify the author twice",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/scheduler.ts"
+        ],
+        "expectedLines": [
+          35,
+          46
+        ],
+        "score": 6.72
       },
       {
         "id": "T13-F04",
         "mainAgent": "SECURITY",
-        "severity": "TODO",
-        "confidence": "TODO",
-        "title": "TODO",
-        "score": null
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The feed applies the draft filter only for anonymous viewers, so any authenticated user sees every user's unpublished drafts in the public feed",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          20,
+          21
+        ],
+        "score": 8.4
       }
     ]
   }
