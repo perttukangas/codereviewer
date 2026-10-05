@@ -8,6 +8,7 @@ export type ToolTextContent = {
 export type ToolResult<TDetails = unknown> = {
 	content: ToolTextContent[];
 	details?: TDetails;
+	terminate?: boolean;
 };
 
 export type ToolExecutionMode = "sequential" | "parallel";
@@ -32,7 +33,9 @@ export const defineTool = <TParams extends TSchema>(
 export const toolResult = <TDetails = unknown>(
 	text: string,
 	details?: TDetails,
+	options?: { terminate?: boolean },
 ): ToolResult<TDetails> => ({
 	content: [{ type: "text", text }],
 	...(details !== undefined ? { details } : {}),
+	...(options?.terminate ? { terminate: true } : {}),
 });

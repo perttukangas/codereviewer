@@ -19,6 +19,7 @@ export const toPiTool = (tool: AgentToolDefinition): PiToolDefinition => {
 			return {
 				content: result.content,
 				details: result.details,
+				...(result.terminate ? { terminate: true } : {}),
 			};
 		},
 	});

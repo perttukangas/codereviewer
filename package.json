@@ -16,6 +16,7 @@
     "fixtures:prepare": "bash scripts/generate-fixture.sh prepare",
     "fixtures:capture": "bash scripts/generate-fixture.sh capture",
     "fixtures:run": "bash scripts/run-fixtures.sh",
+    "fixtures:run-all": "bash scripts/run-all-tests.sh",
     "fixtures:scores": "node --experimental-strip-types scripts/confirm-fixture-scores.ts",
     "fixtures:scores:write": "node --experimental-strip-types scripts/confirm-fixture-scores.ts --write",
     "evaluate:fixtures": "node --experimental-strip-types scripts/evaluate-fixtures.ts",

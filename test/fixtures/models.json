@@ -1,0 +1,14 @@
+{
+  "qwen/qwen3.6-35b-a3b": {
+    "parameters": 35,
+    "activeParameters": 3
+  },
+  "openai/gpt-oss-120b": {
+    "parameters": 117,
+    "activeParameters": 5.1
+  },
+  "google/gemma-4-26b-a4b-it": {
+    "parameters": 25.2,
+    "activeParameters": 3.8
+  }
+}

@@ -24,7 +24,9 @@ export const completionTool = defineTool({
 	executionMode: "sequential",
 	completion: { nudge: completionNudge },
 	async execute() {
-		return toolResult("Completion recorded.");
+		return toolResult("Completion recorded, terminating.", undefined, {
+			terminate: true,
+		});
 	},
 });
 

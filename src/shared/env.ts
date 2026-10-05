@@ -87,6 +87,6 @@ export const env = cleanEnv(process.env, {
 
 	AGENT_MAX_CONCURRENCY: num({
 		desc: "The maximum number of agent sessions that may run concurrently. Zero disables the limit.",
-		default: 4,
+		default: 5,
 	}),
 });
