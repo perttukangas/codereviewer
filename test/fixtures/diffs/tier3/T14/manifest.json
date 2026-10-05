@@ -1,0 +1,86 @@
+{
+  "id": "T14",
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "difficulty": "tier3",
+  "mr": "Add soft-delete for posts and comments with a moderator moderation queue, so deleted content is hidden from the feed, moderators can review and restore or purge it, and expired soft-deleted posts are purged automatically.",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [
+      "services/client/src/pages/_components/Post/Moderation.tsx",
+      "services/client/src/pages/_components/Post/ModerationCard.tsx",
+      "services/client/src/pages/_components/Post/Remove.tsx",
+      "services/server/prisma/migrations/20250123120000_add_soft_delete/migration.sql",
+      "services/server/prisma/schema.prisma",
+      "services/server/prisma/seed.ts",
+      "services/server/src/routes/v1/post/comment/database.ts",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/post/purge.ts",
+      "services/shared/src/zod/post.ts",
+      "services/shared/src/zod/role.ts"
+    ],
+    "purposes": [
+      {
+        "id": "T14-F01",
+        "mainAgent": "CORRECTNESS",
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The feed filters deletedAt null on the post rows but computes the comment and like counts with a plain _count that has no where filter, so soft-deleted comments and likes are still counted",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          21,
+          30
+        ],
+        "score": 4.48
+      },
+      {
+        "id": "T14-F02",
+        "mainAgent": "PERFORMANCE",
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The moderation queue includes the reported post's full comments and likes relations but only renders the post title, so it loads the entire comment and like graph for every reported post",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          172,
+          185
+        ],
+        "score": 3.2
+      },
+      {
+        "id": "T14-F03",
+        "mainAgent": "RELIABILITY",
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The purge job selects expired rows with findMany and then deletes them with deleteMany by id without re-checking deletedAt, so a post restored by a moderator between the select and the delete is purged anyway",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/purge.ts"
+        ],
+        "expectedLines": [
+          14,
+          31
+        ],
+        "score": 6.72
+      },
+      {
+        "id": "T14-F04",
+        "mainAgent": "SECURITY",
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "The restore route checks the moderator role but the sibling purge route omits the check, so any authenticated user can permanently purge any post",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          229,
+          234
+        ],
+        "score": 8.4
+      }
+    ]
+  }
+}

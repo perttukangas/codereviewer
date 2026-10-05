@@ -1,0 +1,80 @@
+{
+  "id": "T02",
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "difficulty": "tier1",
+  "mr": "Add a CSV export of the signed-in user's posts from the profile page.",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [
+      "services/client/src/pages/_components/Profile/Post/Export.tsx",
+      "services/client/src/pages/_components/Profile/Post/index.tsx",
+      "services/server/src/routes/v1/post/database.ts",
+      "services/server/src/routes/v1/post/export.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/shared/src/zod/post.ts"
+    ],
+    "purposes": [
+      {
+        "id": "T02-F01",
+        "mainAgent": "CORRECTNESS",
+        "severity": "HIGH",
+        "confidence": "DEMONSTRATED",
+        "title": "CSV header and row column order do not match",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/export.ts"
+        ],
+        "expectedLines": [
+          16,
+          19
+        ],
+        "score": 9.8
+      },
+      {
+        "id": "T02-F02",
+        "mainAgent": "MAINTAINABILITY",
+        "severity": "MEDIUM",
+        "confidence": "DEMONSTRATED",
+        "title": "Export input advertises a format option that is never honored",
+        "expectedFiles": [
+          "services/shared/src/zod/post.ts"
+        ],
+        "expectedLines": [
+          18,
+          22
+        ],
+        "score": 3.2
+      },
+      {
+        "id": "T02-F03",
+        "mainAgent": "PERFORMANCE",
+        "severity": "HIGH",
+        "confidence": "DEMONSTRATED",
+        "title": "Export issues one comment count query per post (N+1)",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/database.ts"
+        ],
+        "expectedLines": [
+          94,
+          107
+        ],
+        "score": 7
+      },
+      {
+        "id": "T02-F04",
+        "mainAgent": "SECURITY",
+        "severity": "HIGH",
+        "confidence": "DEMONSTRATED",
+        "title": "Export route is public and trusts a client-supplied userId",
+        "expectedFiles": [
+          "services/server/src/routes/v1/post/index.ts"
+        ],
+        "expectedLines": [
+          100,
+          103
+        ],
+        "score": 10.5
+      }
+    ]
+  }
+}

@@ -17,7 +17,7 @@ import type {
 } from "../src/workflows/review/types.ts";
 import type { WorkflowResult } from "../src/workflows/types.ts";
 
-type Difficulty = "easier" | "medium" | "harder";
+type Tier = "tier1" | "tier2" | "tier3";
 
 type Mode = "multi" | "single";
 
@@ -38,7 +38,7 @@ type Manifest = {
 	id: string;
 	repository: string;
 	revision: string;
-	difficulty: Difficulty;
+	difficulty: Tier;
 	diff: {
 		path: string;
 		changedFiles: string[];
@@ -65,9 +65,9 @@ const readJson = async <T>(path: string): Promise<T | undefined> => {
 const findManifests = async (): Promise<{ manifest: Manifest; dir: string }[]> => {
 	const found: { manifest: Manifest; dir: string }[] = [];
 
-	for (const difficulty of ["easier", "medium", "harder"] as const) {
-		const difficultyDir = join(diffsRoot, difficulty);
-		const entries = await readdir(difficultyDir, { withFileTypes: true }).catch(
+	for (const tier of ["tier1", "tier2", "tier3"] as const) {
+		const tierDir = join(diffsRoot, tier);
+		const entries = await readdir(tierDir, { withFileTypes: true }).catch(
 			() => [],
 		);
 
@@ -75,7 +75,7 @@ const findManifests = async (): Promise<{ manifest: Manifest; dir: string }[]> =
 			if (!entry.isDirectory() || !entry.name.startsWith("T")) {
 				continue;
 			}
-			const dir = join(difficultyDir, entry.name);
+			const dir = join(tierDir, entry.name);
 			const manifest = await readJson<Manifest>(join(dir, "manifest.json"));
 			if (manifest) {
 				found.push({ manifest, dir });
@@ -145,7 +145,7 @@ type ModeResult = {
 
 type TestResult = {
 	id: string;
-	difficulty: Difficulty;
+	tier: Tier;
 	modes: ModeResult[];
 };
 
@@ -292,7 +292,7 @@ const evaluateTest = async (
 
 	return {
 		id: manifest.id,
-		difficulty: manifest.difficulty,
+		tier: manifest.difficulty,
 		modes: modeResults,
 	};
 };
@@ -357,21 +357,21 @@ const buildSummary = (results: TestResult[]): string => {
 	}
 	lines.push("");
 
-	lines.push("## Recall by difficulty");
+	lines.push("## Recall by tier");
 	lines.push("");
-	lines.push("| Mode | Difficulty | Recall | Main-target recall |");
-	lines.push("| ---- | ---------- | ------ | ------------------ |");
+	lines.push("| Mode | Tier | Recall | Main-target recall |");
+	lines.push("| ---- | ---- | ------ | ------------------ |");
 	for (const mode of modes) {
-		for (const difficulty of ["easier", "medium", "harder"] as const) {
+		for (const tier of ["tier1", "tier2", "tier3"] as const) {
 			const purposes = results
-				.filter((result) => result.difficulty === difficulty)
+				.filter((result) => result.tier === tier)
 				.flatMap((result) =>
 					result.modes
 						.filter((item) => item.mode === mode)
 						.flatMap((item) => item.purposes),
 				);
 			lines.push(
-				`| ${mode} | ${difficulty} | ${ratio(
+				`| ${mode} | ${tier} | ${ratio(
 					purposes.filter((purpose) => purpose.detected).length,
 					purposes.length,
 				)} | ${ratio(
@@ -412,15 +412,15 @@ const buildSummary = (results: TestResult[]): string => {
 	lines.push("## Per test");
 	lines.push("");
 	lines.push(
-		"| Test | Difficulty | Mode | Recall | Additional findings | Invalid findings |",
+		"| Test | Tier | Mode | Recall | Additional findings | Invalid findings |",
 	);
 	lines.push(
-		"| ---- | ---------- | ---- | ------ | ------------------- | ---------------- |",
+		"| ---- | ---- | ---- | ------ | ------------------- | ---------------- |",
 	);
 	for (const result of results) {
 		for (const modeResult of result.modes) {
 			lines.push(
-				`| ${result.id} | ${result.difficulty} | ${modeResult.mode} | ${ratio(
+				`| ${result.id} | ${result.tier} | ${modeResult.mode} | ${ratio(
 					modeResult.purposes.filter((purpose) => purpose.detected).length,
 					modeResult.purposes.length,
 				)} | ${modeResult.additionalFindings} | ${modeResult.invalidFindings} |`,

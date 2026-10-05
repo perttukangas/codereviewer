@@ -21,7 +21,7 @@ type Manifest = {
 	id: string;
 	repository: string;
 	revision: string;
-	difficulty: "easier" | "medium" | "harder";
+	difficulty: "tier1" | "tier2" | "tier3";
 	diff: {
 		path: string;
 		changedFiles: string[];
@@ -39,9 +39,9 @@ const findManifests = async (): Promise<
 > => {
 	const found: { manifest: Manifest; path: string }[] = [];
 
-	for (const difficulty of ["easier", "medium", "harder"] as const) {
-		const difficultyDir = join(diffsRoot, difficulty);
-		const entries = await readdir(difficultyDir, { withFileTypes: true }).catch(
+	for (const tier of ["tier1", "tier2", "tier3"] as const) {
+		const tierDir = join(diffsRoot, tier);
+		const entries = await readdir(tierDir, { withFileTypes: true }).catch(
 			() => [],
 		);
 
@@ -49,7 +49,7 @@ const findManifests = async (): Promise<
 			if (!entry.isDirectory() || !entry.name.startsWith("T")) {
 				continue;
 			}
-			const path = join(difficultyDir, entry.name, "manifest.json");
+			const path = join(tierDir, entry.name, "manifest.json");
 			try {
 				const manifest = JSON.parse(await readFile(path, "utf8")) as Manifest;
 				found.push({ manifest, path });

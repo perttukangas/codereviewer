@@ -1,0 +1,94 @@
+{
+  "id": "T08",
+  "repository": "fullstack-harjoitustyo",
+  "revision": "757891693c61990afd973107389a60902e96de7d",
+  "difficulty": "tier2",
+  "mr": "Refactor the post and comment list components to share a common infinite-list hook, a shared cache-update helper, and a shared scroll-trigger hook, and deduplicate repeated literals on the server.",
+  "diff": {
+    "path": "review.diff",
+    "changedFiles": [
+      "services/client/src/core/components/InfiniteScroll.tsx",
+      "services/client/src/core/components/InfiniteScrollWindow.tsx",
+      "services/client/src/core/hooks/use-infinite-list.ts",
+      "services/client/src/core/hooks/use-infinite-scroll-trigger.ts",
+      "services/client/src/core/utils/infinite-cache.ts",
+      "services/client/src/pages/_components/Comment/Create.tsx",
+      "services/client/src/pages/_components/Comment/Edit.tsx",
+      "services/client/src/pages/_components/Comment/Like.tsx",
+      "services/client/src/pages/_components/Comment/List.tsx",
+      "services/client/src/pages/_components/Comment/Remove.tsx",
+      "services/client/src/pages/_components/Comment/RemoveMany.tsx",
+      "services/client/src/pages/_components/Post/Edit.tsx",
+      "services/client/src/pages/_components/Post/Like.tsx",
+      "services/client/src/pages/_components/Post/List.tsx",
+      "services/client/src/pages/_components/Profile/Comment/index.tsx",
+      "services/client/src/pages/_components/Profile/Post/index.tsx",
+      "services/server/src/core/lib/pagination.ts",
+      "services/server/src/routes/v1/post/comment/index.ts",
+      "services/server/src/routes/v1/post/index.ts",
+      "services/server/src/routes/v1/user/index.ts"
+    ],
+    "purposes": [
+      {
+        "id": "T08-F01",
+        "mainAgent": "CORRECTNESS",
+        "severity": "MEDIUM",
+        "confidence": "STRONG",
+        "title": "The shared popNextCursor checks rows.length >= limit instead of > limit, so a page that returns exactly limit rows pops a valid row and sets a bogus nextCursor, dropping the last row and paginating incorrectly",
+        "expectedFiles": [
+          "services/server/src/core/lib/pagination.ts"
+        ],
+        "expectedLines": [
+          7,
+          7
+        ],
+        "score": 4.48
+      },
+      {
+        "id": "T08-F02",
+        "mainAgent": "MAINTAINABILITY",
+        "severity": "MEDIUM",
+        "confidence": "DEMONSTRATED",
+        "title": "updateInfiniteCache types its mutate callback as (draft: any) => void, discarding the InfiniteData and row types so every cache update is no longer type-checked",
+        "expectedFiles": [
+          "services/client/src/core/utils/infinite-cache.ts"
+        ],
+        "expectedLines": [
+          26,
+          26
+        ],
+        "score": 3.2
+      },
+      {
+        "id": "T08-F03",
+        "mainAgent": "RELIABILITY",
+        "severity": "HIGH",
+        "confidence": "STRONG",
+        "title": "updateInfiniteCache drops the !page.nextCursor guard, so on the last page compareLessThan(undefined, id) throws and the mutation success path fails",
+        "expectedFiles": [
+          "services/client/src/core/utils/infinite-cache.ts"
+        ],
+        "expectedLines": [
+          32,
+          32
+        ],
+        "score": 6.72
+      },
+      {
+        "id": "T08-F04",
+        "mainAgent": "SECURITY",
+        "severity": "HIGH",
+        "confidence": "DEMONSTRATED",
+        "title": "The shared sessionCookieOptions drops httpOnly, so the session token cookie is readable by client-side JavaScript and exposed to XSS",
+        "expectedFiles": [
+          "services/server/src/routes/v1/user/index.ts"
+        ],
+        "expectedLines": [
+          19,
+          24
+        ],
+        "score": 10.5
+      }
+    ]
+  }
+}

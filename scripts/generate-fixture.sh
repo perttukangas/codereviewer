@@ -8,9 +8,9 @@ work_root="$project_dir/tmp/fixture-work"
 
 usage() {
 	echo "Usage: $0 prepare <test-id>" >&2
-	echo "       $0 capture <test-id> <difficulty>" >&2
+	echo "       $0 capture <test-id> <tier>" >&2
 	echo "" >&2
-	echo "  difficulty is one of: easier, medium, harder" >&2
+	echo "  tier is one of: tier1, tier2, tier3" >&2
 	exit 1
 }
 
@@ -43,16 +43,16 @@ prepare)
 
 	echo "Prepared scratch clone at $scratch_dir"
 	echo "Revision $revision"
-	echo "Edit files there, then run: $0 capture $test_id <difficulty>"
+	echo "Edit files there, then run: $0 capture $test_id <tier>"
 	;;
 capture)
 	[[ $# -eq 3 ]] || usage
-	difficulty=$3
+	tier=$3
 
-	case "$difficulty" in
-	easier | medium | harder) ;;
+	case "$tier" in
+	tier1 | tier2 | tier3) ;;
 	*)
-		echo "Invalid difficulty: $difficulty" >&2
+		echo "Invalid tier: $tier" >&2
 		exit 1
 		;;
 	esac
@@ -63,7 +63,7 @@ capture)
 		exit 1
 	fi
 
-	fixture_dir="$project_dir/test/fixtures/diffs/$difficulty/$test_id"
+	fixture_dir="$project_dir/test/fixtures/diffs/$tier/$test_id"
 	mkdir -p "$fixture_dir"
 
 	git -C "$scratch_dir" add -A
