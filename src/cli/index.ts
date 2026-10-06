@@ -40,7 +40,7 @@ const parseOptions = (argv: string[]): CommandOptions => {
 export const run = async (argv: string[]): Promise<void> => {
 	if (argv.includes("--help")) {
 		info(
-			`Usage: codereviewer [command] [--output <path>]\n\nCommands: ${[...commands.keys()].join(", ")}\nWorkflows: ${listWorkflows().join(", ")}`,
+			`Usage: llm-workflows [command] [--output <path>]\n\nCommands: ${[...commands.keys()].join(", ")}\nWorkflows: ${listWorkflows().join(", ")}`,
 		);
 		return;
 	}

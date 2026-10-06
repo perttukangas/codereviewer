@@ -1,17 +1,19 @@
 {
-  "name": "codereviewer",
+  "name": "llm-workflows",
   "version": "1.0.0",
-  "description": "A LLM based code review tool",
+  "description": "An LLM workflow runner for pipeline automation",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "codereviewer": "dist/index.js"
+    "llm-workflows": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "check": "biome check src && tsc --noEmit",
     "format": "biome format --write src",
     "lint": "biome lint src",
+    "docs:env": "node --experimental-strip-types scripts/update-readme-env.ts",
+    "docs:env:review": "node --experimental-strip-types scripts/update-readme-env.ts --workflow review",
     "review:fixture": "bash scripts/review-fixture.sh",
     "fixtures:prepare": "bash scripts/generate-fixture.sh prepare",
     "fixtures:capture": "bash scripts/generate-fixture.sh capture",
