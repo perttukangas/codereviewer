@@ -630,7 +630,11 @@ const stats = (values: number[]): Stats | undefined => {
 		return undefined;
 	}
 	const mean = average(values);
-	const variance = average(values.map((value) => (value - mean) ** 2));
+	const variance =
+		values.length === 1
+			? 0
+			: values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+				(values.length - 1);
 	return {
 		mean,
 		stddev: Math.sqrt(variance),
@@ -815,7 +819,7 @@ const modelRunsForMode = (model: ModelResult, mode: Mode): number =>
 	).length;
 
 // Computes a ratio per run (detected over selected purposes) and returns the
-// mean and standard deviation across runs, so breakdowns show run-to-run
+// mean and sample standard deviation across runs, so breakdowns show run-to-run
 // variation instead of a single pooled ratio.
 const perRunRatioStats = (
 	model: ModelResult,
@@ -1156,7 +1160,7 @@ const buildSummary = (
 	lines.push("## Averages across runs");
 	lines.push("");
 	lines.push(
-		"Per model and mode, the mean and standard deviation across runs. Columns " +
+		"Per model and mode, the mean and sample standard deviation across runs. Columns " +
 			`marked ${PURPOSE_MARKER} are computed only from findings matched to a declared ` +
 			"manifest purpose, so they measure how well the declared issues were found and " +
 			"rated. Unmarked columns are computed from every finding in the report, " +
@@ -1247,7 +1251,7 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Recall and main-target recall split by fixture difficulty tier, as the mean " +
-			"and standard deviation across runs. Both are purpose-scoped, computed only " +
+			"and sample standard deviation across runs. Both are purpose-scoped, computed only " +
 			"from findings matched to a declared purpose. Tier describes how hard an issue is to " +
 			"spot and is separate from severity, which describes its impact. Tier 1 issues " +
 			"are visible in one part of the diff, need no file to confirm, and have one " +
@@ -1293,7 +1297,7 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Recall and main-target recall split by the agent declared as each purpose's " +
-			"main target, as the mean and standard deviation across runs. Both are " +
+			"main target, as the mean and sample standard deviation across runs. Both are " +
 			"purpose-scoped, computed only from findings matched to a declared purpose. " +
 			"Main-target recall counts a purpose only when that agent detected it.",
 	);
@@ -1390,9 +1394,9 @@ const buildSummary = (
 		"The same per-test metrics summarized across all models and runs. Each row " +
 		"merges the available model-run observations for one fixture and mode. Models " +
 		"is the number of distinct models represented and runs is the number of " +
-		"model-run observations. Values are the mean ± standard deviation. Recall and " +
+		"model-run observations. Values are the mean ± sample standard deviation. Recall and " +
 		"unmerged duplicates are purpose-scoped, while additional and invalid findings " +
-		"are computed from every finding in the report.",
+		"are computed from every finding in the report."
 	);
 	lines.push("");
 	lines.push(
@@ -1453,7 +1457,7 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"The same per-test metrics summarized across runs. Each row groups one fixture " +
-			"and mode for a model. Values are the mean ± standard deviation across the " +
+			"and mode for a model. Values are the mean ± sample standard deviation across the " +
 			"available runs. Recall and unmerged duplicates are purpose-scoped, while " +
 			"additional and invalid findings are computed from every finding in the report.",
 	);
