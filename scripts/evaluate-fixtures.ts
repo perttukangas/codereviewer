@@ -1387,6 +1387,71 @@ const buildSummary = (
 	lines.push("## Per test across runs");
 	lines.push("");
 	lines.push(
+		"The same per-test metrics summarized across all models and runs. Each row " +
+		"merges the available model-run observations for one fixture and mode. Models " +
+		"is the number of distinct models represented and runs is the number of " +
+		"model-run observations. Values are the mean ± standard deviation. Recall and " +
+		"unmerged duplicates are purpose-scoped, while additional and invalid findings " +
+		"are computed from every finding in the report.",
+	);
+	lines.push("");
+	lines.push(
+		`| Test | Tier | Mode | Models | Runs | Recall ${PURPOSE_MARKER} | Additional findings | Invalid findings | Unmerged duplicates ${PURPOSE_MARKER} |`,
+	);
+	lines.push(
+		"| ---- | ---- | ---- | ------ | ---- | ------ | ------------------- | ---------------- | --------------------------- |",
+	);
+	const allTestIds = [
+		...new Set(
+			models.flatMap((model) =>
+				model.runs.flatMap((run) => run.tests.map((test) => test.id)),
+			),
+		),
+	].sort();
+	for (const testId of allTestIds) {
+		const testEntries = models.flatMap((model) =>
+			model.runs.flatMap((run) =>
+				run.tests
+					.filter((test) => test.id === testId)
+					.map((test) => ({ model: model.model, test })),
+			),
+		);
+		for (const mode of modes) {
+			const modeEntries = testEntries.flatMap(({ model, test }) =>
+				test.modes
+					.filter((item) => item.mode === mode)
+					.map((result) => ({ model, result })),
+			);
+			if (modeEntries.length === 0) {
+				continue;
+			}
+			const recall = stats(
+				defined(modeEntries.map(({ result }) =>
+					result.purposes.length === 0
+						? undefined
+						: result.purposes.filter((purpose) => purpose.detected).length /
+							result.purposes.length,
+				)),
+			);
+			const additional = stats(
+				modeEntries.map(({ result }) => result.additionalFindings),
+			);
+			const invalid = stats(
+				modeEntries.map(({ result }) => result.invalidFindings),
+			);
+			const unmerged = stats(
+				modeEntries.map(({ result }) => result.unmergedDuplicates),
+			);
+			lines.push(
+				`| ${testId} | ${testEntries[0].test.tier} | ${mode} | ${new Set(modeEntries.map(({ model }) => model)).size} | ${modeEntries.length} | ${formatStats(recall, "ratio")} | ${formatStats(additional, "number")} | ${formatStats(invalid, "number")} | ${formatStats(unmerged, "number")} |`,
+			);
+		}
+	}
+	lines.push("");
+
+	lines.push("## Per test across runs by model");
+	lines.push("");
+	lines.push(
 		"The same per-test metrics summarized across runs. Each row groups one fixture " +
 			"and mode for a model. Values are the mean ± standard deviation across the " +
 			"available runs. Recall and unmerged duplicates are purpose-scoped, while " +
