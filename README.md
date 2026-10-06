@@ -54,7 +54,7 @@ Per-agent overrides use the uppercased agent id as the prefix.
 | --- | --- | --- | --- | --- |
 | `<AGENT>_*` | `Varies` | `Varies` | `Varies` | Per-agent overrides for `ENABLED`, `MODEL_NAME`, `MODEL_SAMPLING_PARAMS`, `CONTEXT_WINDOW`, `MAX_OUTPUT_TOKENS`, `TIMEOUT_MS`, `INPUT_TOKEN_BUDGET`, `OUTPUT_TOKEN_BUDGET`, `TOOL_LOOP_THRESHOLD`, `TOOL_FAILURE_THRESHOLD`, `SOFT_LIMIT_RATIO`. Defaults come from the corresponding DEFAULT_* variables. |
 | `LOG_LEVEL` | `str` | `INFO` | `DEBUG, INFO, ERROR` | The log level for the application. |
-| `LOG_DIR` | `str` | `/tmp/codereviewer` | `—` | The directory for log files. Holds combined.log and one file per agent. An empty value disables file logging. |
+| `LOG_DIR` | `str` | `/tmp/llm-workflows` | `—` | The directory for log files. Holds combined.log and one file per agent. An empty value disables file logging. |
 | `MODEL_API` | `str` | `openai-completions` | `openai-completions` | The model API to use for the agent. |
 | `MODEL_PROVIDER` | `str` | `custom` | `custom, openrouter` | The model provider to use for the agent. |
 | `MODEL_BASE_URL` | `str` | `—` | `—` | The base URL for the model API. |

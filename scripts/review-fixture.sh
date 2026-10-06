@@ -19,8 +19,8 @@ set +a
 : "${MODEL_API_KEY:?Set MODEL_API_KEY to the model API key}"
 : "${DEFAULT_MODEL_NAME:?Set DEFAULT_MODEL_NAME to the model name}"
 
-container_name="codereviewer-fixture-$$"
-container_log_dir=${LOG_DIR:-/tmp/codereviewer}
+container_name="llm-workflows-fixture-$$"
+container_log_dir=${LOG_DIR:-/tmp/llm-workflows}
 host_log_dir="$project_dir/tmp/logs"
 
 if [[ ! -d "$input_dir" ]]; then
@@ -91,7 +91,7 @@ find "$repository_dir" "$input_dir" -type d \
 find "$repository_dir" "$input_dir" -type f \
 	-exec setfacl -m "u:${container_user_uid}:r" {} +
 
-docker build --tag codereviewer:local "$project_dir"
+docker build --tag llm-workflows:local "$project_dir"
 
 mkdir -p "$project_dir/tmp"
 rm -rf "$host_log_dir"
@@ -104,4 +104,4 @@ docker run --name "$container_name" \
 	--env REPO_DIR=/workspace/repository \
 	--env GIT_DIFF_PATH=/workspace/input/review.diff \
 	--env LOG_DIR="$container_log_dir" \
-	codereviewer:local
+	llm-workflows:local

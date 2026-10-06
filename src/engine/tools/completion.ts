@@ -5,10 +5,9 @@ import type { AgentToolDefinition } from "./definition.js";
 import { defineTool, toolResult } from "./definition.js";
 
 const completionNudge = [
-	"You stopped without calling the complete_task tool, so the task is not complete.",
-	"If you are finished, call the tool now.",
-	"If you are not finished, continue the task and call the tool when you are done.",
-	"Emit tool calls through the tool mechanism only. Do not write a tool call as text or thinking, and do not describe a call you did not make.",
+	"No executable complete_task call was recorded for the previous turn.",
+	"Continue the task if work remains. Otherwise call complete_task through the tool mechanism.",
+	"Do not write tool calls in text or thinking.",
 ].join(" ");
 
 export const completionTool = defineTool({
