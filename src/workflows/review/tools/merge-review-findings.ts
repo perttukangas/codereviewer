@@ -1,7 +1,9 @@
 import { Type } from "typebox";
 import { defineTool, toolResult } from "../../../engine/tools/index.js";
 import { DeduplicatorAgent } from "../agents/deduplicator.js";
+import { getReviewEnv } from "../shared/env.js";
 import { allFindings } from "../shared/findings.js";
+import { corroborationUnits } from "../shared/scoring.js";
 import type { AgentReview, ReviewFinding, ReviewReport } from "../types.js";
 import {
 	codeChangeGuideline,
@@ -26,6 +28,12 @@ export const createMergeReviewFindingsTool = (
 	report: ReviewReport,
 	dedupReview: AgentReview,
 ) => {
+	const { REVIEW_MODE } = getReviewEnv();
+	const corroborationDescription =
+		REVIEW_MODE === "single"
+			? "different finding categories"
+			: "different review agents";
+
 	const findSource = (id: string): FindingSource | undefined => {
 		for (const [agentId, review] of Object.entries(report)) {
 			const finding = review.findings.find(
@@ -69,7 +77,7 @@ export const createMergeReviewFindingsTool = (
 		promptGuidelines: [
 			"Use merge_review_findings once for each group of findings that describe the same underlying issue.",
 			"Provide the ids of every finding in the group.",
-			"Keep merged severity between the least and most severe source severity, and merged confidence between the lowest and highest source confidence.",
+			`Keep the merged severity and confidence between the lowest and highest source values. Confidence may exceed the highest source value only when ${corroborationDescription} corroborate the finding.`,
 			mergeCodeChangeGuideline,
 			...reviewFindingGuidelines.filter(
 				(guideline) => guideline !== codeChangeGuideline,
@@ -150,16 +158,22 @@ export const createMergeReviewFindingsTool = (
 			const minConfidence = Math.min(...confidences);
 			const maxConfidence = Math.max(...confidences);
 			const mergedConfidence = confidenceRank(mergedFields.confidence);
-			const corroborated =
-				new Set(sources.map((source) => source.agentId)).size > 1;
+			const mergedUnits = sources.flatMap((source) =>
+				corroborationUnits(
+					source.agentId,
+					source.finding.categories,
+					source.finding.mergedFrom,
+				),
+			);
+			const corroborated = new Set(mergedUnits).size > 1;
 			if (
-				mergedConfidence > maxConfidence ||
-				(!corroborated && mergedConfidence < minConfidence)
+				mergedConfidence < minConfidence ||
+				(mergedConfidence > maxConfidence && !corroborated)
 			) {
 				throw new Error(
-					corroborated
+					mergedConfidence < minConfidence
 						? "Merged confidence must be at least the lowest confidence among the merged findings."
-						: "Merged confidence must be between the lowest and highest confidence among the merged findings. Confidence may exceed the highest source only when the merged findings come from different agents.",
+						: `Merged confidence may exceed the highest source confidence only when the merged findings are corroborated by ${corroborationDescription}.`,
 				);
 			}
 

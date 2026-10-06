@@ -11,7 +11,6 @@ export const DeduplicatorAgent: Agent = {
 	constraints: [
 		"Merge only findings that are genuinely the same issue. Do not merge findings that merely share a file or topic.",
 		"Author the merged finding yourself. Combine the evidence from every source into one title, problem, rationale, and suggested change.",
-		"When merged findings come from different agents, merged confidence may exceed the highest source confidence to reflect independent corroboration.",
 		...reviewFindingRubric,
 	],
 };
