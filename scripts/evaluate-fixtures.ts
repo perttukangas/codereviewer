@@ -42,6 +42,7 @@ type Manifest = {
 	repository: string;
 	revision: string;
 	difficulty: Tier;
+	mr: string;
 	diff: {
 		path: string;
 		changedFiles: string[];
@@ -89,25 +90,27 @@ const findManifests = async (): Promise<{ manifest: Manifest; dir: string }[]> =
 	return found.sort((a, b) => a.manifest.id.localeCompare(b.manifest.id));
 };
 
-type DiffSize = {
+type TestSpec = {
 	id: string;
 	tier: Tier;
+	mr: string;
 	bytes: number;
 	lines: number;
 	changedFiles: number;
 };
 
-const findDiffSizes = async (
+const findTestSpecs = async (
 	manifests: { manifest: Manifest; dir: string }[],
-): Promise<DiffSize[]> => {
-	const sizes: DiffSize[] = [];
+): Promise<TestSpec[]> => {
+	const specs: TestSpec[] = [];
 
 	for (const { manifest, dir } of manifests) {
 		try {
 			const content = await readFile(join(dir, "review.diff"), "utf8");
-			sizes.push({
+			specs.push({
 				id: manifest.id,
 				tier: manifest.difficulty,
+				mr: manifest.mr,
 				bytes: Buffer.byteLength(content, "utf8"),
 				lines: content.split("\n").length,
 				changedFiles: manifest.diff.changedFiles.length,
@@ -117,7 +120,7 @@ const findDiffSizes = async (
 		}
 	}
 
-	return sizes;
+	return specs;
 };
 
 type ModelInfo = {
@@ -1143,7 +1146,7 @@ const agentContinuations = (results: TestResult[]): AgentContinuation[] =>
 const buildSummary = (
 	models: ModelResult[],
 	heading: string,
-	diffSizes: DiffSize[],
+	testSpecs: TestSpec[],
 	modelInfo: Record<string, ModelInfo>,
 ): string => {
 	const lines: string[] = [];
@@ -1380,6 +1383,61 @@ const buildSummary = (
 			);
 		}
 	}
+
+	lines.push("## Per test across runs");
+	lines.push("");
+	lines.push(
+		"The same per-test metrics summarized across runs. Each row groups one fixture " +
+			"and mode for a model. Values are the mean ± standard deviation across the " +
+			"available runs. Recall and unmerged duplicates are purpose-scoped, while " +
+			"additional and invalid findings are computed from every finding in the report.",
+	);
+	lines.push("");
+	lines.push(
+		`| Model | Test | Tier | Mode | Runs | Recall ${PURPOSE_MARKER} | Additional findings | Invalid findings | Unmerged duplicates ${PURPOSE_MARKER} |`,
+	);
+	lines.push(
+		"| ----- | ---- | ---- | ---- | ---- | ------ | ------------------- | ---------------- | --------------------------- |",
+	);
+	for (const model of models) {
+		const testIds = [
+			...new Set(model.runs.flatMap((run) => run.tests.map((test) => test.id))),
+		].sort();
+		for (const testId of testIds) {
+			const tests = model.runs.flatMap((run) =>
+				run.tests.filter((test) => test.id === testId),
+			);
+			for (const mode of modes) {
+				const modeResults = tests.flatMap((test) =>
+					test.modes.filter((item) => item.mode === mode),
+				);
+				if (modeResults.length === 0) {
+					continue;
+				}
+				const recall = stats(
+					defined(modeResults.map((result) =>
+						result.purposes.length === 0
+							? undefined
+							: result.purposes.filter((purpose) => purpose.detected).length /
+								result.purposes.length,
+					)),
+				);
+				const additional = stats(
+					modeResults.map((result) => result.additionalFindings),
+				);
+				const invalid = stats(
+					modeResults.map((result) => result.invalidFindings),
+				);
+				const unmerged = stats(
+					modeResults.map((result) => result.unmergedDuplicates),
+				);
+				lines.push(
+					`| ${model.model} | ${testId} | ${tests[0].tier} | ${mode} | ${modeResults.length} | ${formatStats(recall, "ratio")} | ${formatStats(additional, "number")} | ${formatStats(invalid, "number")} | ${formatStats(unmerged, "number")} |`,
+				);
+			}
+		}
+	}
+	lines.push("");
 
 	lines.push("## Per test");
 	lines.push("");
@@ -1722,18 +1780,19 @@ const buildSummary = (
 		lines.push("");
 	}
 
-	lines.push("## Diff sizes");
+	lines.push("## Test specs");
 	lines.push("");
 	lines.push(
-		"The size of each fixture diff. Diff size is bytes, diff lines is the line count, " +
-			"and changed files is the number of files the diff touches.",
+		"The specification and size of each fixture. MR describes the change represented by " +
+			"the fixture. Diff size is bytes, diff lines is the line count, and changed files " +
+			"is the number of files the diff touches.",
 	);
 	lines.push("");
-	lines.push("| Test | Tier | Diff size (bytes) | Diff lines | Changed files |");
-	lines.push("| ---- | ---- | ----------------- | ---------- | ------------- |");
-	for (const size of diffSizes) {
+	lines.push("| Test | Tier | MR | Diff size (bytes) | Diff lines | Changed files |");
+	lines.push("| ---- | ---- | -- | ----------------- | ---------- | ------------- |");
+	for (const spec of testSpecs) {
 		lines.push(
-			`| ${size.id} | ${size.tier} | ${size.bytes} | ${size.lines} | ${size.changedFiles} |`,
+			`| ${spec.id} | ${spec.tier} | ${spec.mr} | ${spec.bytes} | ${spec.lines} | ${spec.changedFiles} |`,
 		);
 	}
 	lines.push("");
@@ -1743,7 +1802,7 @@ const buildSummary = (
 
 const main = async (): Promise<void> => {
 	const manifests = await findManifests();
-	const diffSizes = await findDiffSizes(manifests);
+	const testSpecs = await findTestSpecs(manifests);
 	const modelInfo = await loadModelInfo();
 	const modelDirs = await findModelDirs();
 	const models: ModelResult[] = [];
@@ -1778,13 +1837,13 @@ const main = async (): Promise<void> => {
 	const combined = buildSummary(
 		models,
 		"Fixture evaluation summary",
-		diffSizes,
+		testSpecs,
 		modelInfo,
 	);
 	await writeFile(join(resultsRoot, "summary.md"), combined, "utf8");
 	await writeFile(
 		join(resultsRoot, "summary.json"),
-		JSON.stringify({ models, diffSizes, modelInfo }, null, 2),
+		JSON.stringify({ models, testSpecs, modelInfo }, null, 2),
 		"utf8",
 	);
 
@@ -1792,7 +1851,7 @@ const main = async (): Promise<void> => {
 		const perModel = buildSummary(
 			[model],
 			`Fixture evaluation summary: ${model.model}`,
-			diffSizes,
+			testSpecs,
 			modelInfo,
 		);
 		await writeFile(
