@@ -792,6 +792,11 @@ const formatStats = (value: Stats | undefined, kind: MetricKind): string =>
 		? "n/a"
 		: `${formatValue(value.mean, kind)} ± ${formatValue(value.stddev, kind)}`;
 
+const formatConsistency = (value: Consistency): string =>
+	value.pairs === 0
+		? "n/a"
+		: `${((value.agreements / value.pairs) * 100).toFixed(1)}% (${value.pairs})`;
+
 const modelMetricStats = (
 	model: ModelResult,
 	mode: Mode,
@@ -893,6 +898,81 @@ const confidencePairs = (purposes: PurposeResult[]) =>
 			expected: purpose.expectedConfidence,
 			reported: purpose.reportedConfidence,
 		}));
+
+type Consistency = {
+	observations: number;
+	pairs: number;
+	agreements: number;
+};
+
+const emptyConsistency = (): Consistency => ({
+	observations: 0,
+	pairs: 0,
+	agreements: 0,
+});
+
+const addConsistency = <T>(
+	consistency: Consistency,
+	values: (T | undefined)[],
+): void => {
+	const reported = values.filter((value): value is T => value !== undefined);
+	consistency.observations += reported.length;
+	for (let first = 0; first < reported.length; first += 1) {
+		for (let second = first + 1; second < reported.length; second += 1) {
+			consistency.pairs += 1;
+			if (reported[first] === reported[second]) {
+				consistency.agreements += 1;
+			}
+		}
+	}
+};
+
+const modelTestConsistency = (
+	model: ModelResult,
+	mode: Mode,
+): Map<string, { severity: Consistency; confidence: Consistency }> => {
+	const resultsByTest = new Map<string, ModeResult[]>();
+	for (const run of model.runs) {
+		for (const test of run.tests) {
+			const modeResult = test.modes.find((item) => item.mode === mode);
+			if (!modeResult) {
+				continue;
+			}
+			const results = resultsByTest.get(test.id) ?? [];
+			results.push(modeResult);
+			resultsByTest.set(test.id, results);
+		}
+	}
+
+	const consistencyByTest = new Map<
+		string,
+		{ severity: Consistency; confidence: Consistency }
+	>();
+	for (const [testId, results] of resultsByTest) {
+		const consistency = {
+			severity: emptyConsistency(),
+			confidence: emptyConsistency(),
+		};
+		const purposeIds = [
+			...new Set(results.flatMap((result) => result.purposes.map((purpose) => purpose.purposeId))),
+		];
+		for (const purposeId of purposeIds) {
+			const purposes = results.map((result) =>
+				result.purposes.find((purpose) => purpose.purposeId === purposeId),
+			);
+			addConsistency(
+				consistency.severity,
+				purposes.map((purpose) => purpose?.reportedSeverity),
+			);
+			addConsistency(
+				consistency.confidence,
+				purposes.map((purpose) => purpose?.reportedConfidence),
+			);
+		}
+		consistencyByTest.set(testId, consistency);
+	}
+	return consistencyByTest;
+};
 
 type PairOutcome = { win: number; tie: number; loss: number };
 
@@ -1387,6 +1467,41 @@ const buildSummary = (
 			);
 		}
 	}
+
+	lines.push("## Severity and confidence consistency across runs");
+	lines.push("");
+	lines.push(
+		"For each model, mode, and test, this compares every pair of available runs for " +
+			"the same declared purpose. The percentages show how often the reported severity " +
+			"or confidence is identical across those run pairs, so they measure reporting " +
+			"stability rather than agreement with the manifest. The number in parentheses is " +
+			"the number of compared run pairs. Purposes that were not reported in both runs " +
+			"are excluded from that label's comparisons.",
+	);
+	lines.push("");
+	lines.push(
+		"| Model | Mode | Test | Severity agreement (pairs) | Confidence agreement (pairs) |",
+	);
+	lines.push("| ----- | ---- | ---- | ------------------------- | ---------------------------- |");
+	for (const model of models) {
+		for (const mode of modes) {
+			const consistencyByTest = modelTestConsistency(model, mode);
+			for (const [testId, consistency] of [...consistencyByTest.entries()].sort(
+				([first], [second]) => first.localeCompare(second),
+			)) {
+				if (
+					consistency.severity.pairs === 0 &&
+					consistency.confidence.pairs === 0
+				) {
+					continue;
+				}
+				lines.push(
+					`| ${model.model} | ${mode} | ${testId} | ${formatConsistency(consistency.severity)} | ${formatConsistency(consistency.confidence)} |`,
+				);
+			}
+		}
+	}
+	lines.push("");
 
 	lines.push("## Per test across runs");
 	lines.push("");
