@@ -514,6 +514,7 @@ type RunMetrics = {
 	scoreError: number;
 	durationMs: number;
 	totalTokens: number;
+	reportedTotalTokens: number;
 };
 
 const average = (values: number[]): number =>
@@ -533,8 +534,8 @@ const runMetrics = (tests: TestResult[], mode: Mode): RunMetrics | undefined => 
 	const durations = defined(
 		modeResults.map((item) => item.telemetry?.durationMs),
 	);
-	const tokens = defined(
-		modeResults.map((item) => item.telemetry?.usage.totalTokens),
+	const reportedTokens = defined(
+		modeResults.map((item) => item.telemetry?.usage.reportedTotalTokens),
 	);
 	const validFindings = modeResults.reduce(
 		(sum, item) => sum + item.validFindings,
@@ -613,7 +614,10 @@ const runMetrics = (tests: TestResult[], mode: Mode): RunMetrics | undefined => 
 			defined(purposes.map((purpose) => purpose.scoreError)),
 		),
 		durationMs: average(durations),
-		totalTokens: average(tokens),
+		totalTokens: average(
+			defined(modeResults.map((item) => item.telemetry?.usage.totalTokens)),
+		),
+		reportedTotalTokens: average(reportedTokens),
 	};
 };
 
@@ -755,7 +759,13 @@ const metricDefs: MetricDef[] = [
 	},
 	{
 		key: "totalTokens",
-		label: "Mean total tokens (K)",
+		label: "Mean tokens excluding cache read and write (K)",
+		kind: "tokens",
+		scope: "run",
+	},
+	{
+		key: "reportedTotalTokens",
+		label: "Mean reported context tokens (K)",
 		kind: "tokens",
 		scope: "run",
 	},
@@ -1025,17 +1035,21 @@ const modelModeEfficiency = (
 			(sum, item) => sum + item.validFindings,
 			0,
 		);
-		const tokens = defined(
-			modeResults.map((item) => item.telemetry?.usage.totalTokens),
+		const reportedTokens = defined(
+			modeResults.map((item) => item.telemetry?.usage.reportedTotalTokens),
 		);
 		const durations = defined(
 			modeResults.map((item) => item.telemetry?.durationMs),
 		);
-		const totalTokens = tokens.reduce((sum, value) => sum + value, 0);
+		const totalReportedTokens = reportedTokens.reduce(
+			(sum, value) => sum + value,
+			0,
+		);
 		const totalDuration = durations.reduce((sum, value) => sum + value, 0);
 
 		return {
-			tokensPerFinding: findings === 0 ? undefined : totalTokens / findings,
+			tokensPerFinding:
+				findings === 0 ? undefined : totalReportedTokens / findings,
 			durationPerFinding:
 				findings === 0 ? undefined : totalDuration / findings,
 		};
@@ -1265,8 +1279,11 @@ const buildSummary = (
 			"times the agent weight, and score is the base score times the merged factor, " +
 			"which is the number of corroboration units capped at three. Base score error " +
 			"and score error are the mean absolute differences between the manifest's " +
-			"expected value and the reported value. Duration is in minutes " +
-			"and tokens are in thousands (K), both per-test totals.",
+			"expected value and the reported value. Duration is in minutes and token " +
+			"values are in thousands (K), both as per-test totals. Reported context tokens " +
+			"include cache read and cache write tokens when the provider reports them. " +
+			"The separate total tokens metric explicitly excludes cache read and cache write " +
+			"tokens.",
 	);
 	lines.push("");
 
@@ -1301,8 +1318,9 @@ const buildSummary = (
 			"main-target recall, and severity error are computed only from findings matched " +
 			"to a declared purpose, while actionability rate, dedup reduction rate, and the " +
 			"per-finding efficiency columns are computed from every valid finding in the " +
-			"report. Tokens and duration per finding divide the run's total tokens and " +
-			"duration by every valid finding the model reported, so a larger model is not " +
+			"report. Tokens per finding uses reported context tokens, and duration per finding " +
+			"uses duration. Both divide the run totals by every valid finding the model reported, " +
+			"so a larger model is not " +
 			"credited for quality that comes only from spending more.",
 	);
 	lines.push("");
@@ -1776,12 +1794,12 @@ const buildSummary = (
 	lines.push("## Telemetry (multi vs single)");
 	lines.push("");
 	lines.push(
-		"Duration, tokens, and completion continuations for each test, run, and mode, " +
-			"comparing multi and single side by side.",
+		"Duration, reported context tokens, and completion continuations for each test, run, " +
+		"and mode, comparing multi and single side by side.",
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Run | Test | Multi duration (min) | Single duration (min) | Multi tokens (K) | Single tokens (K) | Multi continuations | Single continuations |",
+		"| Model | Run | Test | Multi duration (min) | Single duration (min) | Multi reported context tokens (K) | Single reported context tokens (K) | Multi continuations | Single continuations |",
 	);
 	lines.push(
 		"| ----- | --- | ---- | -------------------- | --------------------- | ---------------- | ----------------- | ------------------- | -------------------- |",
@@ -1792,7 +1810,7 @@ const buildSummary = (
 				const multi = result.modes.find((item) => item.mode === "multi");
 				const single = result.modes.find((item) => item.mode === "single");
 				lines.push(
-					`| ${model.model} | ${run.runIndex} | ${result.id} | ${formatDuration(multi?.telemetry?.durationMs)} | ${formatDuration(single?.telemetry?.durationMs)} | ${formatTokens(multi?.telemetry?.usage.totalTokens)} | ${formatTokens(single?.telemetry?.usage.totalTokens)} | ${totalContinuations(multi)} | ${totalContinuations(single)} |`,
+					`| ${model.model} | ${run.runIndex} | ${result.id} | ${formatDuration(multi?.telemetry?.durationMs)} | ${formatDuration(single?.telemetry?.durationMs)} | ${formatTokens(multi?.telemetry?.usage.reportedTotalTokens)} | ${formatTokens(single?.telemetry?.usage.reportedTotalTokens)} | ${totalContinuations(multi)} | ${totalContinuations(single)} |`,
 				);
 			}
 		}
@@ -1844,20 +1862,20 @@ const buildSummary = (
 	lines.push("## Total usage");
 	lines.push("");
 	lines.push(
-		"Total tokens and duration spent across every test, run, and mode, summed " +
+		"Token usage and duration across every test, run, and mode, summed " +
 			"rather than averaged. Tests is the number of test-mode runs included. " +
 			"Input, output, cache read, and cache write tokens are summed across agents. " +
-			"Total tokens is the sum of those four, and reported total tokens is the " +
-			"provider-reported figure, which can differ when caching is involved. Tool " +
+			"Total tokens excludes cache read and cache write tokens. Reported total tokens " +
+			"is the provider-reported context total, which includes cache usage when reported. Tool " +
 			"calls is the total number of tool invocations. The final row is the grand " +
 			"total across all models and modes.",
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Mode | Tests | Duration (min) | Input tokens (K) | Output tokens (K) | Cache read tokens (K) | Cache write tokens (K) | Total tokens (K) | Reported total tokens (K) | Tool calls |",
+		"| Model | Mode | Tests | Duration (min) | Input tokens (K) | Output tokens (K) | Cache read tokens (K) | Cache write tokens (K) | Total tokens excluding cache (K) | Reported context tokens (K) | Tool calls |",
 	);
 	lines.push(
-		"| ----- | ---- | ----- | -------------- | ---------------- | ----------------- | --------------------- | ---------------------- | ---------------- | ------------------------- | ---------- |",
+		"| ----- | ---- | ----- | -------------- | ---------------- | ----------------- | --------------------- | ---------------------- | ------------------------------ | --------------------------- | ---------- |",
 	);
 	const grandTotal = emptyUsageTotals();
 	for (const model of models) {

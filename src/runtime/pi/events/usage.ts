@@ -53,8 +53,8 @@ export const summarizeAgentUsage = (usage: AgentUsage): string => {
 		`output ${usage.outputTokens}`,
 		`cache read ${usage.cacheReadTokens}`,
 		`cache write ${usage.cacheWriteTokens}`,
-		`total ${usage.totalTokens}`,
-		`reported ${usage.reportedTotalTokens}`,
+		`total excluding cache ${usage.totalTokens}`,
+		`reported context total ${usage.reportedTotalTokens}`,
 		`tool calls ${usage.toolCalls}`,
 	];
 
