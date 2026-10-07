@@ -104,10 +104,11 @@ for test_id in "${test_ids[@]}"; do
 	fi
 
 	result_dir="$run_dir/$test_id"
-	rm -rf "$result_dir"
 	mkdir -p "$result_dir"
 
 	for mode in "${modes[@]}"; do
+		rm -rf "$result_dir/report.$mode.json" "$result_dir/matches.$mode.json" "$result_dir/logs.$mode"
+
 		scratch_dir="$work_root/$test_id"
 		rm -rf "$scratch_dir"
 		mkdir -p "$work_root"

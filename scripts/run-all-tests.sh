@@ -70,8 +70,12 @@ set +a
 
 results_root="${RESULTS_ROOT:-$project_dir/test/fixtures/results}"
 
-echo "Building the CLI once"
-npm --prefix "$project_dir" run build
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+	echo "Skipping CLI build"
+else
+	echo "Building the CLI once"
+	npm --prefix "$project_dir" run build
+fi
 
 for model in "${models[@]}"; do
 	for ((run = 1; run <= runs; run++)); do
