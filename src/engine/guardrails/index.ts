@@ -190,7 +190,9 @@ export const createGuardrails = ({
 				if (!usage) {
 					return;
 				}
-				dispatch((guardrail) => guardrail.onUsage?.(usage.input, usage.output));
+				dispatch((guardrail) =>
+					guardrail.onUsage?.(usage.input, usage.output, usage.cacheRead),
+				);
 				return;
 			}
 		}

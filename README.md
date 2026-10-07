@@ -65,7 +65,7 @@ Per-agent overrides use the uppercased agent id as the prefix.
 | `DEFAULT_CONTEXT_WINDOW` | `num` | `262144` | `—` | The default model context window for agents. |
 | `DEFAULT_MAX_OUTPUT_TOKENS` | `num` | `32768` | `—` | The default maximum model output tokens for agents. |
 | `DEFAULT_TIMEOUT_MS` | `num` | `300000` | `—` | The default wall clock timeout in milliseconds for an agent prompt. Zero disables the timeout. |
-| `DEFAULT_INPUT_TOKEN_BUDGET` | `num` | `96000` | `—` | The default input token budget for an agent prompt. Zero disables the budget. |
+| `DEFAULT_INPUT_TOKEN_BUDGET` | `num` | `96000` | `—` | The default input token budget for an agent prompt, including cache-read tokens. Zero disables the budget. |
 | `DEFAULT_OUTPUT_TOKEN_BUDGET` | `num` | `32000` | `—` | The default output token budget for an agent prompt. Zero disables the budget. |
 | `DEFAULT_TOOL_LOOP_THRESHOLD` | `num` | `5` | `—` | The default number of consecutive identical tool calls before an agent is terminated. Zero disables the limit. |
 | `DEFAULT_TOOL_FAILURE_THRESHOLD` | `num` | `5` | `—` | The default number of consecutive failures of the same tool before an agent is terminated. Zero disables the limit. |

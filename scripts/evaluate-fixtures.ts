@@ -513,7 +513,6 @@ type RunMetrics = {
 	baseScoreError: number;
 	scoreError: number;
 	durationMs: number;
-	totalTokens: number;
 	reportedTotalTokens: number;
 };
 
@@ -614,9 +613,6 @@ const runMetrics = (tests: TestResult[], mode: Mode): RunMetrics | undefined => 
 			defined(purposes.map((purpose) => purpose.scoreError)),
 		),
 		durationMs: average(durations),
-		totalTokens: average(
-			defined(modeResults.map((item) => item.telemetry?.usage.totalTokens)),
-		),
 		reportedTotalTokens: average(reportedTokens),
 	};
 };
@@ -755,12 +751,6 @@ const metricDefs: MetricDef[] = [
 		key: "durationMs",
 		label: "Mean duration (min)",
 		kind: "duration",
-		scope: "run",
-	},
-	{
-		key: "totalTokens",
-		label: "Mean tokens excluding cache read and write (K)",
-		kind: "tokens",
 		scope: "run",
 	},
 	{
@@ -1282,8 +1272,7 @@ const buildSummary = (
 			"expected value and the reported value. Duration is in minutes and token " +
 			"values are in thousands (K), both as per-test totals. Reported context tokens " +
 			"include cache read and cache write tokens when the provider reports them. " +
-			"The separate total tokens metric explicitly excludes cache read and cache write " +
-			"tokens.",
+			"Reported context tokens are the token metric used in the summary.",
 	);
 	lines.push("");
 

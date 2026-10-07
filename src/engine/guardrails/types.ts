@@ -49,5 +49,9 @@ export type Guardrail = {
 	stop?: () => void;
 	onToolStart?: (toolName: string, args: unknown) => void;
 	onToolEnd?: (toolName: string, isError: boolean) => void;
-	onUsage?: (inputTokens: number, outputTokens: number) => void;
+	onUsage?: (
+		inputTokens: number,
+		outputTokens: number,
+		cacheReadTokens: number,
+	) => void;
 };
