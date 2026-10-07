@@ -34,9 +34,9 @@ fi
 
 # In single mode the generalist reviewer and its verifier each cover the work of
 # the specialized review agents, so scale their guardrail budgets and timeout
-single_mode_multiplier=3
-single_input_token_budget=$(( ${DEFAULT_INPUT_TOKEN_BUDGET:-96000} * single_mode_multiplier ))
-single_output_token_budget=$(( ${DEFAULT_OUTPUT_TOKEN_BUDGET:-32000} * single_mode_multiplier ))
+single_mode_multiplier=5
+single_input_token_budget=$(( ${DEFAULT_INPUT_TOKEN_BUDGET:-32768} * single_mode_multiplier ))
+single_output_token_budget=$(( ${DEFAULT_OUTPUT_TOKEN_BUDGET:-32768} * single_mode_multiplier ))
 single_timeout_ms=$(( ${DEFAULT_TIMEOUT_MS:-300000} * single_mode_multiplier ))
 
 # Keep the scaled budgets within the model context window. If their sum exceeds

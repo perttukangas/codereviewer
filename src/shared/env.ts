@@ -47,7 +47,7 @@ export const env = cleanEnv(process.env, {
 
 	DEFAULT_CONTEXT_WINDOW: num({
 		desc: "The default model context window for agents.",
-		default: 262144,
+		default: 131072,
 	}),
 
 	DEFAULT_MAX_OUTPUT_TOKENS: num({
@@ -61,8 +61,8 @@ export const env = cleanEnv(process.env, {
 	}),
 
 	DEFAULT_INPUT_TOKEN_BUDGET: num({
-		desc: "The default input token budget for an agent session, including cache-read tokens. Zero disables the budget.",
-		default: 131072,
+		desc: "The default input token budget for an agent session. Zero disables the budget.",
+		default: 32768,
 	}),
 
 	DEFAULT_OUTPUT_TOKEN_BUDGET: num({
