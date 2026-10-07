@@ -5,14 +5,18 @@ set -euo pipefail
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 usage() {
-	echo "Usage: $0 <runs> <model...> [-- <test-id...>]" >&2
+	echo "Usage: $0 <runs> [multi|single] <model...> [-- <test-id...>]" >&2
 	echo "" >&2
 	echo "  runs      Number of times to run the test set per model." >&2
+	echo "  mode      Optional review mode. Defaults to both multi and single." >&2
 	echo "  model     One or more model names (DEFAULT_MODEL_NAME values)." >&2
 	echo "  test-id   Optional test ids after -- to scope the run (e.g. T01 T02)." >&2
 	echo "" >&2
 	echo "Example: $0 3 qwen/qwen3.6-35b-a3b openai/gpt-oss-120b" >&2
+	echo "Example: $0 3 single qwen/qwen3.6-35b-a3b" >&2
 	echo "Example: $0 1 qwen/qwen3.6-35b-a3b -- T01 T02" >&2
+	echo "Example: $0 3 multi qwen/qwen3.6-35b-a3b openai/gpt-oss-120b -- T01 T02 T03" >&2
+	echo "Example: npm run fixtures:run-all -- 3 single qwen/qwen3.6-35b-a3b -- T01 T02" >&2
 	exit 1
 }
 
@@ -24,6 +28,12 @@ shift
 if [[ ! "$runs" =~ ^[0-9]+$ || "$runs" -lt 1 ]]; then
 	echo "runs must be a positive integer, got: $runs" >&2
 	exit 1
+fi
+
+mode_args=()
+if [[ $# -gt 0 && ( "$1" == "multi" || "$1" == "single" ) ]]; then
+	mode_args=("$1")
+	shift
 fi
 
 models=()
@@ -73,7 +83,9 @@ for model in "${models[@]}"; do
 			RUN_INDEX="$run" \
 			RESULTS_ROOT="$results_root" \
 			SKIP_BUILD=1 \
-			bash "$project_dir/scripts/run-fixtures.sh" ${test_ids[@]+"${test_ids[@]}"}
+			bash "$project_dir/scripts/run-fixtures.sh" \
+				${mode_args[@]+"${mode_args[@]}"} \
+				${test_ids[@]+"${test_ids[@]}"}
 	done
 done
 
