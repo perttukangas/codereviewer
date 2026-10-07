@@ -25,6 +25,18 @@ export const logAgentEvent = (
 	}
 	if (event.type === "message_end" && event.message.role === "assistant") {
 		const described = describeAssistantMessage(event.message);
+		if (event.message.usage) {
+			const cacheRead = event.message.usage.cacheRead ?? 0;
+			log.debug("Agent response usage", {
+				turn: turnNumber,
+				input: event.message.usage.input,
+				output: event.message.usage.output,
+				cacheRead,
+				cacheWrite: event.message.usage.cacheWrite,
+				contextInput: event.message.usage.input + cacheRead,
+				reportedTotal: event.message.usage.totalTokens,
+			});
+		}
 		if (event.message.stopReason === "aborted") {
 			log.debug("Agent message aborted", described);
 		} else if (event.message.errorMessage) {
