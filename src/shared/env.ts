@@ -56,18 +56,18 @@ export const env = cleanEnv(process.env, {
 	}),
 
 	DEFAULT_TIMEOUT_MS: num({
-		desc: "The default wall clock timeout in milliseconds for an agent prompt. Zero disables the timeout.",
+		desc: "The default wall clock timeout in milliseconds for an agent session. Zero disables the timeout.",
 		default: 300000,
 	}),
 
 	DEFAULT_INPUT_TOKEN_BUDGET: num({
-		desc: "The default input token budget for an agent prompt, including cache-read tokens. Zero disables the budget.",
-		default: 96000,
+		desc: "The default input token budget for an agent session, including cache-read tokens. Zero disables the budget.",
+		default: 131072,
 	}),
 
 	DEFAULT_OUTPUT_TOKEN_BUDGET: num({
-		desc: "The default output token budget for an agent prompt. Zero disables the budget.",
-		default: 32000,
+		desc: "The default output token budget for an agent session. Zero disables the budget.",
+		default: 32768,
 	}),
 
 	DEFAULT_TOOL_LOOP_THRESHOLD: num({

@@ -65,6 +65,16 @@ export type WorkflowGuardrailError = {
 	message: string;
 };
 
+export type WorkflowGuardrailWarning = {
+	id: string;
+	agentId: string;
+	kind: "soft-guardrail";
+	dimension: GuardrailDimension;
+	limit: number;
+	observed: number;
+	message: string;
+};
+
 export type WorkflowUnhandledError = {
 	id: string;
 	kind: "unhandled_exception";
@@ -73,7 +83,10 @@ export type WorkflowUnhandledError = {
 	stack?: string;
 };
 
-export type WorkflowError = WorkflowGuardrailError | WorkflowUnhandledError;
+export type WorkflowError =
+	| WorkflowGuardrailError
+	| WorkflowGuardrailWarning
+	| WorkflowUnhandledError;
 
 export type AgentTelemetry = {
 	durationMs: number;

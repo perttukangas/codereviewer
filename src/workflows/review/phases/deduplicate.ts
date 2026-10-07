@@ -1,5 +1,8 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
-import { toGuardrailError } from "../../../engine/errors.js";
+import {
+	toGuardrailError,
+	toGuardrailWarning,
+} from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import { completionTool } from "../../../engine/tools/index.js";
 import { env } from "../../../shared/env.js";
@@ -82,15 +85,12 @@ const runDeduplication = async (state: ReviewPipelineState): Promise<void> => {
 
 	logFindingsSnapshot(log, "Deduplicated findings", dedupReview.findings);
 
-	for (const outcome of response.guardrails.filter(
-		(guardrail) => guardrail.terminated,
-	)) {
+	for (const outcome of response.guardrails) {
+		const errorId = nextId(run.errors, `${DeduplicatorAgent.id}:error`);
 		run.errors.push(
-			toGuardrailError(
-				nextId(run.errors, `${DeduplicatorAgent.id}:error`),
-				DeduplicatorAgent.id,
-				outcome,
-			),
+			outcome.terminated
+				? toGuardrailError(errorId, DeduplicatorAgent.id, outcome)
+				: toGuardrailWarning(errorId, DeduplicatorAgent.id, outcome),
 		);
 	}
 

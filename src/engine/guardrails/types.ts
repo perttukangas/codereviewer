@@ -9,7 +9,6 @@ export type GuardrailsOptions = {
 	agentId: string;
 	session: RuntimeSession;
 	config: AgentGuardrails;
-	onOutcome?: (outcome: GuardrailOutcome) => void;
 };
 
 export type AgentGuardrailsHandle = {

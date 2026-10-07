@@ -1111,11 +1111,17 @@ const usageTotals = (results: TestResult[], mode?: Mode): UsageTotals => {
 type ErrorCounts = {
 	total: number;
 	guardrail: number;
+	softGuardrail: number;
 	unhandled: number;
 };
 
 const errorCounts = (results: TestResult[], mode?: Mode): ErrorCounts => {
-	const counts: ErrorCounts = { total: 0, guardrail: 0, unhandled: 0 };
+	const counts: ErrorCounts = {
+		total: 0,
+		guardrail: 0,
+		softGuardrail: 0,
+		unhandled: 0,
+	};
 	for (const result of results) {
 		for (const modeResult of result.modes) {
 			if (mode !== undefined && modeResult.mode !== mode) {
@@ -1125,6 +1131,8 @@ const errorCounts = (results: TestResult[], mode?: Mode): ErrorCounts => {
 				counts.total += 1;
 				if (err.kind === "guardrail") {
 					counts.guardrail += 1;
+				} else if (err.kind === "soft-guardrail") {
+					counts.softGuardrail += 1;
 				} else {
 					counts.unhandled += 1;
 				}
@@ -1153,7 +1161,10 @@ const errorAggregates = (
 			}
 			for (const err of modeResult.errors) {
 				const kind = err.kind;
-				const dimension = err.kind === "guardrail" ? err.dimension : "-";
+				const dimension =
+					err.kind === "guardrail" || err.kind === "soft-guardrail"
+						? err.dimension
+						: "-";
 				const agentId = "agentId" in err ? err.agentId : "-";
 				const key = `${kind}|${dimension}|${agentId}`;
 				const existing = counts.get(key);
@@ -1784,7 +1795,7 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Duration, reported context tokens, and completion continuations for each test, run, " +
-		"and mode, comparing multi and single side by side.",
+			"and mode, comparing multi and single side by side.",
 	);
 	lines.push("");
 	lines.push(
@@ -1896,7 +1907,8 @@ const buildSummary = (
 	lines.push("");
 	lines.push(
 		"Workflow errors recorded per model and mode, summed across runs. Guardrail " +
-			"errors mean an agent was terminated for hitting a limit, and the dimension " +
+			"errors mean an agent was terminated for hitting a limit. Soft guardrail warnings " +
+			"mean an agent approached a limit without being terminated. The dimension " +
 			"breakdown below shows which limit. A model that repeatedly hits output_tokens " +
 			"tends to overthink, while input_tokens suggests it reads too much context and " +
 			"tool_loop or tool_failure suggests it gets stuck. Unhandled errors are " +
@@ -1904,12 +1916,17 @@ const buildSummary = (
 	);
 	lines.push("");
 	lines.push(
-		"| Model | Mode | Total errors | Guardrail errors | Unhandled errors |",
+		"| Model | Mode | Total errors | Guardrail errors | Soft guardrail warnings | Unhandled errors |",
 	);
 	lines.push(
-		"| ----- | ---- | ------------ | ---------------- | ---------------- |",
+		"| ----- | ---- | ------------ | ---------------- | ---------------------- | ---------------- |",
 	);
-	const grandErrors: ErrorCounts = { total: 0, guardrail: 0, unhandled: 0 };
+	const grandErrors: ErrorCounts = {
+		total: 0,
+		guardrail: 0,
+		softGuardrail: 0,
+		unhandled: 0,
+	};
 	for (const model of models) {
 		for (const mode of modes) {
 			const counts = errorCounts(modelTests(model), mode);
@@ -1918,21 +1935,22 @@ const buildSummary = (
 			}
 			grandErrors.total += counts.total;
 			grandErrors.guardrail += counts.guardrail;
+			grandErrors.softGuardrail += counts.softGuardrail;
 			grandErrors.unhandled += counts.unhandled;
 			lines.push(
-				`| ${model.model} | ${mode} | ${counts.total} | ${counts.guardrail} | ${counts.unhandled} |`,
+				`| ${model.model} | ${mode} | ${counts.total} | ${counts.guardrail} | ${counts.softGuardrail} | ${counts.unhandled} |`,
 			);
 		}
 	}
 	lines.push(
-		`| **Total** | all | ${grandErrors.total} | ${grandErrors.guardrail} | ${grandErrors.unhandled} |`,
+		`| **Total** | all | ${grandErrors.total} | ${grandErrors.guardrail} | ${grandErrors.softGuardrail} | ${grandErrors.unhandled} |`,
 	);
 	lines.push("");
 
 	lines.push("## Errors by dimension and agent");
 	lines.push("");
 	lines.push(
-		"Guardrail and unhandled errors grouped by kind, dimension, and agent, pooled " +
+		"Guardrail warnings, terminations, and unhandled errors grouped by kind, dimension, and agent, pooled " +
 			"across runs and sorted by count. Dimension is the guardrail limit that was " +
 			"hit, and agent is the agent that was terminated.",
 	);

@@ -1,5 +1,8 @@
 import { getAgentConfig } from "../../../engine/agent-config.js";
-import { toGuardrailError } from "../../../engine/errors.js";
+import {
+	toGuardrailError,
+	toGuardrailWarning,
+} from "../../../engine/errors.js";
 import { runGuardedSession } from "../../../engine/session.js";
 import { completionTool } from "../../../engine/tools/index.js";
 import type { Agent } from "../../../engine/types.js";
@@ -112,15 +115,12 @@ const reviewAgent = async (
 
 	logFindingsSnapshot(log, "Reviewer findings", review.findings);
 
-	for (const outcome of response.guardrails.filter(
-		(guardrail) => guardrail.terminated,
-	)) {
+	for (const outcome of response.guardrails) {
+		const errorId = nextId(run.errors, `${agent.id}:error`);
 		run.errors.push(
-			toGuardrailError(
-				nextId(run.errors, `${agent.id}:error`),
-				agent.id,
-				outcome,
-			),
+			outcome.terminated
+				? toGuardrailError(errorId, agent.id, outcome)
+				: toGuardrailWarning(errorId, agent.id, outcome),
 		);
 	}
 };
@@ -291,15 +291,12 @@ const verifyReview = async (
 
 	logFindingsSnapshot(log, "Verified findings", review.findings);
 
-	for (const outcome of response.guardrails.filter(
-		(guardrail) => guardrail.terminated,
-	)) {
+	for (const outcome of response.guardrails) {
+		const errorId = nextId(run.errors, `${verifier.id}:error`);
 		run.errors.push(
-			toGuardrailError(
-				nextId(run.errors, `${verifier.id}:error`),
-				verifier.id,
-				outcome,
-			),
+			outcome.terminated
+				? toGuardrailError(errorId, verifier.id, outcome)
+				: toGuardrailWarning(errorId, verifier.id, outcome),
 		);
 	}
 };

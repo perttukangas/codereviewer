@@ -3,17 +3,24 @@ import { describeDimension, describeUnit } from "./guardrails/index.js";
 import type {
 	GuardrailOutcome,
 	WorkflowGuardrailError,
+	WorkflowGuardrailWarning,
 	WorkflowUnhandledError,
 } from "./types.js";
+
+const describeGuardrail = (
+	outcome: GuardrailOutcome,
+): { dimension: string; unit: string; tool: string } => ({
+	dimension: describeDimension(outcome.dimension),
+	unit: describeUnit(outcome.dimension),
+	tool: outcome.toolName ? ` ${outcome.toolName}` : "",
+});
 
 export const toGuardrailError = (
 	id: string,
 	agentId: string,
 	outcome: GuardrailOutcome,
 ): WorkflowGuardrailError => {
-	const dimension = describeDimension(outcome.dimension);
-	const unit = describeUnit(outcome.dimension);
-	const tool = outcome.toolName ? ` ${outcome.toolName}` : "";
+	const { dimension, unit, tool } = describeGuardrail(outcome);
 
 	const guardrailError: WorkflowGuardrailError = {
 		id,
@@ -27,6 +34,27 @@ export const toGuardrailError = (
 
 	createLogger({ agentId }).error(guardrailError.message);
 	return guardrailError;
+};
+
+export const toGuardrailWarning = (
+	id: string,
+	agentId: string,
+	outcome: GuardrailOutcome,
+): WorkflowGuardrailWarning => {
+	const { dimension, unit, tool } = describeGuardrail(outcome);
+
+	const warning: WorkflowGuardrailWarning = {
+		id,
+		agentId,
+		kind: "soft-guardrail",
+		dimension: outcome.dimension,
+		limit: outcome.limit,
+		observed: outcome.observed,
+		message: `The agent approached the ${dimension}${tool} (${outcome.observed} of ${outcome.limit} ${unit}) and received a warning.`,
+	};
+
+	createLogger({ agentId }).info(warning.message);
+	return warning;
 };
 
 const describeCause = (

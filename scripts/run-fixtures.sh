@@ -47,6 +47,8 @@ if (( single_input_token_budget + single_output_token_budget > context_window ))
 	single_output_token_budget=$(( context_window - single_input_token_budget ))
 fi
 
+echo "Single-mode scaled budgets. Input tokens $single_input_token_budget. Output tokens $single_output_token_budget. Timeout ${single_timeout_ms} ms."
+
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 	echo "Building the CLI"
 	npm --prefix "$project_dir" run build

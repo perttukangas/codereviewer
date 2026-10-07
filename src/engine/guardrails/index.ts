@@ -20,7 +20,6 @@ export const createGuardrails = ({
 	agentId,
 	session,
 	config,
-	onOutcome,
 }: GuardrailsOptions): AgentGuardrailsHandle => {
 	const log = createLogger({ agentId });
 	const outcomes: GuardrailOutcome[] = [];
@@ -32,7 +31,6 @@ export const createGuardrails = ({
 
 	const record = (outcome: GuardrailOutcome): void => {
 		outcomes.push(outcome);
-		onOutcome?.(outcome);
 	};
 
 	const interrupt = (message: string): void => {
@@ -56,6 +54,13 @@ export const createGuardrails = ({
 		warned.add(dimension);
 
 		const message = softWarningMessage(dimension, limit, observed, toolName);
+		record({
+			dimension,
+			limit,
+			observed,
+			terminated: false,
+			...(toolName ? { toolName } : {}),
+		});
 		log.info("Guardrail soft limit reached", dimension, `${observed}/${limit}`);
 
 		if (!session.isStreaming) {
@@ -86,14 +91,13 @@ export const createGuardrails = ({
 		}
 		terminated = true;
 
-		const outcome: GuardrailOutcome = {
+		record({
 			dimension,
 			limit,
 			observed,
 			terminated: true,
 			...(toolName ? { toolName } : {}),
-		};
-		record(outcome);
+		});
 		log.error(
 			"Guardrail hard limit reached, aborting",
 			dimension,
