@@ -1315,8 +1315,8 @@ const buildSummary = (
 		"One row per model and mode, joining model size to quality and efficiency. " +
 			"Total params is the model's full parameter count and active params is the " +
 			"per-token compute, which differ for mixture-of-experts models. Recall, " +
-			"main-target recall, and severity error are computed only from findings matched " +
-			"to a declared purpose, while actionability rate, dedup reduction rate, and the " +
+			"main-target recall, severity error, and confidence error are computed only from " +
+			"findings matched to a declared purpose, while actionability rate, dedup reduction rate, and the " +
 			"per-finding efficiency columns are computed from every valid finding in the " +
 			"report. Tokens per finding uses reported context tokens, and duration per finding " +
 			"uses duration. Both divide the run totals by every valid finding the model reported, " +
@@ -1325,10 +1325,10 @@ const buildSummary = (
 	);
 	lines.push("");
 	lines.push(
-		`| Model | Total params (B) | Active params (B) | Mode | Recall ${PURPOSE_MARKER} | Main-target recall ${PURPOSE_MARKER} | Actionability rate | Dedup reduction rate | Severity error ${PURPOSE_MARKER} | Tokens/finding (K) | Duration/finding (min) |`,
+		`| Model | Total params (B) | Active params (B) | Mode | Recall ${PURPOSE_MARKER} | Main-target recall ${PURPOSE_MARKER} | Actionability rate | Dedup reduction rate | Severity error ${PURPOSE_MARKER} | Confidence error ${PURPOSE_MARKER} | Tokens/finding (K) | Duration/finding (min) |`,
 	);
 	lines.push(
-		"| ----- | ---------------- | ----------------- | ---- | ------ | ------------------ | ------------------ | -------------------- | -------------- | ------------------ | ---------------------- |",
+		"| ----- | ---------------- | ----------------- | ---- | ------ | ------------------ | ------------------ | -------------------- | -------------- | ---------------- | ------------------ | ---------------------- |",
 	);
 	for (const model of models) {
 		const info = modelInfo[model.model];
@@ -1339,7 +1339,7 @@ const buildSummary = (
 			}
 			const efficiency = modelModeEfficiency(model, mode);
 			lines.push(
-				`| ${model.model} | ${info?.parameters ?? "n/a"} | ${info?.activeParameters ?? "n/a"} | ${mode} | ${formatStats(statsByMetric.get("recall"), "ratio")} | ${formatStats(statsByMetric.get("mainTargetRecall"), "ratio")} | ${formatStats(statsByMetric.get("actionabilityRate"), "ratio")} | ${formatStats(statsByMetric.get("dedupReductionRate"), "ratio")} | ${formatStats(statsByMetric.get("severityError"), "number")} | ${formatStats(efficiency.tokensPerFinding, "tokens")} | ${formatStats(efficiency.durationPerFinding, "duration")} |`,
+				`| ${model.model} | ${info?.parameters ?? "n/a"} | ${info?.activeParameters ?? "n/a"} | ${mode} | ${formatStats(statsByMetric.get("recall"), "ratio")} | ${formatStats(statsByMetric.get("mainTargetRecall"), "ratio")} | ${formatStats(statsByMetric.get("actionabilityRate"), "ratio")} | ${formatStats(statsByMetric.get("dedupReductionRate"), "ratio")} | ${formatStats(statsByMetric.get("severityError"), "number")} | ${formatStats(statsByMetric.get("confidenceError"), "number")} | ${formatStats(efficiency.tokensPerFinding, "tokens")} | ${formatStats(efficiency.durationPerFinding, "duration")} |`,
 			);
 		}
 	}
