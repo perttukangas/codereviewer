@@ -22,6 +22,7 @@
     "fixtures:scores": "node --experimental-strip-types scripts/confirm-fixture-scores.ts",
     "fixtures:scores:write": "node --experimental-strip-types scripts/confirm-fixture-scores.ts --write",
     "evaluate:fixtures": "node --experimental-strip-types scripts/evaluate-fixtures.ts",
+    "fixtures:sanitize": "node --experimental-strip-types scripts/sanitize-results.ts",
     "start": "node dist/index.js"
   },
   "repository": {
