@@ -7,8 +7,8 @@
     "parameters": 117,
     "activeParameters": 5.1
   },
-  "google/gemma-4-26b-a4b-it": {
-    "parameters": 25.2,
-    "activeParameters": 3.8
+  "z-ai/glm-5.3-flash": {
+    "parameters": 320,
+    "activeParameters": 18
   }
 }
